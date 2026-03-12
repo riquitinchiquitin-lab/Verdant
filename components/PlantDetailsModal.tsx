@@ -1,0 +1,876 @@
+
+import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { Plant, Log, LogType, LocalizedString } from '../types';
+import { Button } from './ui/Button';
+import { usePlants } from '../context/PlantContext';
+import { useLanguage } from '../context/LanguageContext';
+import { compressImage } from '../services/imageUtils';
+import { EditPlantModal } from './EditPlantModal';
+import { useAuth } from '../context/AuthContext';
+import { CameraCapture } from './ui/CameraCapture';
+import { TransferModal } from './TransferModal';
+import { ConfirmationDialog } from './ui/ConfirmationDialog';
+import { Logo } from './ui/Logo';
+import { FertilizerLogModal } from './FertilizerLogModal';
+import { MoistureLogModal } from './MoistureLogModal';
+import { PhenophaseLogModal } from './PhenophaseLogModal';
+import { HealthCheckModal } from './HealthCheckModal';
+import { PlantLogEntry } from './PlantLogEntry';
+import { useInventory } from '../context/InventoryContext';
+import { PhenophaseType } from '../types';
+
+interface PlantDetailsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  plant: Plant | null;
+}
+
+const MoistureProbeIcon = ({ className }: { className?: string }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <rect x="7" y="2" width="10" height="9" rx="2" />
+    <path d="M10 11v11" />
+    <path d="M14 11v11" />
+    <path d="M10 6h4" />
+  </svg>
+);
+
+export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, onClose, plant: initialPlant }) => {
+  const { updatePlant, plants, addLog, deletePlant, setAlertMessage, getEffectiveApiKey } = usePlants();
+  const { consumeItem } = useInventory();
+  const { t, lv, lva, language } = useLanguage();
+  const { user } = useAuth();
+
+  const PassportItem = ({ icon, label, value, subValue }: { icon: string, label: string, value: string, subValue?: string }) => (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <span className="text-lg">{icon}</span>
+        <div className="flex flex-col">
+          <span className="text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{label}</span>
+          {subValue && <span className="text-[9px] font-serif text-verdant font-bold uppercase tracking-tighter">{subValue}</span>}
+        </div>
+      </div>
+      <p className="text-sm font-serif italic text-gray-900 dark:text-gray-100 leading-relaxed">{value || t('lbl_na')}</p>
+    </div>
+  );
+
+  const TechMetric = ({ label, min, max, unit, advice }: { label: string, min?: number | null, max?: number | null, unit: string, advice: string }) => (
+    <div className="space-y-4 p-6 bg-gray-50 dark:bg-slate-800/50 rounded-3xl border border-gray-100 dark:border-slate-800">
+      <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{label}</p>
+      <div className="flex items-baseline gap-1">
+        <span className="text-3xl font-black text-gray-900 dark:text-white">
+          {min !== undefined && min !== null && max !== undefined && max !== null ? `${min}-${max}` : (min ?? max ?? t('lbl_na'))}
+        </span>
+        <span className="text-xs font-bold text-slate-600 dark:text-slate-300">{unit}</span>
+      </div>
+      <p className="text-xs md:text-sm text-slate-700 dark:text-slate-200 italic leading-relaxed">"{advice}"</p>
+    </div>
+  );
+
+  const getSuggestedRepotFrequency = (p: Plant): number => {
+    if (p.repottingFrequency) return p.repottingFrequency;
+    const category = lv(p.category as any).toLowerCase();
+    const growthRate = lv(p.growthRate as any).toLowerCase() || 'moderate';
+    if (category.includes('araceae') || category.includes('philodendron') || category.includes('monstera')) {
+      return growthRate === 'fast' ? 12 : 18;
+    }
+    if (category.includes('succulent') || category.includes('cactus')) return 24;
+    if (growthRate === 'fast') return 12;
+    if (growthRate === 'slow') return 24;
+    return 18;
+  };
+  
+  const [isHealthOpen, setIsHealthOpen] = useState(false);
+  const [isAddingPhoto, setIsAddingPhoto] = useState(false);
+  const [isCapturingFromCamera, setIsCapturingFromCamera] = useState(false);
+  const [enlargedImageIndex, setEnlargedImageIndex] = useState<number | null>(null);
+  const [enlargedLogImage, setEnlargedLogImage] = useState<string | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isTransferOpen, setIsTransferOpen] = useState(false);
+  const [isFertilizerOpen, setIsFertilizerOpen] = useState(false);
+  const [isMoistureOpen, setIsMoistureOpen] = useState(false);
+  const [isPhenophaseOpen, setIsPhenophaseOpen] = useState(false);
+  const [isNoteOpen, setIsNoteOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'DOSSIER' | 'TIMELINE' | 'TECH' | 'PHENOPHASE'>('DOSSIER');
+  const [lastLoggedAction, setLastLoggedAction] = useState<LogType | null>(null);
+  const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
+  
+  
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const addPhotoInputRef = useRef<HTMLInputElement>(null);
+  
+  const plant = useMemo(() => plants.find(p => p.id === initialPlant?.id) || initialPlant, [plants, initialPlant]);
+
+  useEffect(() => {
+    if (isOpen) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = '';
+    return () => { document.body.style.overflow = ''; };
+  }, [isOpen]);
+
+  if (!plant) return null;
+
+  const handleAddNewImageFromCamera = async (base64: string) => {
+    setIsCapturingFromCamera(false);
+    try {
+        await updatePlant(plant.id, { images: [...(plant.images || []), base64] });
+    } catch (e) { console.error(e); }
+  };
+
+  const handleUpdateMainImageFromFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) {
+        try {
+            const base64 = await compressImage(e.target.files[0]);
+            await updatePlant(plant.id, { images: [base64, ...(plant.images?.slice(1) || [])] });
+        } catch (e) { console.error(e); }
+    }
+    if (avatarInputRef.current) avatarInputRef.current.value = '';
+  };
+
+  const handleAddNewImageFromFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) {
+        try {
+            const base64 = await compressImage(e.target.files[0]);
+            await updatePlant(plant.id, { images: [...(plant.images || []), base64] });
+        } catch (e) { console.error(e); }
+    }
+    if (addPhotoInputRef.current) addPhotoInputRef.current.value = '';
+  };
+
+  const handleDeleteImage = async (index: number) => {
+    if (!plant.images || plant.images.length <= 1) return;
+    const newImages = [...plant.images];
+    newImages.splice(index, 1);
+    await updatePlant(plant.id, { images: newImages });
+    setEnlargedImageIndex(null);
+  };
+
+  const handleSetMainImage = async (index: number) => {
+    if (!plant.images || index === 0) return;
+    const newImages = [...plant.images];
+    const mainImage = newImages.splice(index, 1);
+    newImages.unshift(mainImage[0]);
+    await updatePlant(plant.id, { images: newImages });
+  };
+
+  const handleLogAction = (type: LogType) => {
+    if (type === 'FERTILIZED') {
+      setIsFertilizerOpen(true);
+      return;
+    }
+    if (type === 'PHENOPHASE') {
+      setIsPhenophaseOpen(true);
+      return;
+    }
+    const date = new Date();
+    const noteKey = type === 'NEW_LEAF' ? 'log_new_leaf' : ('log_' + type.toLowerCase() + '_manual');
+    addLog(plant.id, { 
+      id: `l-${Date.now()}`, 
+      date: date.toISOString(), 
+      type, 
+      localizedNote: { 
+        en: t(noteKey as any),
+        [language]: t(noteKey as any) 
+      } 
+    });
+    setLastLoggedAction(type);
+
+    const actionTextMap: { [key in LogType]?: string } = {
+      'WATER': t('log_action_watered'),
+      'FERTILIZED': t('log_action_fertilized'),
+      'PRUNED': t('log_action_pruned'),
+      'REPOTTED': t('log_action_repotted'),
+      'FLOWER': t('log_action_flowered'),
+      'NEW_LEAF': t('log_new_leaf'),
+    };
+    const actionText = actionTextMap[type] || type;
+
+    const dateString = date.toLocaleDateString(language, { month: 'long', day: 'numeric' });
+    const message = t('log_alert_message').replace('{action}', actionText).replace('{date}', dateString);
+    setAlertMessage(message);
+
+    setTimeout(() => setLastLoggedAction(null), 2000);
+    setTimeout(() => setAlertMessage(null), 4000);
+  };
+
+  const handleMoistureLog = (value: number) => {
+    const date = new Date();
+    addLog(plant.id, { 
+      id: `l-${Date.now()}`, 
+      date: date.toISOString(), 
+      type: 'MOISTURE', 
+      value,
+      localizedNote: { 
+        en: t('lbl_moisture_level_log', { value: value.toString() }),
+        [language]: t('lbl_moisture_level_log', { value: value.toString() }) 
+      }
+    });
+    setLastLoggedAction('MOISTURE');
+    const dateString = date.toLocaleDateString(language, { month: 'long', day: 'numeric' });
+    setAlertMessage(t('lbl_logged_moisture_alert', { value: value.toString(), date: dateString }));
+    setTimeout(() => setLastLoggedAction(null), 2000);
+    setTimeout(() => setAlertMessage(null), 4000);
+  };
+
+  const handleFertilizerLog = (fertilizer: any, amount: number) => {
+    const date = new Date();
+    addLog(plant.id, { 
+      id: `l-${Date.now()}`, 
+      date: date.toISOString(), 
+      type: 'FERTILIZED', 
+      localizedNote: { 
+        en: t('lbl_fertilized_with_log', { amount: amount.toString(), unit: fertilizer.unit, name: lv(fertilizer.name) }),
+        [language]: t('lbl_fertilized_with_log', { amount: amount.toString(), unit: fertilizer.unit, name: lv(fertilizer.name) }) 
+      },
+      metadata: { fertilizerId: fertilizer.id, amount, unit: fertilizer.unit }
+    });
+    consumeItem(fertilizer.id, amount);
+    setLastLoggedAction('FERTILIZED');
+
+    const dateString = date.toLocaleDateString(language, { month: 'long', day: 'numeric' });
+    const message = t('log_alert_message').replace('{action}', t('log_action_fertilized')).replace('{date}', dateString);
+    setAlertMessage(message);
+
+    setTimeout(() => setLastLoggedAction(null), 2000);
+    setTimeout(() => setAlertMessage(null), 4000);
+  };
+
+  const handlePhenophaseLog = (phase: PhenophaseType, date: string, note: string) => {
+    addLog(plant.id, { 
+      id: `l-${Date.now()}`, 
+      date: new Date(date).toISOString(), 
+      type: 'PHENOPHASE', 
+      localizedNote: { 
+        en: note,
+        [language]: note 
+      },
+      metadata: { phase }
+    });
+    setLastLoggedAction('PHENOPHASE');
+    setAlertMessage(t('lbl_recorded_phenophase_alert', { phase: t(`PHASE_${phase}` as any) }));
+    setTimeout(() => setLastLoggedAction(null), 2000);
+    setTimeout(() => setAlertMessage(null), 4000);
+  };
+
+  const handleManualLog = (type: LogType, localizedNote: LocalizedString) => {
+    const date = new Date();
+    addLog(plant.id, { 
+      id: `l-${Date.now()}`, 
+      date: date.toISOString(), 
+      type, 
+      localizedNote
+    });
+    setLastLoggedAction(type);
+    
+    const dateString = date.toLocaleDateString(language, { month: 'long', day: 'numeric' });
+    setAlertMessage(t('log_alert_message').replace('{action}', type).replace('{date}', dateString));
+    
+    setTimeout(() => setLastLoggedAction(null), 2000);
+    setTimeout(() => setAlertMessage(null), 4000);
+  };
+
+  const handleDelete = async () => {
+    await deletePlant(plant.id);
+    onClose();
+  };
+
+  const lastWateredDate = plant.lastWatered ? new Date(plant.lastWatered).toLocaleDateString(language, { month: 'short', day: 'numeric', year: 'numeric' }) : t('lbl_na');
+
+  const getLogIcon = (log: Log): React.ReactNode => {
+    if (log.type === 'PHENOPHASE' && log.metadata?.phase) {
+      switch(log.metadata.phase) {
+        case 'FIRST_BUD': return '🌱';
+        case 'FULL_BLOOM': return '🌸';
+        case 'SEED_SET': return '🌾';
+        case 'DORMANCY_ENTRANCE': return '🍂';
+        case 'FIRST_LEAF_SPRING': return '🌿';
+        case 'BUDDING': return '🎋';
+        case 'IN_FLOWER': return '🌺';
+        case 'DORMANCY_START': return '❄️';
+      }
+    }
+    switch(log.type) {
+        case 'WATER': return '💧';
+        case 'FERTILIZED': return '🧪';
+        case 'REPOTTED': return '🪴';
+        case 'PRUNED': return '✂️';
+        case 'NEW_LEAF': return '🌿';
+        case 'FLOWER': return '🌸';
+        case 'DISEASE_CHECK': return '✚';
+        case 'IMAGE': return '📸';
+        case 'NOTE': return '📝';
+        case 'MOISTURE': return <MoistureProbeIcon className="w-6 h-6" />;
+        case 'PHENOPHASE': return '🧬';
+        default: return '📍';
+    }
+  };
+
+  return (
+    <div className={`fixed inset-0 z-50 flex items-center justify-center transition-opacity duration-500 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={onClose} />
+      
+      <div className="relative w-full h-full lg:w-[90vw] lg:h-[90vh] lg:max-h-[96vh] bg-verdant-bone dark:bg-slate-950 lg:rounded-[48px] shadow-2xl lg:m-4 animate-in zoom-in-95 duration-500 border border-gray-100 dark:border-white/10 overflow-hidden flex flex-col">
+        {/* CLOSE BUTTON - TOP RIGHT */}
+        <button 
+            onClick={onClose}
+            className="absolute top-4 right-4 md:top-8 md:right-8 z-[100] w-10 h-10 md:w-14 md:h-14 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-full flex items-center justify-center text-gray-900 dark:text-white transition-all shadow-2xl border border-gray-200 dark:border-slate-700 group hover:scale-110 active:scale-95"
+        >
+            <svg className="w-5 h-5 md:w-7 md:h-7 group-hover:rotate-90 transition-transform duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+        
+        <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col">
+            {/* TOP NAVIGATION / TABS */}
+            <div className="flex justify-start md:justify-center items-center gap-3 md:gap-4 lg:gap-10 border-b border-gray-100 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 pt-8 pb-6 md:pt-10 md:pb-8 overflow-x-auto pl-4 pr-20 md:px-6 flex-nowrap scroll-smooth no-scrollbar">
+                {[
+                    { id: 'DOSSIER', label: t('tab_dossier') }, 
+                    { id: 'TECH', label: t('tab_tech') }, 
+                    { id: 'PHENOPHASE', label: t('tab_phenophase') },
+                    { id: 'TIMELINE', label: t('tab_history') }
+                ].map(tab => (
+                    <button 
+                        key={tab.id} 
+                        onClick={() => {
+                            setActiveTab(tab.id as any);
+                        }} 
+                        className={`text-[8px] md:text-[11px] font-black uppercase tracking-[0.1em] md:tracking-[0.4em] transition-all relative px-4 md:px-6 py-2 md:py-2.5 rounded-full whitespace-nowrap flex items-center justify-center min-w-0 border border-transparent ${
+                          activeTab === tab.id 
+                            ? 'bg-verdant text-white shadow-lg shadow-verdant/20 border-verdant' 
+                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 border-gray-100 dark:border-slate-800'
+                        }`}
+                    >
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
+            <div className="max-w-5xl mx-auto w-full p-6 lg:p-12 space-y-12">
+                {/* HERO SECTION */}
+                <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-center lg:items-start">
+                    <div className="w-full lg:w-1/4 space-y-6 flex flex-col items-center lg:items-start">
+                        <div className="relative group aspect-square w-full max-w-[320px] rounded-[40px] overflow-hidden shadow-2xl border-4 md:border-8 border-white dark:border-slate-800">
+                            {plant.images?.[0] ? (
+                                <img 
+                                  src={plant.images[0]} 
+                                  className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-500" 
+                                  alt={lv(plant.nickname)} 
+                                  referrerPolicy="no-referrer"
+                                  onClick={() => setEnlargedImageIndex(0)}
+                                />
+                            ) : (
+                                <div className="w-full h-full bg-gray-50 dark:bg-slate-800 flex items-center justify-center">
+                                    <svg className="w-16 h-16 text-gray-200 dark:text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                </div>
+                            )}
+                            <button onClick={() => setIsAddingPhoto(true)} className="absolute bottom-6 right-6 w-12 h-12 bg-verdant text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform active:scale-95 border-2 border-white dark:border-slate-800">
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><circle cx="12" cy="13" r="3" /></svg>
+                            </button>
+                        </div>
+
+                        <div className="flex justify-center gap-4 py-2">
+                            <button 
+                                onClick={() => setIsTransferOpen(true)}
+                                className="w-12 h-12 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-900 dark:text-white transition-all shadow-md border border-gray-200 dark:border-slate-700 group"
+                                title="Transfer Specimen"
+                            >
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                            </button>
+                            <button 
+                                onClick={() => setIsEditOpen(true)}
+                                className="w-12 h-12 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-900 dark:text-white transition-all shadow-md border border-gray-200 dark:border-slate-700 group"
+                                title="Edit Specimen"
+                            >
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L16.732 3.732z" /></svg>
+                            </button>
+                        </div>
+                        
+                        <div className="flex gap-3 overflow-x-auto no-scrollbar py-2">
+                            {plant.images?.slice(1).map((img, idx) => (
+                                <img 
+                                    key={idx} 
+                                    src={img} 
+                                    onClick={() => setEnlargedImageIndex(idx + 1)}
+                                    className="w-20 h-20 rounded-2xl object-cover cursor-pointer border-2 border-white shadow-sm hover:scale-105 transition-transform" 
+                                    referrerPolicy="no-referrer"
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="w-full lg:w-3/4 space-y-8">
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-4">
+                                <h1 className="text-2xl lg:text-4xl font-black text-gray-900 dark:text-white tracking-tighter uppercase leading-none">{lv(plant.nickname)}</h1>
+                            </div>
+                            <p className="text-xl font-sans font-normal normal-case text-verdant opacity-80">{plant.species}</p>
+                        </div>
+
+                        {/* ACTION GRID */}
+                        <div className="grid grid-cols-4 gap-3 md:gap-4 w-full">
+                            <Button variant="primary" size="lg" className={`rounded-[24px] h-16 md:h-20 shadow-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all duration-200 ${lastLoggedAction === 'WATER' ? 'bg-emerald-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} onClick={() => handleLogAction('WATER')}>
+                                <span className="text-2xl md:text-3xl">💧</span>
+                            </Button>
+                            <Button variant="primary" size="lg" className={`rounded-[24px] h-16 md:h-20 shadow-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all duration-200 ${lastLoggedAction === 'MOISTURE' ? 'bg-emerald-500 text-white' : 'bg-sky-500 hover:bg-sky-600 text-white'}`} onClick={() => setIsMoistureOpen(true)}>
+                                <MoistureProbeIcon className="w-8 h-8 md:w-10 md:h-10" />
+                            </Button>
+                            <Button variant="primary" size="lg" className={`rounded-[24px] h-16 md:h-20 shadow-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all duration-200 ${lastLoggedAction === 'NOTE' ? 'bg-emerald-500 text-white' : 'bg-amber-500 hover:bg-amber-600 text-white'}`} onClick={() => setIsNoteOpen(true)}>
+                                <span className="text-2xl md:text-3xl">📝</span>
+                            </Button>
+                            <Button variant="secondary" size="lg" className="rounded-[24px] h-16 md:h-20 border-2 border-red-100 dark:border-red-900/30 text-red-600 bg-red-50/20 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2" onClick={() => setIsHealthOpen(true)}>
+                              <svg className="w-8 h-8 md:w-10 md:h-10 text-red-500" viewBox="0 0 24 24" fill="currentColor"><path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z" /></svg>
+                            </Button>
+                        </div>
+
+                        <div className="grid grid-cols-4 gap-3 md:gap-4 w-full">
+                            {[
+                                { type: 'FERTILIZED', icon: '🧪' },
+                                { type: 'PRUNED', icon: '✂️' },
+                                { type: 'REPOTTED', icon: '🪴' },
+                                { type: 'NEW_LEAF', icon: '🌱' },
+                                ...(plant.flowers ? [{ type: 'FLOWER', icon: '🌸' }] : [])
+                            ].map(action => (
+                                <button 
+                                    key={action.type}
+                                    onClick={() => handleLogAction(action.type as any)}
+                                    className={`h-14 md:h-16 rounded-2xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-2xl md:text-3xl hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors ${lastLoggedAction === action.type ? 'ring-2 ring-verdant' : ''}`}
+                                >
+                                    {action.icon}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* TAB CONTENT */}
+                <div className="animate-in fade-in duration-700">
+                    {activeTab === 'DOSSIER' && (
+                        <div className="space-y-8">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                                <div className="lg:col-span-2 space-y-8">
+                                    <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-8">
+                                        <h3 className="text-[11px] font-serif font-black uppercase tracking-[0.3em] text-verdant">{t('botanical_passport')}</h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                            <PassportItem icon="🌍" label={t('lbl_origin')} value={lv(plant.origin)} />
+                                            <PassportItem icon="🌿" label={t('lbl_family_genus')} value={`${plant.family} / ${plant.genus}`} />
+                                            <PassportItem icon="📏" label={t('lbl_growth_size')} value={`${t('lbl_max_height')}: ${plant.maxHeight}cm (${lv(plant.growthRate as any) || t('lbl_standard')})`} />
+                                            <PassportItem icon="🏷️" label={t('lbl_category')} value={lv(plant.category as any) || t('lbl_na')} />
+                                            <PassportItem icon="☀️" label={t('lbl_light_advice')} value={lv(plant.lightAdvice)} />
+                                        </div>
+                                    </section>
+
+                                </div>
+
+                                <div className="space-y-8">
+                                    <div className="bg-emerald-50 rounded-[40px] p-8 border border-emerald-100 space-y-4">
+                                        <h3 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                            {t('lbl_toxicity')}
+                                        </h3>
+                                        <p className="text-sm font-serif italic text-emerald-900 leading-relaxed">"{lv(plant.petSafety)}"</p>
+                                    </div>
+
+                                    {plant.soilComposition && plant.soilComposition.length > 0 && (
+                                        <div className="bg-white dark:bg-slate-900 rounded-[40px] p-8 border border-gray-100 dark:border-slate-800 shadow-sm space-y-6">
+                                            <h3 className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{t('lbl_soil_recipe')}</h3>
+                                            <div className="space-y-4">
+                                                {plant.soilComposition.map((item, idx) => (
+                                                    <div key={idx} className="space-y-2">
+                                                        <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                                                            <span className="text-gray-700 dark:text-slate-200">{lv(item.component)}</span>
+                                                            <span className="text-verdant">{item.percent}%</span>
+                                                        </div>
+                                                        <div className="h-1.5 w-full bg-gray-50 rounded-full overflow-hidden">
+                                                            <div className="h-full bg-verdant rounded-full" style={{ width: `${item.percent}%` }} />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <Button 
+                                        variant="secondary" 
+                                        className="w-full h-16 rounded-[32px] border-dashed border-2 border-gray-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-verdant hover:border-verdant transition-all flex items-center justify-center gap-3"
+                                        onClick={() => setIsNoteOpen(true)}
+                                    >
+                                        <span className="text-xl">📝</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest">{t('btn_add_log')}</span>
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'TECH' && (
+                        <div className="space-y-8">
+                            <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-10">
+                                <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-verdant">{t('lbl_atmospheric_soil_bounds')}</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+                                    <TechMetric label={t('lbl_moisture')} min={plant.minSoilMoist} max={plant.maxSoilMoist} unit="%" advice={lv(plant.moistureAdvice)} />
+                                    <TechMetric label={t('lbl_temperature')} min={plant.minTemp} max={plant.maxTemp} unit="°C" advice={lv(plant.tempAdvice)} />
+                                    <TechMetric label={t('lbl_illuminance')} min={plant.minLightLux} unit="Lux" advice={lv(plant.lightAdvice)} />
+                                    <TechMetric label={t('lbl_soil_ec')} min={plant.minSoilEc} unit="mS/cm" advice={lv(plant.nutritionAdvice)} />
+                                    <TechMetric label={t('lbl_humidity')} min={plant.minEnvHumid} max={plant.maxEnvHumid} unit="%" advice={lv(plant.humidityAdvice)} />
+                                    <TechMetric label={t('lbl_target_ph')} min={plant.targetPh} unit="pH" advice={t('lbl_target_ph_desc')} />
+                                    <TechMetric label={t('lbl_target_ec')} min={plant.targetEc} unit="mS/cm" advice={t('lbl_target_ec_desc')} />
+                                    <TechMetric label={t('lbl_target_vpd')} min={plant.targetVpd} unit="kPa" advice={t('lbl_target_vpd_desc')} />
+                                    <TechMetric label={t('lbl_target_dli')} min={plant.targetDli} unit="mol/m²/d" advice={t('lbl_target_dli_desc')} />
+                                </div>
+                            </section>
+
+                            <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-10">
+                                <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-verdant">{t('lbl_environmental_guards')}</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                    <div className="p-8 bg-gray-50 dark:bg-slate-800/50 rounded-3xl border border-gray-100 dark:border-slate-800">
+                                        <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-4">{t('lbl_watering_delta')}</p>
+                                        <p className="text-2xl font-black text-gray-900 dark:text-white">{plant.wateringInterval} {t('days').toUpperCase()}</p>
+                                        <p className="text-xs text-gray-700 dark:text-slate-200 mt-2 italic">{t('lbl_watering_delta_desc')}</p>
+                                    </div>
+                                    <div className="p-8 bg-gray-50 dark:bg-slate-800/50 rounded-3xl border border-gray-100 dark:border-slate-800">
+                                        <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-4">{t('lbl_last_observed_action')}</p>
+                                        <p className="text-2xl font-black text-gray-900 dark:text-white uppercase">{lastWateredDate}</p>
+                                        <p className="text-xs text-gray-700 dark:text-slate-200 mt-2 italic">{t('lbl_last_observed_action_desc')}</p>
+                                    </div>
+                                </div>
+                            </section>
+                        </div>
+                    )}
+
+                    {activeTab === 'PHENOPHASE' && (
+                        <div className="space-y-8">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                                <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-8">
+                                    <h3 className="text-[11px] font-serif font-black uppercase tracking-[0.3em] text-verdant">{t('lbl_biological_milestones')}</h3>
+                                    <div className="grid grid-cols-1 gap-8">
+                                        <PassportItem 
+                                            icon="🔄" 
+                                            label={t('lbl_repot_cadence')} 
+                                            value={plant.repottingFrequency ? `${t('lbl_every')} ${plant.repottingFrequency} ${t('lbl_months')}` : `${t('lbl_every')} ${getSuggestedRepotFrequency(plant)} ${t('lbl_months')}`} 
+                                            subValue={!plant.repottingFrequency ? '(Suggested based on species)' : undefined}
+                                        />
+                                        <PassportItem icon="🪴" label={t('lbl_last_pot_size')} value={plant.lastPotSize || t('lbl_na')} />
+                                        <PassportItem icon="🧬" label={t('lbl_propagation')} value={lva(plant.propagationMethods as any)?.join(', ') || t('lbl_na')} />
+                                    </div>
+                                </section>
+
+                                {lv(plant.propagationInstructions) ? (
+                                    <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-8">
+                                        <h3 className="text-[11px] font-serif font-black uppercase tracking-[0.3em] text-verdant">{t('lbl_propagation_instructions')}</h3>
+                                        <p className="text-sm font-serif italic text-gray-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap">
+                                            {lv(plant.propagationInstructions)}
+                                        </p>
+                                    </section>
+                                ) : (
+                                    <section className="bg-white/50 dark:bg-slate-900/50 rounded-[40px] p-10 border border-dashed border-gray-200 dark:border-slate-800 space-y-4 flex flex-col items-center justify-center text-center">
+                                        <div className="w-12 h-12 bg-gray-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-2xl grayscale opacity-50">🧬</div>
+                                        <div className="space-y-1">
+                                            <h3 className="text-[11px] font-serif font-black uppercase tracking-[0.2em] text-slate-400">{t('lbl_propagation_instructions')}</h3>
+                                            <p className="text-xs text-slate-500 italic">{t('msg_no_propagation_instructions')}</p>
+                                        </div>
+                                        <Button variant="ghost" size="sm" className="text-[9px] font-black uppercase tracking-widest text-verdant" onClick={() => setIsEditOpen(true)}>
+                                            + {t('btn_add_instructions')}
+                                        </Button>
+                                    </section>
+                                )}
+
+                                <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-8">
+                                    <h3 className="text-[11px] font-serif font-black uppercase tracking-[0.3em] text-verdant">{t('lbl_provenance_source')}</h3>
+                                    <div className="space-y-6">
+                                        <div className="flex justify-between items-center py-4 border-b border-gray-50 dark:border-slate-800">
+                                            <span className="text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{t('lbl_nursery_source')}</span>
+                                            <span className="text-sm font-serif italic text-gray-900 dark:text-slate-100">{plant.provenance?.nursery || t('lbl_unknown')}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center py-4 border-b border-gray-50 dark:border-slate-800">
+                                            <span className="text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{t('lbl_acquisition_date')}</span>
+                                            <span className="text-sm font-serif italic text-gray-900 dark:text-slate-100">{plant.provenance?.dateOfPurchase ? new Date(plant.provenance.dateOfPurchase).toLocaleDateString() : t('lbl_na')}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center py-4 border-b border-gray-50 dark:border-slate-800">
+                                            <span className="text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{t('lbl_investment')}</span>
+                                            <span className="text-sm font-serif italic text-gray-900 dark:text-slate-100">{plant.provenance?.cost ? `${plant.provenance.cost} ${plant.provenance.currency || 'USD'}` : t('lbl_na')}</span>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                {lv(plant.repottingInstructions) ? (
+                                    <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-8">
+                                        <h3 className="text-[11px] font-serif font-black uppercase tracking-[0.3em] text-verdant">{t('lbl_repotting_instructions')}</h3>
+                                        <p className="text-sm font-serif italic text-gray-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap">
+                                            {lv(plant.repottingInstructions)}
+                                        </p>
+                                    </section>
+                                ) : (
+                                    <section className="bg-white/50 dark:bg-slate-900/50 rounded-[40px] p-10 border border-dashed border-gray-200 dark:border-slate-800 space-y-4 flex flex-col items-center justify-center text-center">
+                                        <div className="w-12 h-12 bg-gray-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-2xl grayscale opacity-50">🪴</div>
+                                        <div className="space-y-1">
+                                            <h3 className="text-[11px] font-serif font-black uppercase tracking-[0.2em] text-slate-400">{t('lbl_repotting_instructions')}</h3>
+                                            <p className="text-xs text-slate-500 italic">{t('msg_no_repotting_instructions')}</p>
+                                        </div>
+                                        <Button variant="ghost" size="sm" className="text-[9px] font-black uppercase tracking-widest text-verdant" onClick={() => setIsEditOpen(true)}>
+                                            + {t('btn_add_instructions')}
+                                        </Button>
+                                    </section>
+                                )}
+                            </div>
+
+                            <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-8">
+                                <h3 className="text-[11px] font-serif font-black uppercase tracking-[0.3em] text-verdant">{t('lbl_phenophase_tracking')}</h3>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead>
+                                            <tr className="border-b border-gray-100 dark:border-slate-800">
+                                                <th className="pb-4 text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{t('lbl_phase')}</th>
+                                                <th className="pb-4 text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{t('lbl_date')}</th>
+                                                <th className="pb-4 text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{t('lbl_notes')}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50 dark:divide-slate-800">
+                                            {plant.logs?.filter(l => l.type === 'PHENOPHASE').map(log => (
+                                                <tr key={log.id}>
+                                                    <td className="py-4 text-sm font-serif font-bold text-gray-900 dark:text-white">{t(`PHASE_${log.metadata?.phase}` as any)}</td>
+                                                    <td className="py-4 text-sm font-serif text-gray-700 dark:text-slate-200">{new Date(log.date).toLocaleDateString()}</td>
+                                                    <td className="py-4 text-sm font-serif text-gray-700 dark:text-slate-200 italic">{lv(log.localizedNote)}</td>
+                                                </tr>
+                                            ))}
+                                            {(!plant.logs || plant.logs.filter(l => l.type === 'PHENOPHASE').length === 0) && (
+                                                <tr>
+                                                    <td colSpan={3} className="py-8 text-center text-xs font-serif text-slate-600 dark:text-slate-300 italic">{t('msg_no_phenophase')}</td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <Button 
+                                    variant="secondary" 
+                                    className="w-full rounded-2xl border-dashed border-2 border-gray-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-verdant hover:border-verdant transition-all"
+                                    onClick={() => handleLogAction('PHENOPHASE')}
+                                >
+                                    + {t('btn_record_phenophase')}
+                                </Button>
+                            </section>
+                        </div>
+                    )}
+
+                    {activeTab === 'TIMELINE' && (
+                        <div className="space-y-8">
+                            <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-8">
+                                <h3 className="text-[11px] font-serif font-black uppercase tracking-[0.3em] text-verdant">{t('tab_history')}</h3>
+                                <div className="divide-y divide-gray-50 dark:divide-slate-800">
+                                    {plant.logs && plant.logs.length > 0 ? (
+                                        plant.logs.map((log) => (
+                                            <div key={log.id} className="flex gap-6 items-start py-8 first:pt-0 last:pb-0">
+                                                <div className="w-12 h-12 bg-gray-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-2xl shrink-0">
+                                                    {getLogIcon(log)}
+                                                </div>
+                                                <div className="flex-1 space-y-2">
+                                                    <div className="flex justify-between items-center">
+                                                        <p className="text-[10px] font-serif font-black uppercase tracking-widest text-verdant">
+                                                            {log.type === 'PHENOPHASE' && log.metadata?.phase 
+                                                                ? t(`PHASE_${log.metadata.phase}`) 
+                                                                : t('lbl_record_type', { type: t(`log_${log.type.toLowerCase()}`) })}
+                                                        </p>
+                                                        <span className="text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{new Date(log.date).toLocaleDateString(language)}</span>
+                                                    </div>
+                                                    <p className="text-gray-900 dark:text-slate-100 font-serif italic leading-relaxed">"{lv(log.localizedNote) || log.note || '...'}"</p>
+                                                    {log.imageUrl && (
+                                                        <div 
+                                                            className="mt-4 w-32 h-32 rounded-2xl overflow-hidden border border-gray-100 dark:border-slate-800 shadow-sm cursor-pointer hover:scale-105 transition-transform"
+                                                            onClick={() => {
+                                                                // We'll use a temporary state or just open it in a simple way.
+                                                                // For now, let's just use the enlargedImageIndex logic but we need to handle non-plant.images.
+                                                                // Actually, let's just open it in a new tab or a simple modal if it's a log image.
+                                                                // Or better, I'll add a state for `enlargedLogImage`.
+                                                                setEnlargedLogImage(log.imageUrl || null);
+                                                            }}
+                                                        >
+                                                            <img src={log.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                                        </div>
+                                                    )}
+                                                    {log.type === 'DISEASE_CHECK' && log.metadata?.recoveryPlan && (
+                                                      <div className="mt-4 space-y-2">
+                                                        <p className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">{t('lbl_recovery_plan')}</p>
+                                                        <div className="space-y-1">
+                                                          {lva(log.metadata.recoveryPlan).map((step, sidx) => (
+                                                            <div key={sidx} className="flex gap-2 items-start text-xs text-gray-600 dark:text-slate-400">
+                                                              <span className="shrink-0 text-emerald-500">•</span>
+                                                              <span>{step}</span>
+                                                            </div>
+                                                          ))}
+                                                        </div>
+                                                      </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="py-12 text-center">
+                                            <p className="text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest italic">{t('msg_no_history')}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+      </div>
+
+      {/* MODALS & OVERLAYS */}
+      {isAddingPhoto && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-2xl p-6" onClick={() => setIsAddingPhoto(false)}>
+              <div className="w-full max-w-md space-y-4">
+                  <div onClick={(e) => { e.stopPropagation(); setIsAddingPhoto(false); setIsCapturingFromCamera(true); }} className="bg-white/10 border-2 border-dashed border-emerald-400/50 rounded-3xl p-6 flex items-center gap-6 cursor-pointer hover:bg-white/20 transition-all">
+                      <div className="w-16 h-16 bg-emerald-400/20 rounded-2xl flex items-center justify-center">
+                          <svg className="w-8 h-8 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><circle cx="12" cy="13" r="3" /></svg>
+                      </div>
+                      <p className="text-2xl font-bold text-white">{t('use_camera')}</p>
+                  </div>
+                  <div onClick={(e) => { e.stopPropagation(); setIsAddingPhoto(false); addPhotoInputRef.current?.click(); }} className="bg-white/10 border-2 border-dashed border-blue-400/50 rounded-3xl p-6 flex items-center gap-6 cursor-pointer hover:bg-white/20 transition-all">
+                      <div className="w-16 h-16 bg-blue-400/20 rounded-2xl flex items-center justify-center">
+                          <svg className="w-8 h-8 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      </div>
+                      <p className="text-2xl font-bold text-white">{t('choose_picture')}</p>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {isCapturingFromCamera && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-6">
+              <div className="w-full max-w-xl">
+                  <CameraCapture onCapture={handleAddNewImageFromCamera} onCancel={() => setIsCapturingFromCamera(false)} />
+              </div>
+          </div>
+      )}
+
+      {enlargedImageIndex !== null && (
+          <div className="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-black/95 p-4" onClick={() => setEnlargedImageIndex(null)}>
+              <div className="relative flex-1 w-full flex items-center justify-center overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                  {plant.images?.[enlargedImageIndex] ? (
+                      <img 
+                        src={plant.images[enlargedImageIndex]} 
+                        className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl animate-in zoom-in-95 duration-300" 
+                        referrerPolicy="no-referrer"
+                      />
+                  ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                          <p className="text-white">Image not available</p>
+                      </div>
+                  )}
+                  
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setEnlargedImageIndex(enlargedImageIndex > 0 ? enlargedImageIndex - 1 : (plant.images?.length || 0) - 1) }} 
+                    className="absolute left-4 top-1/2 -translate-y-1/2 w-14 h-14 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all border border-white/20"
+                  >
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setEnlargedImageIndex((enlargedImageIndex + 1) % (plant.images?.length || 1)) }} 
+                    className="absolute right-4 top-1/2 -translate-y-1/2 w-14 h-14 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all border border-white/20"
+                  >
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  </button>
+
+                  <div className="absolute top-4 right-4 flex gap-4">
+                      {enlargedImageIndex !== 0 && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleSetMainImage(enlargedImageIndex); setEnlargedImageIndex(0); }} 
+                            className="w-12 h-12 bg-verdant/20 hover:bg-verdant backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all border border-white/20"
+                            title="Set as Primary"
+                          >
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                          </button>
+                      )}
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleDeleteImage(enlargedImageIndex); }} 
+                        className={`w-12 h-12 bg-red-500/20 hover:bg-red-500 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all border border-white/20 ${plant.images && plant.images.length <= 1 ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                        disabled={plant.images && plant.images.length <= 1}
+                        title="Delete Image"
+                      >
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setEnlargedImageIndex(null); }} 
+                        className="w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all border border-white/20"
+                        title="Close"
+                      >
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                  </div>
+              </div>
+
+              {/* THUMBNAIL STRIP */}
+              <div className="w-full max-w-4xl flex justify-center gap-2 py-6 overflow-x-auto no-scrollbar" onClick={(e) => e.stopPropagation()}>
+                  {plant.images?.map((img, idx) => (
+                      <button 
+                        key={idx} 
+                        onClick={() => setEnlargedImageIndex(idx)}
+                        className={`w-16 h-16 rounded-xl overflow-hidden border-2 transition-all shrink-0 ${enlargedImageIndex === idx ? 'border-verdant scale-110 shadow-lg' : 'border-transparent opacity-50 hover:opacity-100'}`}
+                      >
+                          <img src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      </button>
+                  ))}
+              </div>
+          </div>
+      )}
+
+      {enlargedLogImage && (
+          <div className="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-black/95 p-4" onClick={() => setEnlargedLogImage(null)}>
+              <div className="relative flex-1 w-full flex items-center justify-center overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                  <img 
+                    src={enlargedLogImage} 
+                    className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl animate-in zoom-in-95 duration-300" 
+                    referrerPolicy="no-referrer"
+                  />
+                  <button 
+                    onClick={() => setEnlargedLogImage(null)} 
+                    className="absolute top-4 right-4 w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all"
+                  >
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+              </div>
+          </div>
+      )}
+
+      <EditPlantModal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} plant={plant} onSave={(id, updates) => updatePlant(id, updates)} onDelete={() => setIsDeleteConfirmationOpen(true)} />
+      <HealthCheckModal isOpen={isHealthOpen} onClose={() => setIsHealthOpen(false)} plant={plant} />
+      <TransferModal isOpen={isTransferOpen} onClose={() => setIsTransferOpen(false)} plant={plant} />
+      <FertilizerLogModal 
+        isOpen={isFertilizerOpen} 
+        onClose={() => setIsFertilizerOpen(false)} 
+        plant={plant} 
+        onLog={handleFertilizerLog} 
+      />
+      <MoistureLogModal
+        isOpen={isMoistureOpen}
+        onClose={() => setIsMoistureOpen(false)}
+        onLog={handleMoistureLog}
+      />
+      <PhenophaseLogModal
+        isOpen={isPhenophaseOpen}
+        onClose={() => setIsPhenophaseOpen(false)}
+        plant={plant}
+        onLog={handlePhenophaseLog}
+      />
+      <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={handleUpdateMainImageFromFile} />
+      <input type="file" ref={addPhotoInputRef} className="hidden" accept="image/*" onChange={handleAddNewImageFromFile} />
+      <PlantLogEntry
+        isOpen={isNoteOpen}
+        onClose={() => setIsNoteOpen(false)}
+        onLog={handleManualLog}
+      />
+      <ConfirmationDialog 
+        isOpen={isDeleteConfirmationOpen} 
+        onClose={() => setIsDeleteConfirmationOpen(false)} 
+        onConfirm={handleDelete} 
+        title={t('lbl_decommission_confirm')} 
+        message={t('confirm_decommission_message', { name: lv(plant.nickname) })}
+      />
+    </div>
+  );
+};

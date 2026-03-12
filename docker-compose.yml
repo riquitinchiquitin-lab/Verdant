@@ -1,0 +1,40 @@
+
+# --- VERDANT HARDENED CLOUD ORCHESTRATION ---
+services:
+  # 1. Unified Application: Node/Express/Vite
+  verdant-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.txt
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - verdant-net
+
+  # 2. Cloudflare Tunnel (Unified Egress)
+  cf-tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CF_UNIFIED_TOKEN}
+    restart: always
+    depends_on:
+      - verdant-app
+    networks:
+      - verdant-net
+
+networks:
+  verdant-net:
+    driver: bridge
