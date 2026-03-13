@@ -1,5 +1,3 @@
----
-
 🌿 Verdant Systems: Full Feature Documentation 
 
 1. Core Architecture & Global Features 
