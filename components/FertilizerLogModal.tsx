@@ -50,11 +50,11 @@ export const FertilizerLogModal: React.FC<FertilizerLogModalProps> = ({ isOpen, 
     <Modal isOpen={isOpen} onClose={onClose} title={t('log_action_fertilized')}>
       <div className="space-y-6">
         <div className="space-y-4">
-          <label className="block text-[10px] font-serif font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest px-1">Select Fertilizer</label>
+          <label className="block text-[10px] font-serif font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest px-1">{t('lbl_select_fertilizer')}</label>
           
           {compatibleFertilizers.length > 0 && (
             <div className="space-y-2">
-              <p className="text-[9px] font-serif font-black text-emerald-500 uppercase tracking-widest px-1">Recommended for this plant</p>
+              <p className="text-[9px] font-serif font-black text-emerald-500 uppercase tracking-widest px-1">{t('lbl_recommended_for_this_plant')}</p>
               <div className="grid grid-cols-1 gap-2">
                 {compatibleFertilizers.map(f => (
                   <button
@@ -71,7 +71,7 @@ export const FertilizerLogModal: React.FC<FertilizerLogModalProps> = ({ isOpen, 
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-serif font-bold truncate dark:text-white">{lv(f.name)}</p>
-                      <p className="text-[10px] font-serif text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">{f.quantity} {f.unit} available</p>
+                      <p className="text-[10px] font-serif text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">{t('lbl_amount_available').replace('{amount}', String(f.quantity)).replace('{unit}', f.unit)}</p>
                     </div>
                     {selectedItemId === f.id && (
                       <div className="w-6 h-6 bg-emerald-500 text-white rounded-full flex items-center justify-center">
@@ -86,7 +86,7 @@ export const FertilizerLogModal: React.FC<FertilizerLogModalProps> = ({ isOpen, 
 
           {otherFertilizers.length > 0 && (
             <div className="space-y-2">
-              <p className="text-[9px] font-serif font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest px-1">Other Fertilizers</p>
+              <p className="text-[9px] font-serif font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest px-1">{t('lbl_other_fertilizers')}</p>
               <div className="grid grid-cols-1 gap-2">
                 {otherFertilizers.map(f => (
                   <button
@@ -103,7 +103,7 @@ export const FertilizerLogModal: React.FC<FertilizerLogModalProps> = ({ isOpen, 
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-serif font-bold truncate dark:text-white">{lv(f.name)}</p>
-                      <p className="text-[10px] font-serif text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">{f.quantity} {f.unit} available</p>
+                      <p className="text-[10px] font-serif text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">{t('lbl_amount_available').replace('{amount}', String(f.quantity)).replace('{unit}', f.unit)}</p>
                     </div>
                     {selectedItemId === f.id && (
                       <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center">
@@ -118,14 +118,14 @@ export const FertilizerLogModal: React.FC<FertilizerLogModalProps> = ({ isOpen, 
 
           {fertilizers.length === 0 && (
             <div className="py-10 text-center bg-gray-50 dark:bg-slate-900 rounded-3xl border-2 border-dashed border-gray-200 dark:border-slate-800">
-              <p className="text-xs font-serif font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">No fertilizers in inventory</p>
+              <p className="text-xs font-serif font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('msg_no_fertilizers_inventory')}</p>
             </div>
           )}
         </div>
 
         {selectedItem && (
           <div className="space-y-4 animate-in slide-in-from-top-4 duration-300">
-            <label className="block text-[10px] font-serif font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest px-1">Amount Used ({selectedItem.unit})</label>
+            <label className="block text-[10px] font-serif font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest px-1">{t('lbl_amount_used')} ({selectedItem.unit})</label>
             <div className="flex items-center gap-4">
               <input 
                 type="number" 
@@ -157,7 +157,7 @@ export const FertilizerLogModal: React.FC<FertilizerLogModalProps> = ({ isOpen, 
             onClick={handleConfirm}
             disabled={!selectedItem || amount <= 0}
           >
-            Log Fertilization
+            {t('btn_log_fertilization')}
           </Button>
         </div>
       </div>
