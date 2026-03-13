@@ -48,16 +48,16 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
   const currentHouse = useMemo(() => houses.find(h => h.id === user?.houseId), [houses, user?.houseId]);
 
   const progressState = useMemo(() => {
-    if (logs.length === 0) return { percent: 0, status: "Initializing...", time: 15 };
+    if (logs.length === 0) return { percent: 0, status: t('status_initializing'), time: 15 };
     const lastMsg = logs[logs.length - 1].message.toLowerCase();
-    if (lastMsg.includes("multi-specimen")) return { percent: 10, status: "Initializing Protocol...", time: 14 };
-    if (lastMsg.includes("uplinking to pl@ntnet")) return { percent: 25, status: "Visual Pattern Matching...", time: 12 };
-    if (lastMsg.includes("gemini vision")) return { percent: 40, status: "Neural Specimen Identification...", time: 10 };
-    if (lastMsg.includes("fetching technical parameters") || lastMsg.includes("accessing global")) return { percent: 65, status: "Querying Global Archives...", time: 7 };
-    if (lastMsg.includes("harmonizing")) return { percent: 85, status: "Synthesizing Botanical Dossier...", time: 3 };
-    if (lastMsg.includes("finalized")) return { percent: 100, status: "Identity Confirmed", time: 0 };
-    return { percent: 50, status: "Processing Specimen...", time: 8 };
-  }, [logs]);
+    if (lastMsg.includes("multi-specimen")) return { percent: 10, status: t('status_initializing_protocol'), time: 14 };
+    if (lastMsg.includes("uplinking to pl@ntnet")) return { percent: 25, status: t('status_visual_pattern_matching'), time: 12 };
+    if (lastMsg.includes("gemini vision")) return { percent: 40, status: t('status_neural_specimen_identification'), time: 10 };
+    if (lastMsg.includes("fetching technical parameters") || lastMsg.includes("accessing global")) return { percent: 65, status: t('status_querying_global_archives'), time: 7 };
+    if (lastMsg.includes("harmonizing")) return { percent: 85, status: t('status_synthesizing_botanical_dossier'), time: 3 };
+    if (lastMsg.includes("finalized")) return { percent: 100, status: t('status_identity_confirmed'), time: 0 };
+    return { percent: 50, status: t('status_processing_specimen'), time: 8 };
+  }, [logs, t]);
 
   const addLog = (message: string, source: string = 'SYSTEM', type: 'SYSTEM' | 'DEBUG' | 'NETWORK' | 'GEMINI' | 'WARNING' = 'SYSTEM') => {
     setLogs(prev => [...prev, {
@@ -85,22 +85,22 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
     setIsBusy(true);
     setError(null);
     setLogs([]);
-    addLog("Initiating multi-specimen synchronization...", "SYSTEM");
+    addLog(t('msg_sync_init'), "SYSTEM");
     
     try {
-      addLog("Uplinking to Pl@ntNet Recognition Node...", "NETWORK");
+      addLog(t('msg_uplink_plantnet'), "NETWORK");
       const blobs = specimenImages.map(img => dataURLtoBlob(img));
       let idResult = await identifyPlantWithPlantNet(blobs);
       
       if (!idResult || idResult.score < 0.15) {
-          addLog("Pl@ntNet confidence low. Rerouting to Gemini Vision...", "GEMINI");
+          addLog(t('msg_rerouting_gemini'), "GEMINI");
           idResult = await identifyPlantWithGemini(specimenImages[0], getEffectiveApiKey());
       }
 
-      if (!idResult) throw new Error("Biological identity could not be established.");
+      if (!idResult) throw new Error(t('msg_uplink_fault'));
 
-      addLog(`Identity Confirmed: ${idResult.bestMatch}`, "SYSTEM");
-      addLog("Fetching technical parameters...", "NETWORK");
+      addLog(t('msg_identity_confirmed_log', { species: idResult.bestMatch }), "SYSTEM");
+      addLog(t('msg_fetching_params'), "NETWORK");
       
       const details = await generatePlantDetails(idResult.bestMatch, specimenImages[0], (msg, src) => {
           addLog(msg, src === 'NETWORK' ? 'NETWORK' : 'GEMINI');
@@ -115,10 +115,10 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
 
       setCompatibleItems(getCompatibleItems(details as Plant, inventory));
 
-      addLog("Biological dossier finalized.", "SYSTEM");
+      addLog(t('msg_dossier_finalized'), "SYSTEM");
       setScanMode('REVIEW');
     } catch (err: any) {
-      setError(err.message || "Unknown uplink protocol fault.");
+      setError(err.message || t('msg_uplink_fault'));
     } finally {
       setIsBusy(false);
     }
@@ -131,7 +131,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
       const base64 = await compressImage(file);
       setSpecimenImages(prev => [...prev, base64].slice(0, 4));
       setScanMode('SPECIMENS');
-    } catch (err) { addLog("Imagery compression fault.", "DEBUG", "WARNING"); }
+    } catch (err) { addLog(t('msg_compression_fault'), "DEBUG", "WARNING"); }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 

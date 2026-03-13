@@ -109,7 +109,7 @@ export const Dashboard: React.FC = () => {
                 <div key={plant.id} className="relative group">
                     {!plant.houseId && (
                         <div className="absolute -top-3 -right-3 z-20 bg-amber-500 text-white text-[8px] font-black px-2 py-1 rounded-full shadow-lg border-2 border-white dark:border-slate-900 uppercase tracking-widest animate-bounce">
-                            Unattributed
+                            {t('lbl_unattributed')}
                         </div>
                     )}
                     <PlantCard plant={plant} onClick={() => setSelectedPlant(plant)} showActions={can('log_data')} />

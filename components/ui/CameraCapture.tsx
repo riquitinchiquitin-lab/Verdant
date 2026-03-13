@@ -71,7 +71,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onCance
     }
 
     if (!success) {
-      setError('Camera access denied or unavailable. Check permissions.');
+      setError(t('msg_camera_denied'));
     }
     
     setIsInitializing(false);
@@ -96,7 +96,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onCance
       
       // Safety check for dimensions
       if (video.videoWidth === 0 || video.videoHeight === 0) {
-        setError("Camera feedback is empty. Refresh and try again.");
+        setError(t('msg_camera_empty'));
         return;
       }
 
@@ -139,7 +139,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onCance
         {(isInitializing || !isLensReady) && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 z-10">
             <div className="w-10 h-10 border-4 border-verdant border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-[10px] font-black text-verdant uppercase tracking-widest animate-pulse">Initializing Lens...</p>
+            <p className="text-[10px] font-black text-verdant uppercase tracking-widest animate-pulse">{t('status_initializing_lens')}</p>
           </div>
         )}
         <video 
@@ -194,7 +194,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onCance
           <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner">
             <div className="w-4 h-4 bg-white rounded-full"></div>
           </div>
-          <span className="font-black uppercase tracking-widest text-sm">Capture Specimen</span>
+          <span className="font-black uppercase tracking-widest text-sm">{t('btn_capture_specimen')}</span>
         </button>
       </div>
 
