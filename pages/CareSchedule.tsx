@@ -49,10 +49,18 @@ const getDaysDue = (plant: Plant): number | null => {
     return daysLeftNum;
 };
 
+const getRotationDaysDue = (plant: Plant): number | null => {
+    if (!plant.rotationFrequency) return null;
+    if (!plant.lastRotated) return 0;
+    const lastDate = new Date(plant.lastRotated);
+    const intervalMs = plant.rotationFrequency * 86400000;
+    return Math.ceil((lastDate.getTime() + intervalMs - Date.now()) / 86400000);
+};
+
 export const CareSchedule: React.FC = () => {
-  const { plants, addLog, houses } = usePlants();
+  const { plants, addLog, updatePlant, houses } = usePlants();
   const { user } = useAuth();
-  const { t, lv } = useLanguage();
+  const { t, lv, language } = useLanguage();
   const location = useLocation();
   
   const queryParams = new URLSearchParams(location.search);
@@ -88,18 +96,36 @@ export const CareSchedule: React.FC = () => {
 
   const handleWater = (plant: Plant) => {
     addLog(plant.id, { id: `l-${Date.now()}`, date: new Date().toISOString(), type: 'WATER', localizedNote: { en: t('log_water_manual') } });
-    setLastLoggedAction(plant.id);
+    updatePlant(plant.id, { lastWatered: new Date().toISOString() });
+    setLastLoggedAction(plant.id + '-water');
+    setTimeout(() => setLastLoggedAction(null), 2000);
+  };
+
+  const handleRotate = (plant: Plant) => {
+    addLog(plant.id, { 
+      id: `l-${Date.now()}`, 
+      date: new Date().toISOString(), 
+      type: 'ROTATED', 
+      localizedNote: { 
+        en: t('log_rotated_manual'),
+        [language]: t('log_rotated_manual')
+      } 
+    });
+    updatePlant(plant.id, { lastRotated: new Date().toISOString() });
+    setLastLoggedAction(plant.id + '-rotate');
     setTimeout(() => setLastLoggedAction(null), 2000);
   };
 
   const filteredPlants = useMemo(() => {
     return plants.filter(p => {
         const daysDue = getDaysDue(p);
-        if (daysDue === null) return false;
+        const rotationDaysDue = getRotationDaysDue(p);
         
-        // Show everything due in the next 3 days, or already overdue
-        const isVisible = daysDue <= 3;
-        if (!isVisible) return false;
+        // Show if water is due in next 3 days OR rotation is due in next 3 days
+        const isWaterVisible = daysDue !== null && daysDue <= 3;
+        const isRotationVisible = rotationDaysDue !== null && rotationDaysDue <= 3;
+        
+        if (!isWaterVisible && !isRotationVisible) return false;
 
         // Filtering based on user role and house assignment
         if (isAdmin) return true;
@@ -110,7 +136,11 @@ export const CareSchedule: React.FC = () => {
   }, [plants, user?.houseId, isAdmin, isManager]);
 
   const sortedPlants = useMemo(() => 
-    [...filteredPlants].sort((a, b) => (getDaysDue(a) || 0) - (getDaysDue(b) || 0)), 
+    [...filteredPlants].sort((a, b) => {
+        const aDue = Math.min(getDaysDue(a) ?? 999, getRotationDaysDue(a) ?? 999);
+        const bDue = Math.min(getDaysDue(b) ?? 999, getRotationDaysDue(b) ?? 999);
+        return aDue - bDue;
+    }), 
   [filteredPlants]);
 
   return (
@@ -136,10 +166,13 @@ export const CareSchedule: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
             {sortedPlants.length > 0 ? sortedPlants.map(plant => {
-                const daysDue = getDaysDue(plant) || 0;
-                const isOverdue = daysDue <= 0;
-                const isSoon = daysDue > 0 && daysDue <= 2;
-                const isUrgentThirsty = shouldHighlightThirsty && isOverdue;
+                const daysDue = getDaysDue(plant);
+                const rotationDaysDue = getRotationDaysDue(plant);
+                
+                const isWaterOverdue = daysDue !== null && daysDue <= 0;
+                const isRotationOverdue = rotationDaysDue !== null && rotationDaysDue <= 0;
+                
+                const isUrgentThirsty = shouldHighlightThirsty && isWaterOverdue;
                 
                 return (
                     <div key={plant.id} className={`bg-white dark:bg-slate-900 rounded-[24px] md:rounded-[32px] border-2 ${isUrgentThirsty ? 'border-red-500 ring-4 ring-red-500/10 animate-pulse' : 'border-gray-100 dark:border-slate-800'} p-3 md:p-5 shadow-sm flex flex-col items-center gap-3 md:gap-6 hover:border-verdant/40 transition-all duration-500 group`}>
@@ -154,25 +187,43 @@ export const CareSchedule: React.FC = () => {
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 mb-0.5 md:mb-1">
                                     <h3 className="text-sm md:text-xl font-black text-gray-900 dark:text-white truncate uppercase tracking-tight leading-none">{lv(plant.nickname)}</h3>
-                                    {isOverdue && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping shrink-0" />}
+                                    {(isWaterOverdue || isRotationOverdue) && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping shrink-0" />}
                                 </div>
                                 <p className="text-[9px] md:text-xs text-gray-400 dark:text-slate-500 truncate font-sans font-normal normal-case leading-none mb-2 md:mb-3">{plant.species}</p>
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-widest border shadow-sm transition-colors duration-500 ${isOverdue ? 'bg-red-500 text-white border-red-400' : isSoon ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200/50' : 'bg-verdant/10 dark:bg-verdant/20 text-verdant dark:text-verdant-light border-verdant/20'}`}>
-                                        {isOverdue ? (daysDue === 0 ? t('due_today') : t('care_days_overdue', { days: Math.abs(daysDue).toString() })) : t('care_due_in', { days: daysDue.toString() })}
-                                    </span>
+                                    {daysDue !== null && daysDue <= 3 && (
+                                        <span className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-widest border shadow-sm transition-colors duration-500 ${isWaterOverdue ? 'bg-red-500 text-white border-red-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200/50'}`}>
+                                            💧 {isWaterOverdue ? (daysDue === 0 ? t('due_today') : t('care_days_overdue', { days: Math.abs(daysDue).toString() })) : t('care_due_in', { days: daysDue.toString() })}
+                                        </span>
+                                    )}
+                                    {rotationDaysDue !== null && rotationDaysDue <= 3 && (
+                                        <span className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-widest border shadow-sm transition-colors duration-500 ${isRotationOverdue ? 'bg-amber-500 text-white border-amber-400' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200/50'}`}>
+                                            🔄 {isRotationOverdue ? (rotationDaysDue === 0 ? t('due_today') : t('care_days_overdue', { days: Math.abs(rotationDaysDue).toString() })) : t('care_due_in', { days: rotationDaysDue.toString() })}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                         </div>
                         
-                        <div className="flex w-full shrink-0">
-                            <Button 
-                                size="md" 
-                                className={`w-full rounded-xl md:rounded-2xl h-10 md:h-14 font-black uppercase tracking-widest text-[9px] md:text-[10px] shadow-xl border-b-2 md:border-b-4 transition-all active:scale-95 ${lastLoggedAction === plant.id ? 'bg-emerald-500 border-emerald-700 text-white' : isOverdue ? 'bg-red-600 hover:bg-red-700 border-red-800 text-white' : 'bg-blue-600 hover:bg-blue-700 border-blue-800 text-white'}`} 
-                                onClick={() => handleWater(plant)}
-                            >
-                                <span className="text-lg md:text-xl">💧</span>
-                            </Button>
+                        <div className="flex w-full gap-2">
+                            {daysDue !== null && daysDue <= 3 && (
+                                <Button 
+                                    size="md" 
+                                    className={`flex-1 rounded-xl md:rounded-2xl h-10 md:h-14 font-black uppercase tracking-widest text-[9px] md:text-[10px] shadow-xl border-b-2 md:border-b-4 transition-all active:scale-95 ${lastLoggedAction === plant.id + '-water' ? 'bg-emerald-500 border-emerald-700 text-white' : isWaterOverdue ? 'bg-red-600 hover:bg-red-700 border-red-800 text-white' : 'bg-blue-600 hover:bg-blue-700 border-blue-800 text-white'}`} 
+                                    onClick={() => handleWater(plant)}
+                                >
+                                    <span className="text-lg md:text-xl">💧</span>
+                                </Button>
+                            )}
+                            {rotationDaysDue !== null && rotationDaysDue <= 3 && (
+                                <Button 
+                                    size="md" 
+                                    className={`flex-1 rounded-xl md:rounded-2xl h-10 md:h-14 font-black uppercase tracking-widest text-[9px] md:text-[10px] shadow-xl border-b-2 md:border-b-4 transition-all active:scale-95 ${lastLoggedAction === plant.id + '-rotate' ? 'bg-emerald-500 border-emerald-700 text-white' : isRotationOverdue ? 'bg-amber-600 hover:bg-amber-700 border-amber-800 text-white' : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-800 text-white'}`} 
+                                    onClick={() => handleRotate(plant)}
+                                >
+                                    <span className="text-lg md:text-xl">🔄</span>
+                                </Button>
+                            )}
                         </div>
                     </div>
                 );

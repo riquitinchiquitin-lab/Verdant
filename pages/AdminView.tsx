@@ -461,9 +461,9 @@ export const AdminView: React.FC = () => {
         )}
 
         <h1 className="text-5xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('menu_admin')}</h1>
-        <div className="flex gap-x-10 border-b border-slate-200 dark:border-slate-800 pb-0.5">
+        <div className="flex gap-x-10 border-b border-slate-200 dark:border-slate-800 pb-0.5 overflow-x-auto no-scrollbar whitespace-nowrap scroll-smooth">
             {availableTabs.map(tab => (
-                <button key={tab} onClick={() => setActiveTab(tab as any)} className={`pb-4 px-4 text-[10px] font-black uppercase tracking-[0.4em] transition-all relative border-b-2 ${activeTab === tab ? 'text-slate-900 dark:text-white border-verdant' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 border-transparent'}`}>
+                <button key={tab} onClick={() => setActiveTab(tab as any)} className={`pb-4 px-4 text-[10px] font-black uppercase tracking-[0.4em] transition-all relative border-b-2 shrink-0 ${activeTab === tab ? 'text-slate-900 dark:text-white border-verdant' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 border-transparent'}`}>
                     {t(`tab_${tab.toLowerCase()}` as any)}
                 </button>
             ))}

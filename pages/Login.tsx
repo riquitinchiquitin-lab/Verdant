@@ -146,7 +146,7 @@ export const Login: React.FC = () => {
                 {loading ? (
                   <div className="flex flex-col items-center gap-5 py-6">
                     <div className="w-12 h-12 border-[4px] border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.4em]">{t('login_handshake_protocol')}</p>
+                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">{t('login_handshake_protocol')}</p>
                   </div>
                 ) : (
                   <div className="w-full flex justify-center transform hover:scale-[1.03] transition-all duration-300">
@@ -184,9 +184,17 @@ export const Login: React.FC = () => {
           </p>
           <p className="text-[11px] text-emerald-600/50 dark:text-emerald-500/40 font-black uppercase tracking-[0.6em]">{t('genesis_ref')}</p>
           
-          <div className="mt-24 pt-10 border-t border-slate-200 dark:border-slate-800 text-center opacity-30">
+          <div className="mt-16 pt-10 border-t border-slate-200 dark:border-slate-800 text-center opacity-40">
             <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.4em]">{t('login_copyright')}</p>
-            <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest mt-4">{t('login_autonomous_node')}</p>
+            <a 
+              href="https://creativecommons.org/licenses/by-nc/4.0/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-block mt-4 text-[7px] text-slate-400 hover:text-emerald-500 font-bold uppercase tracking-widest transition-colors"
+            >
+              Licensed under CC BY-NC 4.0
+            </a>
+            <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest mt-2">{t('login_autonomous_node')}</p>
           </div>
         </div>
       </div>

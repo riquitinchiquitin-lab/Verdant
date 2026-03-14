@@ -706,7 +706,13 @@ const staticTranslations: Record<string, Record<string, string>> = {
     growth_slow: "Slow",
     growth_moderate: "Moderate",
     days: "Days",
-    lbl_standard: "Standard"
+    lbl_standard: "Standard",
+    lbl_rotation_frequency: "Rotation Frequency (Days)",
+    lbl_last_rotated: "Last Rotated",
+    log_rotated_manual: "Pot Rotated",
+    btn_log_rotation: "Log Rotation",
+    msg_pot_rotated_alert: "Pot rotated on {date} has been saved in your history.",
+    lbl_pot_rotation: "Pot Rotation"
   },
   zh: {
     app_name: "翠绿",
@@ -1384,7 +1390,13 @@ const staticTranslations: Record<string, Record<string, string>> = {
     growth_slow: "缓慢",
     growth_moderate: "中等",
     days: "天",
-    lbl_standard: "标准"
+    lbl_standard: "标准",
+    lbl_rotation_frequency: "旋转频率（天）",
+    lbl_last_rotated: "最后旋转时间",
+    log_rotated_manual: "花盆已旋转",
+    btn_log_rotation: "记录旋转",
+    msg_pot_rotated_alert: "{date} 的花盆旋转记录已保存。",
+    lbl_pot_rotation: "花盆旋转"
   },
   ja: {
     app_name: "ヴェアダント",
@@ -2051,7 +2063,13 @@ const staticTranslations: Record<string, Record<string, string>> = {
     msg_server_overloaded: "植物識別サーバーが現在過負荷です。再接続を試みていますが、数分後にもう一度お試しいただく必要がある場合があります。",
     btn_reset_protocol: "プロトコルをリセット",
     lbl_compatible_items: "互換性のある在庫アイテム",
-    placeholder_guide: "ステップバイステップガイド..."
+    placeholder_guide: "ステップバイステップガイド...",
+    lbl_rotation_frequency: "回転頻度（日）",
+    lbl_last_rotated: "最終回転日",
+    log_rotated_manual: "鉢を回転させました",
+    btn_log_rotation: "回転を記録",
+    msg_pot_rotated_alert: "{date} の鉢の回転が履歴に保存されました。",
+    lbl_pot_rotation: "鉢の回転"
   },
   ko: {
     app_name: "버던트",
@@ -2716,7 +2734,13 @@ const staticTranslations: Record<string, Record<string, string>> = {
     msg_server_overloaded: "식물 식별 서버가 현재 과부하 상태입니다. 다시 연결을 시도 중이지만, 몇 분 후에 다시 시도해야 할 수도 있습니다.",
     btn_reset_protocol: "프로토콜 재설정",
     lbl_compatible_items: "호환 가능한 인벤토리 항목",
-    placeholder_guide: "단계별 가이드..."
+    placeholder_guide: "단계별 가이드...",
+    lbl_rotation_frequency: "회전 빈도 (일)",
+    lbl_last_rotated: "마지막 회전일",
+    log_rotated_manual: "화분 회전됨",
+    btn_log_rotation: "회전 기록",
+    msg_pot_rotated_alert: "{date}에 수행된 화분 회전이 기록에 저장되었습니다.",
+    lbl_pot_rotation: "화분 회전"
   },
   es: {
     app_name: "Verdant",
@@ -3379,7 +3403,13 @@ const staticTranslations: Record<string, Record<string, string>> = {
     msg_server_overloaded: "El servidor de identificación botánica está actualmente sobrecargado. Estamos intentando reconectar, pero es posible que deba intentarlo de nuevo en unos minutos.",
     btn_reset_protocol: "Restablecer Protocolo",
     lbl_compatible_items: "Artículos de Inventario Compatibles",
-    placeholder_guide: "Guía paso a paso..."
+    placeholder_guide: "Guía paso a paso...",
+    lbl_rotation_frequency: "Frecuencia de Rotación (Días)",
+    lbl_last_rotated: "Última Rotación",
+    log_rotated_manual: "Maceta Rotada",
+    btn_log_rotation: "Registrar Rotación",
+    msg_pot_rotated_alert: "La rotación de la maceta el {date} ha sido guardada en su historial.",
+    lbl_pot_rotation: "Rotación de Maceta"
   },
   fr: {
     app_name: "Verdant",
@@ -4028,7 +4058,13 @@ const staticTranslations: Record<string, Record<string, string>> = {
     lbl_days: "Jours",
     lbl_days_short: "j",
     lbl_months: "Mois",
-    lbl_every: "Chaque"
+    lbl_every: "Chaque",
+    lbl_rotation_frequency: "Fréquence de Rotation (Jours)",
+    lbl_last_rotated: "Dernière Rotation",
+    log_rotated_manual: "Pot Pivoté",
+    btn_log_rotation: "Enregistrer la Rotation",
+    msg_pot_rotated_alert: "La rotation du pot le {date} a été enregistrée dans votre historique.",
+    lbl_pot_rotation: "Rotation du Pot"
   },
   pt: {
     app_name: "Verdant",
@@ -4667,7 +4703,13 @@ const staticTranslations: Record<string, Record<string, string>> = {
     msg_server_overloaded: "O servidor de identificação botânica está sobrecarregado no momento. Estamos tentando reconectar, mas você pode precisar tentar novamente em alguns minutos.",
     btn_reset_protocol: "Redefinir Protocolo",
     lbl_compatible_items: "Itens de Inventário Compatíveis",
-    placeholder_guide: "Guia passo a passo..."
+    placeholder_guide: "Guia passo a passo...",
+    lbl_rotation_frequency: "Frequência de Rotação (Dias)",
+    lbl_last_rotated: "Última Rotação",
+    log_rotated_manual: "Vaso Rotacionado",
+    btn_log_rotation: "Registrar Rotação",
+    msg_pot_rotated_alert: "A rotação do vaso em {date} foi salva no seu histórico.",
+    lbl_pot_rotation: "Rotação do Vaso"
   },
   de: {
     app_name: "Verdant",
@@ -4705,6 +4747,11 @@ const staticTranslations: Record<string, Record<string, string>> = {
     role_lead_hand: "Verwalter",
     role_gardener: "Gärtner",
     role_seasonal: "Aushilfe",
+    tab_houses: "Häuser",
+    tab_personnel: "Personal",
+    tab_database: "Datenbank",
+    tab_security: "Sicherheit",
+    tab_logs: "Protokolle",
     history: "Verlauf",
     global_view: "Globale Ansicht",
     search_placeholder: "Suchen...",
@@ -4873,7 +4920,6 @@ const staticTranslations: Record<string, Record<string, string>> = {
     btn_cancel: "Abbrechen",
     status_thirsty: "Durstig",
     status_not_configured: "Nicht konfiguriert",
-    tab_personnel: "Personal",
     lbl_role: "Rolle",
     lbl_property: "Liegenschaft",
     lbl_name: "Name",
@@ -5247,7 +5293,13 @@ const staticTranslations: Record<string, Record<string, string>> = {
     lbl_days: "Tage",
     lbl_days_short: "T",
     lbl_months: "Monate",
-    lbl_every: "Alle"
+    lbl_every: "Alle",
+    lbl_rotation_frequency: "Rotationsfrequenz (Tage)",
+    lbl_last_rotated: "Zuletzt gedreht",
+    log_rotated_manual: "Topf gedreht",
+    btn_log_rotation: "Rotation protokollieren",
+    msg_pot_rotated_alert: "Die Topfdrehung am {date} wurde in Ihrem Verlauf gespeichert.",
+    lbl_pot_rotation: "Topfdrehung"
   },
   id: {
     app_name: "Verdant",
@@ -5285,6 +5337,11 @@ const staticTranslations: Record<string, Record<string, string>> = {
     role_lead_hand: "Manajer",
     role_gardener: "Tukang Kebun",
     role_seasonal: "Musiman",
+    tab_houses: "Rumah",
+    tab_personnel: "Personel",
+    tab_database: "Basis Data",
+    tab_security: "Keamanan",
+    tab_logs: "Log",
     global_view: "Tampilan Global",
     search_placeholder: "Cari...",
     btn_add_task: "Tambah Tugas",
@@ -5460,7 +5517,6 @@ const staticTranslations: Record<string, Record<string, string>> = {
     btn_cancel: "Batal",
     status_thirsty: "Haus",
     status_not_configured: "Belum Dikonfigurasi",
-    tab_personnel: "Personel",
     lbl_role: "Peran",
     lbl_property: "Properti",
     lbl_name: "Nama",
@@ -5850,7 +5906,13 @@ const staticTranslations: Record<string, Record<string, string>> = {
     growth_moderate: "Moderat",
     days: "Hari",
     update: "Perbarui",
-    lbl_standard: "Standar"
+    lbl_standard: "Standar",
+    lbl_rotation_frequency: "Frekuensi Rotasi (Hari)",
+    lbl_last_rotated: "Terakhir Diputar",
+    log_rotated_manual: "Pot Diputar",
+    btn_log_rotation: "Catat Rotasi",
+    msg_pot_rotated_alert: "Rotasi pot pada {date} telah disimpan dalam riwayat Anda.",
+    lbl_pot_rotation: "Rotasi Pot"
   },
   vi: {
     app_name: "Verdant",
@@ -5888,6 +5950,11 @@ const staticTranslations: Record<string, Record<string, string>> = {
     role_lead_hand: "Quản lý",
     role_gardener: "Thợ làm vườn",
     role_seasonal: "Thời vụ",
+    tab_houses: "Nhà",
+    tab_personnel: "Nhân sự",
+    tab_database: "Cơ sở dữ liệu",
+    tab_security: "Bảo mật",
+    tab_logs: "Nhật ký",
     history: "Lịch sử",
     global_view: "Toàn cục",
     search_placeholder: "Tìm kiếm...",
@@ -6063,7 +6130,6 @@ const staticTranslations: Record<string, Record<string, string>> = {
     btn_cancel: "Hủy",
     status_thirsty: "Khát nước",
     status_not_configured: "Chưa cấu hình",
-    tab_personnel: "Nhân sự",
     lbl_role: "Vai trò",
     lbl_property: "Bất động sản",
     lbl_name: "Tên",
@@ -6453,7 +6519,13 @@ const staticTranslations: Record<string, Record<string, string>> = {
     msg_server_overloaded: "Máy chủ nhận dạng thực vật hiện đang bị quá tải. Chúng tôi đang cố gắng kết nối lại, nhưng bạn có thể cần thử lại sau vài phút.",
     btn_reset_protocol: "Đặt lại Giao thức",
     lbl_compatible_items: "Các mặt hàng trong kho tương thích",
-    placeholder_guide: "Hướng dẫn từng bước..."
+    placeholder_guide: "Hướng dẫn từng bước...",
+    lbl_rotation_frequency: "Tần suất Xoay (Ngày)",
+    lbl_last_rotated: "Lần Xoay Cuối",
+    log_rotated_manual: "Đã Xoay Chậu",
+    btn_log_rotation: "Ghi lại Xoay",
+    msg_pot_rotated_alert: "Việc xoay chậu vào ngày {date} đã được lưu vào lịch sử.",
+    lbl_pot_rotation: "Xoay Chậu"
   },
   tl: {
     app_name: "Verdant",
@@ -6491,6 +6563,11 @@ const staticTranslations: Record<string, Record<string, string>> = {
     role_lead_hand: "Manager",
     role_gardener: "Manggagawa",
     role_seasonal: "Pansamantala",
+    tab_houses: "Mga Bahay",
+    tab_personnel: "Mga Tauhan",
+    tab_database: "Database",
+    tab_security: "Seguridad",
+    tab_logs: "Mga Log",
     history: "Kasaysayan",
     global_view: "Pangkalahatang Tanawin",
     search_placeholder: "Maghanap...",
@@ -6667,7 +6744,6 @@ const staticTranslations: Record<string, Record<string, string>> = {
     btn_cancel: "Kanselahin",
     status_thirsty: "Nauuhaw",
     status_not_configured: "Hindi Naka-configure",
-    tab_personnel: "Mga Tauhan",
     lbl_role: "Papel",
     lbl_property: "Ari-arian",
     lbl_name: "Pangalan",
@@ -7054,7 +7130,13 @@ const staticTranslations: Record<string, Record<string, string>> = {
     msg_server_overloaded: "Kasalukuyang overloaded ang botanical identification server. Sinusubukan naming mag-reconnect, ngunit maaaring kailanganin mong subukan muli sa loob ng ilang minuto.",
     btn_reset_protocol: "I-reset ang Protocol",
     lbl_compatible_items: "Mga Katugmang Item sa Inventory",
-    placeholder_guide: "Step-by-step na gabay..."
+    placeholder_guide: "Step-by-step na gabay...",
+    lbl_rotation_frequency: "Dalas ng Pag-ikot (Araw)",
+    lbl_last_rotated: "Huling Inikot",
+    log_rotated_manual: "Inikot ang Paso",
+    btn_log_rotation: "I-log ang Pag-ikot",
+    msg_pot_rotated_alert: "Ang pag-ikot ng paso noong {date} ay na-save sa iyong kasaysayan.",
+    lbl_pot_rotation: "Pag-ikot ng Paso"
   }
 };
 

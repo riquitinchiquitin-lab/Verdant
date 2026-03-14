@@ -34,6 +34,8 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
   const [growthRate, setGrowthRate] = useState('');
   const [repottingFrequency, setRepottingFrequency] = useState<number | null>(null);
   const [lastPotSize, setLastPotSize] = useState('');
+  const [rotationFrequency, setRotationFrequency] = useState<number | null>(null);
+  const [lastRotated, setLastRotated] = useState<string | null>(null);
   const [propagationMethods, setPropagationMethods] = useState('');
   const [propagationInstructions, setPropagationInstructions] = useState('');
   const [repottingInstructions, setRepottingInstructions] = useState('');
@@ -69,6 +71,8 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
         setTargetDli(plant.targetDli || null);
         setRepottingFrequency(plant.repottingFrequency || null);
         setLastPotSize(plant.lastPotSize || '');
+        setRotationFrequency(plant.rotationFrequency || null);
+        setLastRotated(plant.lastRotated || null);
         setPropagationMethods(lva(plant.propagationMethods as any)?.join(', ') || '');
         setPropagationInstructions(lv(plant.propagationInstructions));
         setRepottingInstructions(lv(plant.repottingInstructions));
@@ -144,6 +148,8 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
               targetDli,
               repottingFrequency,
               lastPotSize,
+              rotationFrequency,
+              lastRotated,
               propagationMethods: propagationMethodsObj,
               propagationInstructions: propagationInstructionsObj,
               repottingInstructions: repottingInstructionsObj,
@@ -362,6 +368,16 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
                       <div>
                           <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_last_pot_size')}</label>
                           <input type="text" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={lastPotSize} onChange={e => setLastPotSize(e.target.value)} placeholder={t('placeholder_pot_size')} />
+                      </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_rotation_frequency')}</label>
+                          <input type="number" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={rotationFrequency || ''} onChange={e => setRotationFrequency(parseInt(e.target.value) || null)} />
+                      </div>
+                      <div>
+                          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_last_rotated')}</label>
+                          <input type="date" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={lastRotated || ''} onChange={e => setLastRotated(e.target.value)} />
                       </div>
                   </div>
                   <div>

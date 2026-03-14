@@ -42,6 +42,30 @@ const MoistureProbeIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+export const PotRotationIcon = ({ className }: { className?: string }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="1.2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    {/* The Plant & Pot - Scaled slightly for better orbit space */}
+    <path d="M10.5 14.5l.4 3h2.2l.4-3" />
+    <path d="M9.5 12h5v2.5h-5z" />
+    <path d="M12 12V9.5" />
+    <path d="M12 9.5c-1.2-1.2-2.5-.8-2.5-.8s.4 1.2 2.5.8c2.1-.4 2.5-.8 2.5-.8s-1.3-.4-2.5.8z" />
+    
+    {/* The Orbiting Arrows - Spread out further (Radius 9) */}
+    <path d="M21 12a9 9 0 0 0-16.15-5.3" />
+    <path d="M3 12a9 9 0 0 0 16.15 5.3" />
+    <polyline points="17 19 20 18 19 15" />
+    <polyline points="7 5 4 6 5 9" />
+  </svg>
+);
+
 export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, onClose, plant: initialPlant }) => {
   const { updatePlant, plants, addLog, deletePlant, setAlertMessage, getEffectiveApiKey } = usePlants();
   const { consumeItem } = useInventory();
@@ -169,6 +193,12 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
       return;
     }
     const date = new Date();
+    if (type === 'WATER') {
+      updatePlant(plant.id, { lastWatered: date.toISOString() });
+    }
+    if (type === 'ROTATED') {
+      updatePlant(plant.id, { lastRotated: date.toISOString() });
+    }
     const noteKey = type === 'NEW_LEAF' ? 'log_new_leaf' : ('log_' + type.toLowerCase() + '_manual');
     addLog(plant.id, { 
       id: `l-${Date.now()}`, 
@@ -188,6 +218,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
       'REPOTTED': t('log_action_repotted'),
       'FLOWER': t('log_action_flowered'),
       'NEW_LEAF': t('log_new_leaf'),
+      'ROTATED': t('log_rotated_manual'),
     };
     const actionText = actionTextMap[type] || type;
 
@@ -307,6 +338,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
         case 'NOTE': return '📝';
         case 'MOISTURE': return <MoistureProbeIcon className="w-6 h-6" />;
         case 'PHENOPHASE': return '🧬';
+        case 'ROTATED': return <PotRotationIcon className="w-6 h-6" />;
         default: return '📍';
     }
   };
@@ -425,18 +457,19 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                             </Button>
                         </div>
 
-                        <div className="grid grid-cols-4 gap-3 md:gap-4 w-full">
+                        <div className="grid grid-cols-3 md:grid-cols-6 gap-3 md:gap-4 w-full items-center">
                             {[
                                 { type: 'FERTILIZED', icon: '🧪' },
                                 { type: 'PRUNED', icon: '✂️' },
                                 { type: 'REPOTTED', icon: '🪴' },
                                 { type: 'NEW_LEAF', icon: '🌱' },
-                                ...(plant.flowers ? [{ type: 'FLOWER', icon: '🌸' }] : [])
+                                ...(plant.flowers ? [{ type: 'FLOWER', icon: '🌸' }] : []),
+                                { type: 'ROTATED', icon: <PotRotationIcon className="w-8 h-8 md:w-10 md:h-10" /> }
                             ].map(action => (
                                 <button 
                                     key={action.type}
                                     onClick={() => handleLogAction(action.type as any)}
-                                    className={`h-14 md:h-16 rounded-2xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-2xl md:text-3xl hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors ${lastLoggedAction === action.type ? 'ring-2 ring-verdant' : ''}`}
+                                    className={`h-14 md:h-16 rounded-2xl border border-gray-100 dark:border-white/10 bg-white dark:bg-slate-800 shadow-xl shadow-black/5 flex items-center justify-center text-2xl md:text-3xl hover:bg-gray-50 dark:hover:bg-slate-700 hover:scale-105 active:scale-95 transition-all duration-300 ${lastLoggedAction === action.type ? 'ring-4 ring-emerald-500/20 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-500/30' : ''}`}
                                 >
                                     {action.icon}
                                 </button>
@@ -553,6 +586,16 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                             subValue={!plant.repottingFrequency ? '(Suggested based on species)' : undefined}
                                         />
                                         <PassportItem icon="🪴" label={t('lbl_last_pot_size')} value={plant.lastPotSize || t('lbl_na')} />
+                                        <PassportItem 
+                                            icon="🔄" 
+                                            label={t('lbl_rotation_frequency')} 
+                                            value={plant.rotationFrequency ? `${plant.rotationFrequency} ${t('days')}` : t('lbl_na')} 
+                                        />
+                                        <PassportItem 
+                                            icon="📅" 
+                                            label={t('lbl_last_rotated')} 
+                                            value={plant.lastRotated ? new Date(plant.lastRotated).toLocaleDateString() : t('lbl_na')} 
+                                        />
                                         <PassportItem icon="🧬" label={t('lbl_propagation')} value={lva(plant.propagationMethods as any)?.join(', ') || t('lbl_na')} />
                                     </div>
                                 </section>
