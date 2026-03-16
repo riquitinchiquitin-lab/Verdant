@@ -134,8 +134,9 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
             roomResult = null;
           }
 
-          onSave(plant.id, { 
+          await onSave(plant.id, { 
               ...refreshedData,
+              species: plant.species,
               nickname: nicknameObj, 
               room: roomResult,
               category: categoryObj,

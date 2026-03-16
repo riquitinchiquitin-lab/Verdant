@@ -214,9 +214,9 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
                         <Button 
                             variant="primary"
                             className={`w-full rounded-2xl h-12 font-black text-[10px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all ${lastLoggedAction === 'WATER' ? 'bg-emerald-500 text-white' : status.daysLeft === 0 ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} 
-                            onClick={(e) => { 
+                            onClick={async (e) => { 
                                 e.stopPropagation(); 
-                                addLog(plant.id!, { id: `l-${Date.now()}`, date: new Date().toISOString(), type: 'WATER' }); 
+                                await addLog(plant.id!, { id: `l-${Date.now()}`, date: new Date().toISOString(), type: 'WATER' }); 
                                 setLastLoggedAction('WATER');
                                 const dateString = new Date().toLocaleDateString(language, { month: 'long', day: 'numeric' });
                                 const message = t('log_alert_message').replace('{action}', t('log_action_watered')).replace('{date}', dateString);

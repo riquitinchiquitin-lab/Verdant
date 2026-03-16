@@ -21,7 +21,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     // DEV-ONLY: Automatically sign in as a mock owner to bypass login screen.
     // This allows development on protected routes without a valid Google Client ID.
-    if (import.meta.env.DEV) {
+    if (import.meta.env.DEV && import.meta.env.VITE_DISABLE_DEV_AUTH !== 'true') {
       const mockUser: User = {
         id: 'dev-user-01',
         email: 'dev@verdant.systems',

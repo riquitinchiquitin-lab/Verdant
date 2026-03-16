@@ -94,15 +94,15 @@ export const CareSchedule: React.FC = () => {
     }
   };
 
-  const handleWater = (plant: Plant) => {
-    addLog(plant.id, { id: `l-${Date.now()}`, date: new Date().toISOString(), type: 'WATER', localizedNote: { en: t('log_water_manual') } });
+  const handleWater = async (plant: Plant) => {
+    await addLog(plant.id, { id: `l-${Date.now()}`, date: new Date().toISOString(), type: 'WATER', localizedNote: { en: t('log_water_manual') } });
     updatePlant(plant.id, { lastWatered: new Date().toISOString() });
     setLastLoggedAction(plant.id + '-water');
     setTimeout(() => setLastLoggedAction(null), 2000);
   };
 
-  const handleRotate = (plant: Plant) => {
-    addLog(plant.id, { 
+  const handleRotate = async (plant: Plant) => {
+    await addLog(plant.id, { 
       id: `l-${Date.now()}`, 
       date: new Date().toISOString(), 
       type: 'ROTATED', 

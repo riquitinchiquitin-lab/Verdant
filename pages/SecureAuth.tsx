@@ -216,14 +216,9 @@ export const SecureAuth: React.FC = () => {
             </div>
             <div className="space-y-3">
               <h2 className="text-3xl font-black text-white tracking-tighter uppercase leading-none italic">
-                {t('app_name').toUpperCase()}<br/>{t('sys_auth').toUpperCase()}
+                Verdant<br/>
+                <span className="text-sm font-black italic tracking-[0.3em] opacity-40 mt-2 block">Multilingual Plant Management</span>
               </h2>
-              <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${configMissing ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${configMissing ? 'bg-red-500' : 'bg-emerald-500'}`}></span>
-                <p className={`text-[10px] font-black uppercase tracking-[0.2em]`}>
-                  {configMissing ? t('sys_config_req').toUpperCase() : t('sys_strict').toUpperCase()}
-                </p>
-              </div>
             </div>
           </div>
 
@@ -294,7 +289,6 @@ export const SecureAuth: React.FC = () => {
               </div>
             ) : (
               <div className="w-full flex flex-col items-center gap-6">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">{t('sys_verification')}</p>
                 <GoogleLoginButton onResponse={handleCredentialResponse} isDarkMode={true} language={language} />
               </div>
             )}
@@ -332,6 +326,9 @@ export const SecureAuth: React.FC = () => {
           </div>
           <div className="h-px w-12 bg-slate-700 mx-auto opacity-40"></div>
           <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.5em] opacity-40">© 2026 VERDANT BOTANICAL SYSTEMS</p>
+          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.15em] opacity-70 max-w-[300px] mx-auto leading-relaxed">
+            Creative Commons Attribution-NonCommercial 4.0 International Public License
+          </p>
         </div>
       </div>
     </div>

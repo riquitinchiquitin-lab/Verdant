@@ -41,7 +41,7 @@ const PlantContext = createContext<PlantContextType | undefined>(undefined);
 
 export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { token, user } = useAuth();
-  const { lv, t } = useLanguage();
+  const { lv, t, language } = useLanguage();
   const [plants, setPlants] = useState<Plant[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [houses, setHouses] = useState<House[]>([]);
@@ -169,18 +169,24 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const newTasks: Task[] = [];
     const now = new Date();
 
-    // 1. Rotation Task (Weekly)
+    // 1. Rotation Task
     const lightAdvice = lv(plant.lightAdvice).toLowerCase();
-    if (lightAdvice.includes('rotate') || lightAdvice.includes('weekly')) {
+    const hasRotationAdvice = lightAdvice.includes('rotate') || lightAdvice.includes('weekly');
+    const rotationInterval = plant.rotationFrequency || (hasRotationAdvice ? 7 : null);
+
+    if (rotationInterval) {
       newTasks.push({
         id: `t-rotate-${plant.id}-${Date.now()}`,
         plantIds: [plant.id],
         type: 'GENERAL',
         title: { en: `Rotate ${lv(plant.nickname)}`, fr: `Pivoter ${lv(plant.nickname)}` },
-        description: { en: 'Rotate weekly for even growth.', fr: 'Pivoter chaque semaine pour une croissance uniforme.' },
-        date: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        description: { 
+          en: `Rotate every ${rotationInterval} days for even growth.`, 
+          fr: `Pivoter tous les ${rotationInterval} jours pour une croissance uniforme.` 
+        },
+        date: new Date(now.getTime() + rotationInterval * 24 * 60 * 60 * 1000).toISOString(),
         completed: false,
-        recurrence: { type: 'WEEKLY', dayOfWeek: now.getDay() },
+        recurrence: rotationInterval === 7 ? { type: 'WEEKLY', dayOfWeek: now.getDay() } : { type: 'DAILY' },
         houseId: plant.houseId
       });
     }
@@ -402,10 +408,38 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const plant = plants.find(p => p.id === plantId);
     if (!plant) return;
     
+    let finalLog = { ...log };
+    
+    // Ensure 11 languages translation for every log entry
+    const currentLangs = Object.keys(finalLog.localizedNote || {});
+    if (currentLangs.length < 11) {
+      let textToTranslate = '';
+      if (finalLog.localizedNote) {
+        textToTranslate = (finalLog.localizedNote as any)[language] || finalLog.localizedNote.en || Object.values(finalLog.localizedNote)[0] as string;
+      } else {
+        // Fallback to default note keys if no note provided
+        const noteKey = log.type === 'NEW_LEAF' ? 'log_new_leaf' : ('log_' + log.type.toLowerCase() + '_manual');
+        textToTranslate = t(noteKey as any);
+      }
+
+      if (textToTranslate) {
+        try {
+          finalLog.localizedNote = await translateInput(textToTranslate, language, getEffectiveApiKey());
+        } catch (e) {
+          console.warn("Auto-translation failed in addLog:", e);
+          // Fallback to what we have or at least the source text
+          if (!finalLog.localizedNote) {
+            finalLog.localizedNote = { en: textToTranslate, [language]: textToTranslate };
+          }
+        }
+      }
+    }
+    
     const updatedPlant = {
         ...plant,
-        logs: [log, ...(plant.logs || [])],
-        lastWatered: log.type === 'WATER' ? log.date : plant.lastWatered,
+        logs: [finalLog, ...(plant.logs || [])],
+        lastWatered: finalLog.type === 'WATER' ? finalLog.date : plant.lastWatered,
+        lastRotated: finalLog.type === 'ROTATED' ? finalLog.date : plant.lastRotated,
         lastModified: new Date().toISOString()
     };
 

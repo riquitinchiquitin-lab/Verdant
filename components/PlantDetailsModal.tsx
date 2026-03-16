@@ -18,6 +18,7 @@ import { HealthCheckModal } from './HealthCheckModal';
 import { PlantLogEntry } from './PlantLogEntry';
 import { useInventory } from '../context/InventoryContext';
 import { PhenophaseType } from '../types';
+import { translateInput } from '../services/translationService';
 
 interface PlantDetailsModalProps {
   isOpen: boolean;
@@ -183,7 +184,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
     await updatePlant(plant.id, { images: newImages });
   };
 
-  const handleLogAction = (type: LogType) => {
+  const handleLogAction = async (type: LogType) => {
     if (type === 'FERTILIZED') {
       setIsFertilizerOpen(true);
       return;
@@ -193,21 +194,14 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
       return;
     }
     const date = new Date();
-    if (type === 'WATER') {
-      updatePlant(plant.id, { lastWatered: date.toISOString() });
-    }
-    if (type === 'ROTATED') {
-      updatePlant(plant.id, { lastRotated: date.toISOString() });
-    }
     const noteKey = type === 'NEW_LEAF' ? 'log_new_leaf' : ('log_' + type.toLowerCase() + '_manual');
-    addLog(plant.id, { 
+    const noteText = t(noteKey as any);
+    const localizedNote = await translateInput(noteText, language);
+    await addLog(plant.id, { 
       id: `l-${Date.now()}`, 
       date: date.toISOString(), 
       type, 
-      localizedNote: { 
-        en: t(noteKey as any),
-        [language]: t(noteKey as any) 
-      } 
+      localizedNote
     });
     setLastLoggedAction(type);
 
@@ -230,17 +224,16 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
     setTimeout(() => setAlertMessage(null), 4000);
   };
 
-  const handleMoistureLog = (value: number) => {
+  const handleMoistureLog = async (value: number) => {
     const date = new Date();
-    addLog(plant.id, { 
+    const noteText = t('lbl_moisture_level_log', { value: value.toString() });
+    const localizedNote = await translateInput(noteText, language);
+    await addLog(plant.id, { 
       id: `l-${Date.now()}`, 
       date: date.toISOString(), 
       type: 'MOISTURE', 
       value,
-      localizedNote: { 
-        en: t('lbl_moisture_level_log', { value: value.toString() }),
-        [language]: t('lbl_moisture_level_log', { value: value.toString() }) 
-      }
+      localizedNote
     });
     setLastLoggedAction('MOISTURE');
     const dateString = date.toLocaleDateString(language, { month: 'long', day: 'numeric' });
@@ -249,16 +242,15 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
     setTimeout(() => setAlertMessage(null), 4000);
   };
 
-  const handleFertilizerLog = (fertilizer: any, amount: number) => {
+  const handleFertilizerLog = async (fertilizer: any, amount: number) => {
     const date = new Date();
-    addLog(plant.id, { 
+    const noteText = t('lbl_fertilized_with_log', { amount: amount.toString(), unit: fertilizer.unit, name: lv(fertilizer.name) });
+    const localizedNote = await translateInput(noteText, language);
+    await addLog(plant.id, { 
       id: `l-${Date.now()}`, 
       date: date.toISOString(), 
       type: 'FERTILIZED', 
-      localizedNote: { 
-        en: t('lbl_fertilized_with_log', { amount: amount.toString(), unit: fertilizer.unit, name: lv(fertilizer.name) }),
-        [language]: t('lbl_fertilized_with_log', { amount: amount.toString(), unit: fertilizer.unit, name: lv(fertilizer.name) }) 
-      },
+      localizedNote,
       metadata: { fertilizerId: fertilizer.id, amount, unit: fertilizer.unit }
     });
     consumeItem(fertilizer.id, amount);
@@ -272,15 +264,13 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
     setTimeout(() => setAlertMessage(null), 4000);
   };
 
-  const handlePhenophaseLog = (phase: PhenophaseType, date: string, note: string) => {
-    addLog(plant.id, { 
+  const handlePhenophaseLog = async (phase: PhenophaseType, date: string, note: string) => {
+    const localizedNote = await translateInput(note, language);
+    await addLog(plant.id, { 
       id: `l-${Date.now()}`, 
       date: new Date(date).toISOString(), 
       type: 'PHENOPHASE', 
-      localizedNote: { 
-        en: note,
-        [language]: note 
-      },
+      localizedNote,
       metadata: { phase }
     });
     setLastLoggedAction('PHENOPHASE');

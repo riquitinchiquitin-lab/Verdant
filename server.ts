@@ -639,7 +639,7 @@ app.get('/env-config.js', (req, res) => {
 });
 
 async function setupMiddlewareAndStart() {
-  process.env.NODE_ENV = 'development';
+  process.env.NODE_ENV = process.env.NODE_ENV || 'development';
   console.log('[CORE] NODE_ENV:', process.env.NODE_ENV);
   
   const vitePromise = process.env.NODE_ENV !== 'production' 

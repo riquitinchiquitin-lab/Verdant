@@ -574,6 +574,8 @@ export const AdminView: React.FC = () => {
                         </Button>
                     </div>
                 </div>
+                {/* ACCESS CONTROL - HIDDEN AS REQUESTED */}
+                {/*
                 <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-200 dark:border-slate-800 shadow-sm space-y-6 text-slate-900 dark:text-white">
                     <h3 className="text-xl font-black uppercase">{t('lbl_access_control')}</h3>
                     <p className="text-sm text-slate-500">{t('lbl_access_control_desc')}</p>
@@ -584,6 +586,7 @@ export const AdminView: React.FC = () => {
                         </div>
                     </div>
                 </div>
+                */}
             </div>
         )}
         {activeTab === 'LOGS' && (

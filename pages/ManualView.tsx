@@ -80,7 +80,8 @@ export const ManualView: React.FC = () => {
             </div>
         </div>
 
-        {/* SECTION 2: ACCESS CONTROL */}
+        {/* SECTION 2: ACCESS CONTROL - HIDDEN AS REQUESTED */}
+        {/*
         <div className="space-y-10">
             <h2 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-6">
                 <div className="w-14 h-14 bg-blue-500/10 text-blue-500 rounded-2xl flex items-center justify-center text-2xl shadow-inner border border-blue-500/20">🔑</div>
@@ -100,6 +101,7 @@ export const ManualView: React.FC = () => {
                 </div>
             </div>
         </div>
+        */}
 
         {/* SECTION 3: SPECIMEN DASHBOARD */}
         <div className="space-y-10 print-break">

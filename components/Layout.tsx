@@ -302,16 +302,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     </div>
                 </div>
             )}
-            <div className="px-2 pt-2 opacity-30">
-               <a 
-                 href="https://creativecommons.org/licenses/by-nc/4.0/" 
-                 target="_blank" 
-                 rel="noopener noreferrer"
-                 className="text-[7px] font-bold text-slate-400 uppercase tracking-[0.2em] hover:text-emerald-500 transition-colors"
-               >
-                 Licensed under CC BY-NC 4.0
-               </a>
-            </div>
           </div>
         </div>
       </aside>
