@@ -253,16 +253,30 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const addPlant = async (plant: Plant) => {
     setPlants(p => [plant, ...p]);
     await generateAutomatedTasks(plant);
-    if (token) await fetchWithAuth('/api/plants', token, { method: 'POST', body: JSON.stringify(plant) });
+    if (token) {
+      try {
+        await fetchWithAuth('/api/plants', token, { 
+          method: 'POST', 
+          body: JSON.stringify(plant) 
+        });
+      } catch (e) {
+        console.error("Failed to sync new plant:", e);
+      }
+    }
     setAlertMessage(t('log_alert_message').replace('{action}', t('menu_my_plants')).replace('{date}', new Date().toLocaleDateString()));
     setTimeout(() => setAlertMessage(null), 3000);
   };
 
   const updatePlant = async (id: string, updates: Partial<Plant>) => {
+    console.log("updatePlant called", { id, updates });
     const plant = plants.find(p => p.id === id);
-    if (!plant) return;
+    if (!plant) {
+        console.warn("Plant not found for update:", id);
+        return;
+    }
 
     const updatedPlant = { ...plant, ...updates, lastModified: new Date().toISOString() };
+    console.log("Updated plant object:", updatedPlant);
     setPlants(prev => prev.map(p => p.id === id ? updatedPlant : p));
     
     // If key fields changed, regenerate tasks (simple approach: delete old auto-tasks and create new ones)
@@ -270,17 +284,25 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const hasKeyChanges = keyFields.some(f => updates[f as keyof Plant] !== undefined);
     
     if (hasKeyChanges) {
+      console.log("Key fields changed, regenerating tasks...");
       // Remove existing automated tasks for this plant that are not completed
       setTasks(prev => prev.filter(t => !(t.plantIds.includes(id) && !t.completed && (t.id.startsWith('t-repot-') || t.id.startsWith('t-rotate-') || t.id.startsWith('t-fert-') || t.id.startsWith('t-water-')))));
       await generateAutomatedTasks(updatedPlant);
     }
 
     if (token) {
+      console.log("Syncing update to server...");
       try {
-        await fetchWithAuth('/api/plants', token, { method: 'POST', body: JSON.stringify(updatedPlant) });
+        const response = await fetchWithAuth('/api/plants', token, { 
+          method: 'POST', 
+          body: JSON.stringify(updatedPlant) 
+        });
+        console.log("Server response for plant update:", response.status);
       } catch (e) {
         console.error("Failed to sync plant update:", e);
       }
+    } else {
+        console.warn("No token available for sync");
     }
     setAlertMessage(t('log_alert_message').replace('{action}', t('menu_my_plants')).replace('{date}', new Date().toLocaleDateString()));
     setTimeout(() => setAlertMessage(null), 3000);
@@ -397,7 +419,8 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     // If user has a specific house assigned, use that house's key
     if (user.houseId) {
       const house = houses.find(h => h.id === user.houseId);
-      if (house?.googleApiKey) return house.googleApiKey;
+      const houseKey = house?.googleApiKey?.trim();
+      if (houseKey && houseKey !== 'undefined' && houseKey !== 'null') return houseKey;
     }
     
     // Fallback to global key
@@ -447,7 +470,10 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     if (token) {
       try {
-        await fetchWithAuth('/api/plants', token, { method: 'POST', body: JSON.stringify(updatedPlant) });
+        await fetchWithAuth('/api/plants', token, { 
+          method: 'POST', 
+          body: JSON.stringify(updatedPlant) 
+        });
       } catch (e) {
         console.error("Failed to sync log addition:", e);
       }

@@ -7,10 +7,13 @@ import { useLanguage } from '../context/LanguageContext';
 import { useSystem } from '../context/SystemContext';
 import { Button } from '../components/ui/Button';
 import { Plant } from '../types';
+import { Plus, RefreshCw, Scan, Download } from 'lucide-react';
 import { AddPlantModal } from '../components/AddPlantModal';
 import { PlantCard } from '../components/PlantCard';
 import { PlantDetailsModal } from '../components/PlantDetailsModal';
 import { QrScannerModal } from '../components/QrScannerModal';
+import { Logo } from '../components/ui/Logo';
+import { PlantTelemetry } from '../components/PlantTelemetry';
 import { exportPlantsToNiimbotExcel } from '../services/exportService';
 import { generatePlantDetails } from '../services/plantAi';
 
@@ -18,7 +21,7 @@ export const Dashboard: React.FC = () => {
   const { user, can } = useAuth();
   const { showNotification } = useSystem();
   const navigate = useNavigate();
-  const { plants, addPlant, restoreDemoData, houses, getEffectiveApiKey, searchFilter } = usePlants();
+  const { plants, addPlant, restoreDemoData, houses, getEffectiveApiKey, searchFilter, refreshAllData, isSynced } = usePlants();
   const { t, lv } = useLanguage();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -38,6 +41,20 @@ export const Dashboard: React.FC = () => {
         return (lv(p.nickname) || '').toLowerCase().includes(f) || (p.species || '').toLowerCase().includes(f);
     });
   }, [plants, user, isAdmin, searchFilter, lv]);
+
+  const { featured, others } = useMemo(() => {
+    const priorityPlant = filtered.find(p => p.isPriority);
+    if (priorityPlant) {
+      return {
+        featured: priorityPlant,
+        others: filtered.filter(p => p.id !== priorityPlant.id)
+      };
+    }
+    return {
+      featured: filtered[0],
+      others: filtered.slice(1)
+    };
+  }, [filtered]);
 
   const handleExport = () => {
     const fileName = `verdant_${user?.house?.name?.en || 'jungle'}_labels.xlsx`;
@@ -85,27 +102,57 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-8 pb-20 transition-all">
+    <div className="max-w-7xl mx-auto space-y-8 pb-20 transition-all">
         <AddPlantModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSave={addPlant} />
         <PlantDetailsModal isOpen={!!selectedPlant} plant={selectedPlant} onClose={() => setSelectedPlant(null)} />
         <QrScannerModal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} onScanSuccess={handleScanSuccess} />
 
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-200 dark:border-slate-800 pb-8">
-            <div>
-                <h1 className="text-2xl md:text-4xl font-black text-gray-900 dark:text-white tracking-tighter uppercase leading-none">{t('menu_my_plants') || 'My Plants'}</h1>
-                <p className="text-gray-500 dark:text-slate-400 mt-2 text-base md:text-lg font-bold uppercase tracking-widest text-xs md:text-sm">
-                    {user?.houseId ? lv(houses.find(h => h.id === user.houseId)?.name) : t('global_view')} • {user ? t('role_' + user.role.toLowerCase()) : ''}
-                </p>
-                {!user?.houseId && !isAdmin && (
-                    <p className="text-white text-[9px] font-black uppercase tracking-widest mt-2 bg-red-600 dark:bg-red-500 px-3 py-1 rounded-full shadow-sm inline-block animate-pulse">
-                        {t('msg_no_house')}
+        {/* CLEAN HEADER */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 px-6 md:px-10 pt-10 pb-4">
+            <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white dark:bg-slate-900 rounded-2xl shadow-sm flex items-center justify-center border border-gray-100 dark:border-white/5">
+                    <Logo className="w-8 h-8 text-verdant" />
+                </div>
+                <div>
+                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tighter uppercase leading-none">Verdant</h1>
+                    <p className="text-[10px] font-bold text-verdant uppercase tracking-widest mt-1 opacity-70">
+                        {user?.houseId ? lv(houses.find(h => h.id === user.houseId)?.name) : t('global_view')} • {user ? t('role_' + user.role.toLowerCase()) : ''}
                     </p>
-                )}
+                </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+                <button
+                    onClick={() => refreshAllData()}
+                    className="p-3 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl text-gray-500 hover:text-verdant hover:border-verdant/30 transition-all shadow-sm active:scale-95"
+                    title={t('sync_now')}
+                >
+                    <RefreshCw className={`w-5 h-5 ${!isSynced ? 'animate-spin' : ''}`} />
+                </button>
+                <Button
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="h-12 px-6 bg-verdant text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-verdant/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                >
+                    <Plus className="w-4 h-4" />
+                    {t('add_plant')}
+                </Button>
             </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-10">
-            {filtered.map(plant => (
+        <PlantTelemetry />
+
+        <div className="px-6 md:px-10 grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-8">
+            {featured && (
+                <div key={featured.id} className="relative group">
+                    {!featured.houseId && (
+                        <div className="absolute -top-3 -right-3 z-20 bg-amber-500 text-white text-[8px] font-black px-2 py-1 rounded-full shadow-lg border-2 border-white dark:border-slate-900 uppercase tracking-widest animate-bounce">
+                            {t('lbl_unattributed')}
+                        </div>
+                    )}
+                    <PlantCard plant={featured} onClick={() => setSelectedPlant(featured)} showActions={can('log_data')} />
+                </div>
+            )}
+            {others.map(plant => (
                 <div key={plant.id} className="relative group">
                     {!plant.houseId && (
                         <div className="absolute -top-3 -right-3 z-20 bg-amber-500 text-white text-[8px] font-black px-2 py-1 rounded-full shadow-lg border-2 border-white dark:border-slate-900 uppercase tracking-widest animate-bounce">

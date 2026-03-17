@@ -31,7 +31,7 @@ export const ManualView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] p-6 md:p-14 pb-32">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#020617] p-6 md:p-14 pb-32 transition-colors duration-500">
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           .no-print { display: none !important; }
@@ -48,14 +48,14 @@ export const ManualView: React.FC = () => {
 
       <div className="max-w-5xl mx-auto space-y-16">
         {/* HEADER SECTION */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b-2 border-white/5 pb-12 relative">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b-2 border-slate-200 dark:border-white/5 pb-12 relative">
           <div className="flex items-center gap-8">
             <div className="w-20 h-20 drop-shadow-[0_0_15px_rgba(94,143,71,0.5)]">
               <Logo />
             </div>
             <div>
-              <h1 className="text-5xl font-black text-white tracking-tighter uppercase leading-none">{t('manual_title')}</h1>
-              <p className="text-emerald-500/60 mt-3 font-black uppercase tracking-[0.4em] text-xs">{t('manual_subtitle')}</p>
+              <h1 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter uppercase leading-none">{t('manual_title')}</h1>
+              <p className="text-emerald-600 dark:text-emerald-500/60 mt-3 font-black uppercase tracking-[0.4em] text-xs">{t('manual_subtitle')}</p>
             </div>
           </div>
           <Button onClick={handlePrint} className="no-print rounded-3xl h-16 px-10 bg-emerald-600 hover:bg-emerald-700 shadow-2xl shadow-emerald-500/20 font-black uppercase tracking-widest border-b-4 border-emerald-900 active:translate-y-1 transition-all">
@@ -66,16 +66,16 @@ export const ManualView: React.FC = () => {
 
         {/* SECTION 1: ARCHITECTURE */}
         <div className="space-y-10">
-            <div className="p-12 bg-slate-900/50 rounded-[50px] border border-white/5 relative overflow-hidden group">
+            <div className="p-12 bg-white dark:bg-slate-900/50 rounded-[50px] border border-slate-100 dark:border-white/5 relative overflow-hidden group shadow-sm dark:shadow-none">
                 <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-emerald-500/5 blur-[120px] rounded-full group-hover:bg-emerald-500/10 transition-all duration-1000"></div>
-                <h2 className="text-3xl font-black text-white uppercase tracking-tight mb-6">{t('doc_intro_title')}</h2>
-                <p className="text-slate-400 leading-relaxed font-medium text-lg max-w-3xl">
+                <h2 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight mb-6">{t('doc_intro_title')}</h2>
+                <p className="text-slate-600 dark:text-slate-400 leading-relaxed font-medium text-lg max-w-3xl">
                     {t('doc_intro_body')}
                 </p>
                 <div className="mt-12 flex flex-wrap gap-8">
-                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 px-4 py-2 bg-black/40 rounded-full border border-white/5">{t('manual_aes')}</span>
-                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 px-4 py-2 bg-black/40 rounded-full border border-white/5">{t('manual_proxmox')}</span>
-                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500 px-4 py-2 bg-emerald-500/5 rounded-full border border-emerald-500/20">{t('manual_ai_uplink')}</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 px-4 py-2 bg-slate-50 dark:bg-black/40 rounded-full border border-slate-100 dark:border-white/5">{t('manual_aes')}</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 px-4 py-2 bg-slate-50 dark:bg-black/40 rounded-full border border-slate-100 dark:border-white/5">{t('manual_proxmox')}</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-600 dark:text-emerald-500 px-4 py-2 bg-emerald-50 dark:bg-emerald-500/5 rounded-full border border-emerald-100 dark:border-emerald-500/20">{t('manual_ai_uplink')}</span>
                 </div>
             </div>
         </div>
@@ -105,16 +105,16 @@ export const ManualView: React.FC = () => {
 
         {/* SECTION 3: SPECIMEN DASHBOARD */}
         <div className="space-y-10 print-break">
-            <h2 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-6">
-                <div className="w-14 h-14 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center text-2xl shadow-inner border border-emerald-500/20">📸</div>
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight flex items-center gap-6">
+                <div className="w-14 h-14 bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 rounded-2xl flex items-center justify-center text-2xl shadow-inner border border-emerald-500/20">📸</div>
                 {t('doc_ident_title')}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-16 pl-20 items-center">
-                <p className="text-slate-400 leading-relaxed font-medium text-lg">
+                <p className="text-slate-600 dark:text-slate-400 leading-relaxed font-medium text-lg">
                     {t('doc_ident_body')}
                 </p>
                 <div className="relative">
-                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.5em] mb-6 text-right print:hidden">{t('manual_visual_asset_preview')}</p>
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.5em] mb-6 text-right print:hidden">{t('manual_visual_asset_preview')}</p>
                     <div className="transform scale-90 md:scale-100 origin-top-right">
                         <PlantCard plant={demoPlant as any} showActions={false} />
                     </div>
@@ -124,15 +124,15 @@ export const ManualView: React.FC = () => {
 
         {/* SECTION 4: INVENTORY & MIXES */}
         <div className="space-y-10">
-            <h2 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-6">
-                <div className="w-14 h-14 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center text-2xl shadow-inner border border-amber-500/20">📦</div>
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight flex items-center gap-6">
+                <div className="w-14 h-14 bg-amber-500/10 text-amber-600 dark:text-amber-500 rounded-2xl flex items-center justify-center text-2xl shadow-inner border border-amber-500/20">📦</div>
                 {t('doc_inventory_title')}
             </h2>
             <div className="pl-20 space-y-10">
-                <p className="text-slate-400 leading-relaxed font-medium text-lg">
+                <p className="text-slate-600 dark:text-slate-400 leading-relaxed font-medium text-lg">
                     {t('doc_inventory_body')}
                 </p>
-                <div className="bg-slate-950 rounded-[40px] p-10 text-white space-y-6 shadow-2xl border border-white/5 relative overflow-hidden">
+                <div className="bg-slate-900 dark:bg-slate-950 rounded-[40px] p-10 text-white space-y-6 shadow-2xl border border-white/5 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
                     <div className="flex justify-between border-b border-white/10 pb-4">
                         <span className="text-[10px] font-black tracking-[0.3em] opacity-40 uppercase italic">{t('manual_formula_engine')}</span>
@@ -154,12 +154,12 @@ export const ManualView: React.FC = () => {
 
         {/* SECTION 5: LABEL PROTOCOL */}
         <div className="space-y-10 print-break">
-            <h2 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-6">
-                <div className="w-14 h-14 bg-purple-500/10 text-purple-500 rounded-2xl flex items-center justify-center text-2xl shadow-inner border border-purple-500/20">🏷️</div>
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight flex items-center gap-6">
+                <div className="w-14 h-14 bg-purple-500/10 text-purple-600 dark:text-purple-500 rounded-2xl flex items-center justify-center text-2xl shadow-inner border border-purple-500/20">🏷️</div>
                 {t('doc_labels_title')}
             </h2>
             <div className="flex flex-col md:flex-row gap-16 pl-20">
-                <p className="text-slate-400 leading-relaxed font-medium text-lg flex-1">
+                <p className="text-slate-600 dark:text-slate-400 leading-relaxed font-medium text-lg flex-1">
                     {t('doc_labels_body')}
                 </p>
                 <div className="w-56 h-72 bg-white p-8 rounded-[40px] shadow-2xl border-4 border-emerald-500 border-dashed flex flex-col items-center justify-center text-center shrink-0">
@@ -176,7 +176,7 @@ export const ManualView: React.FC = () => {
         </div>
 
         {/* FOOTER */}
-        <div className="pt-24 text-center opacity-30 border-t border-white/5">
+        <div className="pt-24 text-center opacity-30 border-t border-slate-200 dark:border-white/5">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.6em]">{t('manual_footer_copyright')}</p>
             <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mt-3 italic">{t('manual_footer_optimized')}</p>
         </div>

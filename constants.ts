@@ -11,7 +11,21 @@ export const getGoogleClientId = (): string => {
 };
 
 // Gemini API Key - Also injected at runtime
-export const GEMINI_API_KEY = (window as any)._ENV_?.API_KEY || '';
+const getGeminiApiKey = (): string => {
+  let envKey = '';
+  try {
+    if (typeof process !== 'undefined' && process.env) {
+      envKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+    }
+  } catch (e) {}
+  
+  const windowKey = (window as any)._ENV_?.API_KEY;
+  const key = envKey || windowKey || '';
+  if (!key || key === 'undefined' || key === 'null') return '';
+  return key;
+};
+
+export const GEMINI_API_KEY = getGeminiApiKey();
 
 // Current App Version
 export const APP_VERSION = '5.1.2-SECURE';

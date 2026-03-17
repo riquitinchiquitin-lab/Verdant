@@ -47,7 +47,7 @@
     "vite": "^5.0.0"
   },
   "scripts": {
-    "start": "tsx server.ts",
+    "start": "node server.ts",
     "dev": "tsx server.ts",
     "build": "vite build",
     "preview": "vite preview",

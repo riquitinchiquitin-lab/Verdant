@@ -5,6 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { Plant, Log } from '../types';
 import { Button } from '../components/ui/Button';
+import { PotRotationIcon } from '../components/ui/Icons';
 
 const getDaysDue = (plant: Plant): number | null => {
     let effectiveInterval = plant.wateringInterval;
@@ -218,10 +219,10 @@ export const CareSchedule: React.FC = () => {
                             {rotationDaysDue !== null && rotationDaysDue <= 3 && (
                                 <Button 
                                     size="md" 
-                                    className={`flex-1 rounded-xl md:rounded-2xl h-10 md:h-14 font-black uppercase tracking-widest text-[9px] md:text-[10px] shadow-xl border-b-2 md:border-b-4 transition-all active:scale-95 ${lastLoggedAction === plant.id + '-rotate' ? 'bg-emerald-500 border-emerald-700 text-white' : isRotationOverdue ? 'bg-amber-600 hover:bg-amber-700 border-amber-800 text-white' : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-800 text-white'}`} 
+                                    className={`flex-1 rounded-xl md:rounded-2xl h-10 md:h-14 font-black uppercase tracking-widest text-[9px] md:text-[10px] shadow-xl border-b-2 md:border-b-4 transition-all active:scale-95 group ${lastLoggedAction === plant.id + '-rotate' ? 'bg-emerald-500 border-emerald-700 text-white' : isRotationOverdue ? 'bg-amber-600 hover:bg-amber-700 border-amber-800 text-white' : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-800 text-white'}`} 
                                     onClick={() => handleRotate(plant)}
                                 >
-                                    <span className="text-lg md:text-xl">🔄</span>
+                                    <PotRotationIcon className="w-8 h-8 md:w-10 md:h-10 group-hover:animate-[spin_3s_linear_infinite]" />
                                 </Button>
                             )}
                         </div>

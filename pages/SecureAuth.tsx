@@ -102,8 +102,6 @@ export const SecureAuth: React.FC = () => {
   const isDarkMode = document.documentElement.classList.contains('dark');
 
   useEffect(() => {
-    document.documentElement.classList.add('dark');
-    
     const checkConfig = () => {
       const clientId = getGoogleClientId();
       const isEnvAvailable = (window as any)._ENV_ !== undefined;
@@ -197,7 +195,7 @@ export const SecureAuth: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen w-full flex flex-col bg-[#020617] items-center justify-center p-6 font-sans relative overflow-hidden">
+    <div className="min-h-screen w-full flex flex-col bg-slate-50 dark:bg-[#020617] items-center justify-center p-6 font-sans relative overflow-hidden transition-colors duration-500">
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-500/5 blur-[120px] rounded-full"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/5 blur-[120px] rounded-full"></div>
 
@@ -207,7 +205,7 @@ export const SecureAuth: React.FC = () => {
       </div>
 
       <div className="max-w-md w-full z-10 space-y-10">
-        <div className="bg-slate-900 border-2 border-emerald-500/30 rounded-[40px] shadow-[0_0_100px_rgba(16,185,129,0.1)] p-12 space-y-12 relative overflow-hidden transition-all duration-700 hover:border-emerald-500/50">
+        <div className="bg-white dark:bg-slate-900 border-2 border-emerald-500/30 rounded-[40px] shadow-xl dark:shadow-[0_0_100px_rgba(16,185,129,0.1)] p-12 space-y-12 relative overflow-hidden transition-all duration-700 hover:border-emerald-500/50">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-emerald-500 to-transparent"></div>
           
           <div className="text-center space-y-8">
@@ -215,9 +213,9 @@ export const SecureAuth: React.FC = () => {
               <Logo />
             </div>
             <div className="space-y-3">
-              <h2 className="text-3xl font-black text-white tracking-tighter uppercase leading-none italic">
+              <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-[0.15em] uppercase leading-none italic">
                 Verdant<br/>
-                <span className="text-sm font-black italic tracking-[0.3em] opacity-40 mt-2 block">Multilingual Plant Management</span>
+                <span className="text-sm font-black italic tracking-[0.3em] text-slate-400 dark:text-white/40 mt-2 block">Multilingual Plant Management</span>
               </h2>
             </div>
           </div>
@@ -227,26 +225,26 @@ export const SecureAuth: React.FC = () => {
             <div className="absolute inset-0 bg-emerald-500/5 rounded-[32px] blur-xl"></div>
             <div className="relative">
               <span className="text-4xl text-emerald-500/20 font-serif absolute -top-4 -left-2 italic">"</span>
-              <p className="text-lg leading-relaxed text-slate-100 font-medium italic mb-3 tracking-tight">
+              <p className="text-lg leading-relaxed text-slate-700 dark:text-slate-100 font-medium italic mb-3 tracking-tight">
                 {t('genesis_quote')}
               </p>
-              <p className="text-[10px] text-emerald-500 font-black uppercase tracking-[0.5em]">{t('genesis_ref')}</p>
+              <p className="text-[10px] text-emerald-600 dark:text-emerald-500 font-black uppercase tracking-[0.5em]">{t('genesis_ref')}</p>
             </div>
           </div>
 
-          <div className="h-px w-full bg-gradient-to-r from-transparent via-slate-700 to-transparent"></div>
+          <div className="h-px w-full bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent"></div>
 
           <div className="flex flex-col items-center gap-10 min-h-[100px]">
             {configMissing ? (
               <div className="text-center space-y-6">
-                  <p className="text-xs text-slate-400 leading-relaxed uppercase font-bold tracking-widest px-4">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed uppercase font-bold tracking-widest px-4">
                       {t('sys_config_desc')}
                   </p>
-                  <div className="p-4 bg-black/40 rounded-xl border border-white/5 font-mono text-[9px] text-emerald-500 break-all space-y-1">
+                  <div className="p-4 bg-slate-50 dark:bg-black/40 rounded-xl border border-slate-100 dark:border-white/5 font-mono text-[9px] text-emerald-600 dark:text-emerald-500 break-all space-y-1">
                       <div>ENV_SCRIPT: {envLoaded ? 'LOADED' : 'WAITING...'}</div>
                       <div>DETECTED_ID: {getGoogleClientId() || 'EMPTY_STRING'}</div>
                       {envLoaded && (window as any)._ENV_?._DIAGNOSTIC && (
-                        <div className="mt-2 pt-2 border-t border-white/5 text-[7px] text-slate-500 space-y-0.5">
+                        <div className="mt-2 pt-2 border-t border-slate-200 dark:border-white/5 text-[7px] text-slate-400 dark:text-slate-500 space-y-0.5">
                           <div>CWD: {(window as any)._ENV_._DIAGNOSTIC.cwd}</div>
                           <div>ENV_FILE: {(window as any)._ENV_._DIAGNOSTIC.envExists ? 'FOUND' : 'NOT_FOUND'}</div>
                           <div>ENV_ID_PRESENT: {(window as any)._ENV_._DIAGNOSTIC.googleIdPresent ? 'YES' : 'NO'}</div>
@@ -257,26 +255,15 @@ export const SecureAuth: React.FC = () => {
                           >
                             FORCE_RELOAD
                           </button>
-                          <button 
-                            onClick={async () => {
-                              const res = await fetch('/api/debug/env');
-                              const data = await res.json();
-                              console.log('[DEBUG] Server Env:', data);
-                              alert('Check browser console for server environment debug data.');
-                            }}
-                            className="mt-1 w-full py-1 border border-blue-500/20 rounded text-[6px] hover:bg-blue-500/10 transition-colors"
-                          >
-                            DEBUG_SERVER_ENV
-                          </button>
                         </div>
                       )}
                   </div>
-                  <p className="text-[8px] text-slate-500 font-bold uppercase tracking-tight italic leading-relaxed px-4">
+                  <p className="text-[8px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight italic leading-relaxed px-4">
                       Note: Ensure your current URL ({window.location.origin}) is added to "Authorized JavaScript origins" in your Google Cloud Console.
                   </p>
                   <Button 
                     variant="ghost" 
-                    className="text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-emerald-500"
+                    className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-500"
                     onClick={() => window.location.reload()}
                   >
                     REFRESH_SYSTEM_CACHE
@@ -285,11 +272,11 @@ export const SecureAuth: React.FC = () => {
             ) : loading ? (
               <div className="flex flex-col items-center gap-4 py-4">
                 <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest animate-pulse">{t('sys_handshake')}</p>
+                <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-widest animate-pulse">{t('sys_handshake')}</p>
               </div>
             ) : (
               <div className="w-full flex flex-col items-center gap-6">
-                <GoogleLoginButton onResponse={handleCredentialResponse} isDarkMode={true} language={language} />
+                <GoogleLoginButton onResponse={handleCredentialResponse} isDarkMode={isDarkMode} language={language} />
               </div>
             )}
           </div>
@@ -300,7 +287,7 @@ export const SecureAuth: React.FC = () => {
                 {authError}
               </p>
               {authError === t('msg_access_denied') && (
-                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-tight italic leading-relaxed">
+                  <p className="text-[9px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-tight italic leading-relaxed">
                       {t('msg_invite_required')}
                   </p>
               )}
@@ -310,7 +297,7 @@ export const SecureAuth: React.FC = () => {
 
         {/* ORCHESTRATION LINKS FOOTER - RESTORED & UPDATED */}
         <div className="text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500">
-          <p className="text-[8px] text-slate-500 font-black uppercase tracking-[0.4em]">System Orchestration</p>
+          <p className="text-[8px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.4em]">System Orchestration</p>
           <div className="flex flex-wrap justify-center items-center gap-x-8 gap-y-4 px-4">
             {serviceLinks.map(link => (
               <a 
@@ -318,15 +305,15 @@ export const SecureAuth: React.FC = () => {
                 href={link.url} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-emerald-500 transition-all hover:scale-110 active:scale-95"
+                className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-500 transition-all hover:scale-110 active:scale-95"
               >
                 {link.name}
               </a>
             ))}
           </div>
-          <div className="h-px w-12 bg-slate-700 mx-auto opacity-40"></div>
-          <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.5em] opacity-40">© 2026 VERDANT BOTANICAL SYSTEMS</p>
-          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.15em] opacity-70 max-w-[300px] mx-auto leading-relaxed">
+          <div className="h-px w-12 bg-slate-200 dark:bg-slate-700 mx-auto opacity-40"></div>
+          <p className="text-[9px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.5em] opacity-40">© 2026 VERDANT BOTANICAL SYSTEMS</p>
+          <p className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-[0.15em] opacity-70 max-w-[300px] mx-auto leading-relaxed">
             Creative Commons Attribution-NonCommercial 4.0 International Public License
           </p>
         </div>

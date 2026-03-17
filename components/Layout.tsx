@@ -10,6 +10,7 @@ import { AddPlantModal } from './AddPlantModal';
 import { QrScannerModal } from './QrScannerModal';
 import { generatePlantDetails } from '../services/plantAi';
 import { Button } from './ui/Button';
+import { QrCode } from 'lucide-react';
 
 const NotificationToast: React.FC = () => {
   const { notification, clearNotification } = useSystem();
@@ -198,7 +199,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   };
 
   const navItems = [
-    { to: '/', label: t('menu_my_plants'), icon: '🌿' },
+    { to: '/', label: t('menu_my_plants'), icon: '🌱' },
     { to: '/care', label: t('menu_care'), icon: '💧' },
     { to: '/tasks', label: t('menu_tasks'), icon: '📋' },
     { to: '/inventory', label: t('menu_inventory'), icon: '📦' },
@@ -208,7 +209,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   const isManager = ['OWNER', 'CO_CEO', 'LEAD_HAND'].includes(user?.role || '');
   if (isManager) {
-    navItems.push({ to: '/admin', label: t('menu_admin'), icon: '⚙️' });
+    navItems.push({ to: '/admin', label: t('menu_admin'), icon: '🧰' });
   }
 
   return (
@@ -245,14 +246,16 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               key={item.to}
               to={item.to}
               onClick={() => setIsSidebarOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all ${
+              className={`flex items-center gap-4 px-3 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.1em] transition-all group ${
                 location.pathname === item.to 
-                  ? 'bg-verdant text-white shadow-lg shadow-verdant/20' 
+                  ? 'bg-verdant/10 text-verdant' 
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800'
               }`}
             >
-              <span className="text-base opacity-80">{item.icon}</span>
-              {item.label}
+              <div className={`w-10 h-10 shrink-0 clay-icon ${location.pathname === item.to ? 'scale-110' : ''}`}>
+                <span className="text-xl">{item.icon}</span>
+              </div>
+              <span className="flex-1">{item.label}</span>
             </Link>
           ))}
 
@@ -331,15 +334,15 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     <button 
                         onClick={() => setIsScannerOpen(true)}
                         disabled={isSyncing}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-verdant transition-all border border-gray-100 dark:border-slate-700 rounded-lg"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-verdant transition-all border border-gray-100 dark:border-slate-700 rounded-lg group overflow-hidden"
                         title={t('scan_sync')}
                     >
                         {isSyncing ? (
                             <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                         ) : (
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h2M4 8h16M4 16h16M4 20h4M4 4h4m12 0h4M4 4v4m0 12v4m16-16v4m0 12v4" />
-                            </svg>
+                            <div className="relative w-5 h-5 md:w-6 md:h-6 flex items-center justify-center">
+                                <QrCode className="w-full h-full text-slate-400 dark:text-slate-500 group-hover:text-verdant transition-colors" />
+                            </div>
                         )}
                     </button>
                 )}

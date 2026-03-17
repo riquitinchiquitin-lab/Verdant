@@ -177,6 +177,9 @@ export interface Plant {
   targetDli?: number | null;
   rotationFrequency?: number | null; // in days
   lastRotated?: string | null;
+  healthStatus?: string | null;
+  variety?: string | null;
+  isPriority?: boolean;
 }
 
 export type RecurrenceType = 'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY';

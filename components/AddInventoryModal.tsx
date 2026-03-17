@@ -55,6 +55,7 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
   });
   const [identifiedItem, setIdentifiedItem] = useState<InventoryItem | null>(null);
   const [compatiblePlants, setCompatiblePlants] = useState<Plant[]>([]);
+  const [countdown, setCountdown] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,6 +79,19 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
     
     return { percent: 60, status: t('msg_extracting_specs'), time: 4 };
   }, [logs, t]);
+
+  useEffect(() => {
+    setCountdown(progressState.time);
+  }, [progressState.time]);
+
+  useEffect(() => {
+    if (addMode === 'PROCESSING' && countdown > 0) {
+      const timer = setInterval(() => {
+        setCountdown(prev => Math.max(0, prev - 1));
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [addMode, countdown]);
 
   const addLog = (message: string, source: string = 'SYSTEM', type: 'SYSTEM' | 'GEMINI' | 'NETWORK' | 'DEBUG' | 'WARNING' = 'SYSTEM') => {
     setLogs(prev => [...prev, {
@@ -309,7 +323,7 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
                         </div>
                         <div className="text-right">
                             <span className="text-[10px] font-black inline-block text-gray-700 dark:text-slate-200 uppercase tracking-widest">
-                                {t('lbl_est_time_remaining').replace('{time}', progressState.time.toString())}
+                                {t('lbl_est_remaining').replace('{time}', countdown.toString())}
                             </span>
                         </div>
                     </div>

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
 import { identifyPlantWithPlantNet, identifyPlantWithGemini, generatePlantDetails, createPlant } from '../services/plantAi';
+import { translateInput } from '../services/translationService';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { usePlants } from '../context/PlantContext';
@@ -12,6 +13,7 @@ import { Logo } from './ui/Logo';
 import { compressImage, dataURLtoBlob } from '../services/imageUtils';
 import { CameraCapture } from './ui/CameraCapture';
 import { getCompatibleItems } from '../services/compatibilityService';
+import { ROOM_TYPES } from '../constants';
 
 interface AddPlantModalProps {
   isOpen: boolean;
@@ -38,9 +40,12 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
   const [logs, setLogs] = useState<ProtocolLog[]>([]);
   const [specimenImages, setSpecimenImages] = useState<string[]>([]);
   const [identifiedPlant, setIdentifiedPlant] = useState<Partial<Plant> | null>(null);
+  const [editNickname, setEditNickname] = useState('');
+  const [editRoom, setEditRoom] = useState('');
   const [compatibleItems, setCompatibleItems] = useState<InventoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const [countdown, setCountdown] = useState(0);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -58,6 +63,19 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
     if (lastMsg.includes("finalized")) return { percent: 100, status: t('status_identity_confirmed'), time: 0 };
     return { percent: 50, status: t('status_processing_specimen'), time: 8 };
   }, [logs, t]);
+
+  useEffect(() => {
+    setCountdown(progressState.time);
+  }, [progressState.time]);
+
+  useEffect(() => {
+    if (scanMode === 'PROCESSING' && countdown > 0) {
+      const timer = setInterval(() => {
+        setCountdown(prev => Math.max(0, prev - 1));
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [scanMode, countdown]);
 
   const addLog = (message: string, source: string = 'SYSTEM', type: 'SYSTEM' | 'DEBUG' | 'NETWORK' | 'GEMINI' | 'WARNING' = 'SYSTEM') => {
     setLogs(prev => [...prev, {
@@ -112,13 +130,24 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
         createdAt: new Date().toISOString(),
         images: specimenImages 
       }));
+      
+      setEditNickname(lv(details.nickname));
+      setEditRoom('');
 
       setCompatibleItems(getCompatibleItems(details as Plant, inventory));
 
       addLog(t('msg_dossier_finalized'), "SYSTEM");
       setScanMode('REVIEW');
     } catch (err: any) {
-      setError(err.message || t('msg_uplink_fault'));
+      console.error("Sync Error:", err);
+      let msg = err.message || t('msg_uplink_fault');
+      if (msg.includes("API_KEY_INVALID") || msg.toLowerCase().includes("api key not valid")) {
+          msg = "The Gemini API Key is invalid. Please check your configuration in settings or .env file.";
+      } else {
+          // If it's another error, show a more descriptive message if possible
+          msg = `Uplink Protocol Fault: ${err.message || 'Unknown Error'}`;
+      }
+      setError(msg);
     } finally {
       setIsBusy(false);
     }
@@ -135,11 +164,31 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (identifiedPlant) {
-      onSave({ ...identifiedPlant, id: `p-${Date.now()}` } as Plant);
-      onClose();
-      reset();
+      setIsBusy(true);
+      try {
+        const apiKey = getEffectiveApiKey();
+        const nicknameObj = await translateInput(editNickname, 'en', apiKey);
+        let roomObj = null;
+        if (editRoom.trim()) {
+          roomObj = await translateInput(editRoom, 'en', apiKey);
+        }
+
+        onSave({ 
+          ...identifiedPlant, 
+          id: `p-${Date.now()}`,
+          nickname: nicknameObj,
+          room: roomObj
+        } as Plant);
+        onClose();
+        reset();
+      } catch (err) {
+        console.error("Save failure:", err);
+        setError(t('msg_uplink_fault'));
+      } finally {
+        setIsBusy(false);
+      }
     }
   };
 
@@ -308,18 +357,46 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
         )}
 
         {scanMode === 'PROCESSING' && (
-          <div className="space-y-12 animate-in fade-in duration-500 py-10 px-4">
-            <div className="flex flex-col items-center justify-center text-center">
-              <div className="w-24 h-24 mb-8 relative"><div className="absolute inset-0 bg-emerald-500/20 rounded-full animate-ping"></div><div className="relative z-10 w-full h-full"><Logo /></div></div>
-              <div className="space-y-2"><h3 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter leading-none italic">{progressState.status}</h3><p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.4em] animate-pulse">{t('msg_establishing_uplink')}</p></div>
+          <div className="flex flex-col items-center justify-center space-y-12 py-12 animate-in fade-in duration-500">
+            <div className="relative">
+                <div className="w-24 h-24 md:w-32 md:h-32 rounded-[40px] bg-white dark:bg-slate-900 shadow-2xl flex items-center justify-center border border-gray-100 dark:border-white/5 animate-float">
+                    <div className="text-4xl md:text-5xl">🌱</div>
+                </div>
+                <div className="absolute -inset-4 border-2 border-verdant/20 rounded-[48px] animate-[spin_10s_linear_infinite]"></div>
             </div>
-            <div className="space-y-6">
-                <div className="relative pt-1"><div className="flex items-center justify-between mb-4 px-1"><div><span className="text-[10px] font-black inline-block py-1 px-3 uppercase rounded-full text-white bg-emerald-600 shadow-sm">{progressState.percent}% {t('lbl_sync')}</span></div><div className="text-right"><span className="text-[10px] font-black inline-block text-gray-700 dark:text-slate-200 uppercase tracking-widest">{t('lbl_est_remaining', { time: progressState.time.toString() })}</span></div></div>
-                    <div className="overflow-hidden h-4 mb-4 text-xs flex rounded-[20px] bg-gray-100 dark:bg-slate-800 shadow-inner p-1">
-                        <div style={{ width: `${progressState.percent}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-verdant rounded-full transition-all duration-1000 ease-out relative overflow-hidden"><div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-[shimmer_2s_infinite]"></div></div>
-                    </div>
+            
+            <div className="text-center space-y-4 max-w-md px-6">
+                <h2 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tighter uppercase leading-none italic">
+                    {progressState.status}
+                </h2>
+                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.4em] animate-pulse">
+                    {t('msg_establishing_uplink')}
+                </p>
+            </div>
+
+            <div className="w-full max-w-xs space-y-3">
+                <div className="h-1.5 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+                    <div 
+                        className="h-full bg-verdant transition-all duration-500 rounded-full" 
+                        style={{ width: `${progressState.percent}%` }} 
+                    />
+                </div>
+                <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    <span>{progressState.percent}%</span>
+                    <span>{t('lbl_est_remaining').replace('{time}', countdown.toString())}</span>
                 </div>
             </div>
+
+            <div className="w-full max-w-md bg-white/50 dark:bg-slate-900/50 rounded-3xl p-6 border border-gray-100 dark:border-white/5 space-y-3">
+                {logs.slice(-3).map((log, idx) => (
+                    <div key={idx} className="flex items-center gap-3 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest animate-in slide-in-from-bottom-2 fade-in duration-500">
+                        <span className="w-1.5 h-1.5 rounded-full bg-verdant/40" />
+                        {log.message}
+                    </div>
+                ))}
+            </div>
+
             {error && (
               <div className="bg-red-50 dark:bg-red-900/10 p-6 rounded-[32px] border-2 border-red-100 dark:border-red-900/30 text-center space-y-3">
                 <div className="w-10 h-10 bg-red-100 dark:bg-red-900/40 text-red-500 rounded-full flex items-center justify-center mx-auto">
@@ -331,7 +408,10 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
                     ? t('msg_server_overloaded')
                     : error}
                 </p>
-                <button onClick={reset} className="text-[9px] font-black uppercase tracking-[0.2em] text-red-400 hover:text-red-600 transition-colors border border-red-100 dark:border-red-900/30 px-3 py-1 rounded-lg">{t('btn_reset_protocol')}</button>
+                <div className="flex gap-2 justify-center">
+                  <button onClick={initiateSync} className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-600 hover:text-emerald-700 transition-colors border border-emerald-100 dark:border-emerald-900/30 px-3 py-1 rounded-lg">{t('btn_retry') || 'Retry'}</button>
+                  <button onClick={reset} className="text-[9px] font-black uppercase tracking-[0.2em] text-red-400 hover:text-red-600 transition-colors border border-red-100 dark:border-red-900/30 px-3 py-1 rounded-lg">{t('btn_reset_protocol')}</button>
+                </div>
               </div>
             )}
           </div>
@@ -339,8 +419,37 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
 
         {scanMode === 'REVIEW' && identifiedPlant && (
           <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
-            <div className="transform scale-95 -mt-4 origin-top"><PlantCard plant={identifiedPlant} showActions={false} /></div>
+            <div className="transform scale-95 -mt-4 origin-top">
+                <PlantCard plant={{ ...identifiedPlant, nickname: { en: editNickname } as any, room: { en: editRoom } as any }} showActions={false} />
+            </div>
             
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-2">
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_nickname')}</label>
+                    <input 
+                        type="text" 
+                        value={editNickname}
+                        onChange={(e) => setEditNickname(e.target.value)}
+                        className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_room')}</label>
+                    <select 
+                        className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white appearance-none"
+                        value={editRoom}
+                        onChange={(e) => setEditRoom(e.target.value)}
+                    >
+                        <option value="">{t('assign_room_label')}</option>
+                        {houses.find(h => h.id === user?.houseId)?.googleApiKey ? (
+                            // If we have a house key, we might have custom rooms or just standard ones
+                            ROOM_TYPES.map(r => <option key={r} value={r}>{r}</option>)
+                        ) : (
+                            ROOM_TYPES.map(r => <option key={r} value={r}>{r}</option>)
+                        )}
+                    </select>
+                </div>
+            </div>
 
             {compatibleItems.length > 0 && (
               <div className="p-6 bg-blue-50/50 dark:bg-blue-900/10 rounded-[32px] border border-blue-100 dark:border-blue-800/30">

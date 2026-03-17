@@ -52,8 +52,14 @@ const processQueue = async () => {
 
 const executeTranslation = async (text: string, sourceLang: string, apiKey?: string): Promise<LocalizedString> => {
   // Fix: Use provided apiKey or fallback to global GEMINI_API_KEY
-  const ai = new GoogleGenAI({ apiKey: apiKey || GEMINI_API_KEY });
+  const key = apiKey || GEMINI_API_KEY;
+  if (!key) {
+    throw new Error("UPLINK_FAULT: Gemini API Key is missing. Please ensure GEMINI_API_KEY is set in your environment variables.");
+  }
+  const maskedKey = `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
+  const ai = new GoogleGenAI({ apiKey: key });
   const model = 'gemini-3-flash-preview';
+  console.log(`[GEMINI] Translating with ${model} (Key: ${maskedKey})...`);
   const prompt = `Translate "${text}" from ${sourceLang} to: ${TARGET_LANGS.join(', ')}`;
 
   const properties: any = {};
@@ -72,7 +78,6 @@ const executeTranslation = async (text: string, sourceLang: string, apiKey?: str
         config: {
           systemInstruction: "You are a translation engine. Return valid JSON only with no extra text.",
           temperature: 0,
-          thinkingConfig: { thinkingBudget: 0 }, 
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,

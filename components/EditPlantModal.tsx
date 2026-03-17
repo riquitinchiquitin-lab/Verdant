@@ -47,6 +47,7 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
   const [isCustom, setIsCustom] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [refreshedData, setRefreshedData] = useState<Partial<Plant> | null>(null);
   const [isAddingImage, setIsAddingImage] = useState(false);
 
@@ -89,9 +90,12 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
   const handleRefreshData = async () => {
     if (!plant.species) return;
     setIsRefreshing(true);
+    setError(null);
+    console.log(`[UI] Refreshing AI data for ${plant.species}...`);
     try {
         const apiKey = getEffectiveApiKey();
         const details = await generatePlantDetails(plant.species, undefined, undefined, apiKey);
+        console.info(`[UI] AI Data refresh successful for ${plant.species}`);
         
         setRefreshedData(details);
 
@@ -109,8 +113,9 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
         setPropagationInstructions(lv(details.propagationInstructions));
         setRepottingInstructions(lv(details.repottingInstructions));
         
-    } catch (e) {
-        console.error("Refresh failed:", e);
+    } catch (e: any) {
+        console.error(`[UI] AI Data refresh failed for ${plant.species}:`, e);
+        setError(e.message || "Refresh failed");
     } finally {
         setIsRefreshing(false);
     }
@@ -118,6 +123,7 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
 
   const handleSave = async () => {
       setIsSaving(true);
+      setError(null);
       try {
           const apiKey = getEffectiveApiKey();
           const nicknameObj = await translateInput(nickname, 'en', apiKey);
@@ -163,8 +169,9 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
               }
           });
           onClose();
-      } catch (e) {
+      } catch (e: any) {
           console.error(e);
+          setError(e.message || "Save failed");
       } finally {
           setIsSaving(false);
       }
@@ -184,6 +191,13 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={t('edit_plant')}>
       <div className="space-y-6 max-h-[80vh] overflow-y-auto no-scrollbar px-1">
+          {error && (
+              <div className="p-4 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 rounded-2xl">
+                  <p className="text-[10px] font-black text-red-600 dark:text-red-500 uppercase tracking-widest leading-tight">
+                      ⚠️ {error}
+                  </p>
+              </div>
+          )}
           <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_nickname')}</label>
               <input 

@@ -11,6 +11,8 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { createServer } from 'http';
 import webpush from 'web-push';
 import readline from 'readline';
+import fetch from 'node-fetch';
+import FormData from 'form-data';
 
 dotenv.config();
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
@@ -149,6 +151,7 @@ app.use(async (req, res, next) => {
         try { 
             req.body = decrypt(req.body.vault); 
             (req as any).wasEncrypted = true; 
+            console.log(`[SECURITY] Decrypted request for ${req.method} ${req.url}`);
         } 
         catch (e) { 
             console.error('[SECURITY] Decryption Protocol Fault:', e);
@@ -157,9 +160,21 @@ app.use(async (req, res, next) => {
     }
     const originalJson = res.json;
     res.json = function(data) {
+        // Skip encryption for vault-key rotation to avoid client-side decryption failure with old key
+        if (req.url === '/api/system/vault-key' && req.method === 'POST') {
+            return originalJson.call(this, data);
+        }
+
         if ((req as any).wasEncrypted && currentVaultKey) {
-            try { res.setHeader('X-Payload-Encryption', 'AES-256-GCM'); return originalJson.call(this, { vault: encrypt(data), secure: true }); } 
-            catch (e) { return originalJson.call(this, data); }
+            try { 
+                res.setHeader('X-Payload-Encryption', 'AES-256-GCM'); 
+                const encrypted = encrypt(data);
+                console.log(`[SECURITY] Encrypted response for ${req.method} ${req.url}`);
+                return originalJson.call(this, { vault: encrypted, secure: true }); 
+            } catch (e) {
+                console.error('[SECURITY] Encryption Fault:', e);
+                return originalJson.call(this, data);
+            }
         }
         return originalJson.call(this, data);
     };
@@ -223,6 +238,16 @@ app.get('/api/plants', checkAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
 });
 
+const logEvent = async (event: string, details: string, level: string = 'INFO') => {
+    try {
+        await query('INSERT INTO system_logs (event, details, level, created_at) VALUES (?, ?, ?, ?)', 
+            [event, details, level, new Date().toISOString()]);
+        console.log(`[${level}] ${event}: ${details}`);
+    } catch (e) {
+        console.error('Logging failure:', e);
+    }
+};
+
 app.post('/api/plants', checkAuth, checkHouseAccess, async (req, res) => {
     try {
         const p = req.body;
@@ -232,8 +257,13 @@ app.post('/api/plants', checkAuth, checkHouseAccess, async (req, res) => {
         
         await query('INSERT OR REPLACE INTO plants (id, houseId, species, nickname, images, logs, lastWatered, updatedAt, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 
             [p.id, p.houseId, p.species, JSON.stringify(p.nickname), JSON.stringify(p.images), JSON.stringify(p.logs), p.lastWatered, new Date().toISOString(), JSON.stringify(p)]);
+        
+        await logEvent('PLANT_UPDATE', `Plant ${p.id} updated by ${role}`, 'INFO');
         res.json({ status: "ok" });
-    } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
+    } catch (e) { 
+        await logEvent('DB_FAULT', `Plant update failed: ${e instanceof Error ? e.message : String(e)}`, 'ERROR');
+        res.status(500).json({ error: "DB_FAULT" }); 
+    }
 });
 
 app.delete('/api/plants/:id', checkAuth, async (req, res) => {
@@ -573,10 +603,12 @@ app.post('/api/system/restore', checkAuth, async (req, res) => {
 });
 
 app.get('/api/system/logs', checkAuth, async (req, res) => {
-    res.json([
-        { id: '1', event: 'SYSTEM_BOOT', details: 'Verdant Core initialized', level: 'INFO', created_at: new Date().toISOString() },
-        { id: '2', event: 'DB_SYNC', details: 'Proxmox node synchronized', level: 'INFO', created_at: new Date().toISOString() }
-    ]);
+    try {
+        const result = await query('SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 100');
+        res.json(result.rows);
+    } catch (e) {
+        res.status(500).json({ error: "LOG_FETCH_FAULT" });
+    }
 });
 
 app.get('/api/users', checkAuth, async (req, res) => {
@@ -630,11 +662,46 @@ app.post('/api/users', checkAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
 });
 
+app.post('/api/proxy/identify', checkAuth, multer().array('images'), async (req, res) => {
+    try {
+        const formData = new FormData();
+        const files = req.files as Express.Multer.File[];
+        
+        if (!files || files.length === 0) {
+            return res.status(400).json({ error: "NO_IMAGES_PROVIDED" });
+        }
+
+        files.forEach((file, index) => {
+            formData.append('images', file.buffer, {
+                filename: `image${index}.jpg`,
+                contentType: file.mimetype
+            });
+        });
+
+        const org = req.query.org || 'all';
+        const response = await fetch(`https://my-api.plantnet.org/v2/identify/${org}?api-key=${process.env.PLANTNET_API_KEY || '2b10uOIn694XvYvYvYvYvYvY'}`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+        res.status(response.status).json(data);
+    } catch (e) {
+        console.error('[PROXY] PlantNet Fault:', e);
+        res.status(500).json({ error: "PROXY_FAULT" });
+    }
+});
+
 app.get('/env-config.js', (req, res) => {
+  let apiKey = (process.env.GEMINI_API_KEY || process.env.API_KEY || '').trim();
+  if (apiKey === 'undefined' || apiKey === 'null') apiKey = '';
+  
+  const maskedKey = apiKey ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : 'NONE';
+  console.log(`[CONFIG] Serving env-config.js. API Key: ${maskedKey}`);
   res.setHeader('Content-Type', 'application/javascript');
   res.send(`window._ENV_ = ${JSON.stringify({ 
     GOOGLE_CLIENT_ID: (process.env.GOOGLE_CLIENT_ID || '').trim(),
-    API_KEY: (process.env.GEMINI_API_KEY || '').trim()
+    API_KEY: apiKey
   })};`);
 });
 
@@ -667,6 +734,11 @@ async function initializeDatabase() {
       try {
         db.run(`CREATE TABLE IF NOT EXISTS vault_key (id INTEGER PRIMARY KEY CHECK (id = 1), encrypted_key TEXT NOT NULL)`);
         db.run(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT, role TEXT DEFAULT 'OWNER', houseId TEXT, personalAiKey TEXT, personalAiKeyTestedAt TEXT, deletedAt TEXT, caretakerStart TEXT, caretakerEnd TEXT)`);
+        db.run(`CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, event TEXT, details TEXT, level TEXT, created_at TEXT)`);
+        db.run(`CREATE TABLE IF NOT EXISTS plants (id TEXT PRIMARY KEY, houseId TEXT, species TEXT, nickname TEXT, images TEXT, logs TEXT, lastWatered TEXT, updatedAt TEXT, data TEXT)`);
+        db.run(`CREATE TABLE IF NOT EXISTS houses (id TEXT PRIMARY KEY, name TEXT, googleApiKey TEXT, createdAt TEXT, data TEXT)`);
+        db.run(`CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, houseId TEXT, plantIds TEXT, type TEXT, title TEXT, description TEXT, date TEXT, completed INTEGER, completedAt TEXT, recurrence TEXT, data TEXT)`);
+        db.run(`CREATE TABLE IF NOT EXISTS inventory (id TEXT PRIMARY KEY, houseId TEXT, name TEXT, data TEXT)`);
         
         // Migration: Add missing columns
         const migrations = [
@@ -674,26 +746,44 @@ async function initializeDatabase() {
           { table: 'plants', columns: [['houseId', 'TEXT'], ['species', 'TEXT'], ['nickname', 'TEXT'], ['images', 'TEXT'], ['logs', 'TEXT'], ['lastWatered', 'TEXT'], ['updatedAt', 'TEXT'], ['data', 'TEXT']] },
           { table: 'tasks', columns: [['houseId', 'TEXT'], ['plantIds', 'TEXT'], ['type', 'TEXT'], ['title', 'TEXT'], ['description', 'TEXT'], ['date', 'TEXT'], ['completed', 'INTEGER'], ['completedAt', 'TEXT'], ['recurrence', 'TEXT'], ['data', 'TEXT']] },
           { table: 'houses', columns: [['googleApiKey', 'TEXT'], ['createdAt', 'TEXT'], ['data', 'TEXT']] },
-          { table: 'inventory', columns: [['houseId', 'TEXT'], ['name', 'TEXT'], ['data', 'TEXT']] }
+          { table: 'inventory', columns: [['houseId', 'TEXT'], ['name', 'TEXT'], ['data', 'TEXT']] },
+          { table: 'system_logs', columns: [['event', 'TEXT'], ['details', 'TEXT'], ['level', 'TEXT'], ['created_at', 'TEXT']] }
         ];
 
-        migrations.forEach(m => {
-          m.columns.forEach(([col, type]) => {
+        // Use a recursive function to ensure migrations run sequentially
+        const runMigrations = (index: number) => {
+          if (index >= migrations.length) {
+            db.run(`SELECT 1`, () => {
+              console.log('[DB] Schema Verified');
+              logEvent('SYSTEM_BOOT', 'Verdant Core initialized and database synchronized');
+              resolve();
+            });
+            return;
+          }
+
+          const m = migrations[index];
+          let colIndex = 0;
+          
+          const runCols = () => {
+            if (colIndex >= m.columns.length) {
+              runMigrations(index + 1);
+              return;
+            }
+
+            const [col, type] = m.columns[colIndex];
             db.run(`ALTER TABLE ${m.table} ADD COLUMN ${col} ${type}`, (err) => {
-              if (err && !err.message.includes('duplicate column name')) {
+              if (err && !err.message.includes('duplicate column name') && !err.message.includes('no such table')) {
                 console.error(`[DB] Migration Error (${m.table}.${col}):`, err.message);
               }
+              colIndex++;
+              runCols();
             });
-          });
-        });
+          };
 
-        db.run(`CREATE TABLE IF NOT EXISTS plants (id TEXT PRIMARY KEY, houseId TEXT, species TEXT, nickname TEXT, images TEXT, logs TEXT, lastWatered TEXT, updatedAt TEXT, data TEXT)`);
-        db.run(`CREATE TABLE IF NOT EXISTS houses (id TEXT PRIMARY KEY, name TEXT, googleApiKey TEXT, createdAt TEXT, data TEXT)`);
-        db.run(`CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, houseId TEXT, plantIds TEXT, type TEXT, title TEXT, description TEXT, date TEXT, completed INTEGER, completedAt TEXT, recurrence TEXT, data TEXT)`);
-        db.run(`CREATE TABLE IF NOT EXISTS inventory (id TEXT PRIMARY KEY, houseId TEXT, name TEXT, data TEXT)`, () => {
-          console.log('[DB] Schema Verified');
-          resolve();
-        });
+          runCols();
+        };
+
+        runMigrations(0);
       } catch (e) {
         reject(e);
       }

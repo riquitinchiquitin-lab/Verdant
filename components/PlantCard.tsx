@@ -176,32 +176,50 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
                      )}
                 </div>
                 
-                <div className="absolute top-3 right-3 z-10">
+                <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-2">
+                    {plant.isPriority && (
+                        <div className="bg-amber-500 text-white p-1.5 rounded-full shadow-lg border border-amber-400 animate-in zoom-in duration-300">
+                            <span className="text-xs">⭐</span>
+                        </div>
+                    )}
                     <span className={`text-[8px] font-black px-3 py-1 rounded-full shadow-sm border uppercase tracking-[0.15em] ${status.color}`}>
                         {status.label}
                     </span>
                 </div>
+
+                {/* Hardware Decoration: Serial Number */}
+                <div className="absolute bottom-3 left-3 z-10 flex items-center gap-2 opacity-40">
+                    <div className="w-1 h-1 rounded-full bg-white animate-pulse" />
+                    <span className="text-[7px] font-mono text-white uppercase tracking-[0.2em]">{t('lbl_serial_number')}: {plant.id?.substring(0, 8)}</span>
+                </div>
+
+                {/* Hardware Decoration: Dot Grid */}
+                <div className="absolute bottom-3 right-3 z-10 opacity-20 grid grid-cols-3 gap-0.5">
+                    {[...Array(9)].map((_, i) => (
+                        <div key={i} className="w-0.5 h-0.5 bg-white rounded-full" />
+                    ))}
+                </div>
             </div>
 
             {/* CONTENT SECTION */}
-            <div className="px-6 pb-6 pt-2 flex-1 flex flex-col gap-4">
+            <div className="px-5 pb-5 pt-1 flex-1 flex flex-col gap-3">
                 <div>
-                    <h3 className="text-gray-900 dark:text-white font-black text-2xl md:text-3xl tracking-tighter leading-tight truncate">
+                    <h3 className="text-gray-900 dark:text-white font-black text-xl md:text-2xl tracking-tighter leading-tight truncate">
                         {lv(plant.nickname)}
                     </h3>
-                    <p className="text-verdant font-sans font-normal normal-case text-sm md:text-base truncate opacity-80">
+                    <p className="text-verdant font-sans font-normal normal-case text-xs md:text-sm truncate opacity-70">
                         {plant.species}
                     </p>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                     <div className="flex justify-between items-end">
-                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">{t('lbl_hydration')}</span>
-                        <span className={`text-[9px] font-black tracking-widest ${status.daysLeft === 0 ? 'text-red-600' : status.daysLeft === '?' ? 'text-gray-400' : 'text-verdant'}`}>
+                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">{t('lbl_hydration')}</span>
+                        <span className={`text-[8px] font-black tracking-widest ${status.daysLeft === 0 ? 'text-red-500' : status.daysLeft === '?' ? 'text-gray-400' : 'text-verdant'}`}>
                             {status.daysLeft === 0 ? t('status_due_now') : status.daysLeft === '?' ? '?' : `${status.daysLeft}D`}
                         </span>
                     </div>
-                    <div className="h-1.5 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-1 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
                         <div 
                             className={`h-full rounded-full transition-all duration-1000 ${status.daysLeft === 0 ? 'bg-red-500 animate-pulse' : 'bg-verdant'}`} 
                             style={{ width: `${status.percent}%` }} 
@@ -210,10 +228,10 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
                 </div>
 
                 {showActions && (
-                    <div className="mt-auto pt-2">
+                    <div className="mt-auto pt-1">
                         <Button 
                             variant="primary"
-                            className={`w-full rounded-2xl h-12 font-black text-[10px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all ${lastLoggedAction === 'WATER' ? 'bg-emerald-500 text-white' : status.daysLeft === 0 ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} 
+                            className={`w-full rounded-xl h-10 font-black text-[9px] uppercase tracking-widest shadow-sm active:scale-95 transition-all ${lastLoggedAction === 'WATER' ? 'bg-emerald-500 text-white' : status.daysLeft === 0 ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} 
                             onClick={async (e) => { 
                                 e.stopPropagation(); 
                                 await addLog(plant.id!, { id: `l-${Date.now()}`, date: new Date().toISOString(), type: 'WATER' }); 
@@ -225,7 +243,7 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
                                 setTimeout(() => setAlertMessage(null), 4000);
                             }}
                         >
-                            <span className="text-xl">💧</span>
+                            <span className="text-lg">💧</span>
                         </Button>
                     </div>
                 )}

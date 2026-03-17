@@ -1,5 +1,7 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Leaf, Camera, Edit3, Activity, QrCode } from 'lucide-react';
 import { Plant, Log, LogType, LocalizedString } from '../types';
 import { Button } from './ui/Button';
 import { usePlants } from '../context/PlantContext';
@@ -16,6 +18,7 @@ import { MoistureLogModal } from './MoistureLogModal';
 import { PhenophaseLogModal } from './PhenophaseLogModal';
 import { HealthCheckModal } from './HealthCheckModal';
 import { PlantLogEntry } from './PlantLogEntry';
+import { PotRotationIcon } from './ui/Icons';
 import { useInventory } from '../context/InventoryContext';
 import { PhenophaseType } from '../types';
 import { translateInput } from '../services/translationService';
@@ -43,30 +46,6 @@ const MoistureProbeIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-export const PotRotationIcon = ({ className }: { className?: string }) => (
-  <svg 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="1.2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className={className}
-  >
-    {/* The Plant & Pot - Scaled slightly for better orbit space */}
-    <path d="M10.5 14.5l.4 3h2.2l.4-3" />
-    <path d="M9.5 12h5v2.5h-5z" />
-    <path d="M12 12V9.5" />
-    <path d="M12 9.5c-1.2-1.2-2.5-.8-2.5-.8s.4 1.2 2.5.8c2.1-.4 2.5-.8 2.5-.8s-1.3-.4-2.5.8z" />
-    
-    {/* The Orbiting Arrows - Spread out further (Radius 9) */}
-    <path d="M21 12a9 9 0 0 0-16.15-5.3" />
-    <path d="M3 12a9 9 0 0 0 16.15 5.3" />
-    <polyline points="17 19 20 18 19 15" />
-    <polyline points="7 5 4 6 5 9" />
-  </svg>
-);
-
 export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, onClose, plant: initialPlant }) => {
   const { updatePlant, plants, addLog, deletePlant, setAlertMessage, getEffectiveApiKey } = usePlants();
   const { consumeItem } = useInventory();
@@ -87,15 +66,23 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
   );
 
   const TechMetric = ({ label, min, max, unit, advice }: { label: string, min?: number | null, max?: number | null, unit: string, advice: string }) => (
-    <div className="space-y-4 p-6 bg-gray-50 dark:bg-slate-800/50 rounded-3xl border border-gray-100 dark:border-slate-800">
-      <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{label}</p>
+    <div className="relative space-y-4 p-6 bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden group hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer">
+      {/* Hardware Decoration: Corner Accent */}
+      <div className="absolute top-0 right-0 w-8 h-8 opacity-10">
+        <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-verdant" />
+      </div>
+      
+      <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">{label}</p>
       <div className="flex items-baseline gap-1">
-        <span className="text-3xl font-black text-gray-900 dark:text-white">
+        <span className="text-4xl font-black text-gray-900 dark:text-white tracking-tighter">
           {min !== undefined && min !== null && max !== undefined && max !== null ? `${min}-${max}` : (min ?? max ?? t('lbl_na'))}
         </span>
-        <span className="text-xs font-bold text-slate-600 dark:text-slate-300">{unit}</span>
+        <span className="text-xs font-bold text-verdant uppercase tracking-widest">{unit}</span>
       </div>
-      <p className="text-xs md:text-sm text-slate-700 dark:text-slate-200 italic leading-relaxed">"{advice}"</p>
+      <div className="h-0.5 w-full bg-gray-50 dark:bg-slate-800 rounded-full overflow-hidden">
+        <div className="h-full bg-verdant w-2/3 opacity-30 group-hover:w-full transition-all duration-700" />
+      </div>
+      <p className="text-[13px] font-serif italic text-slate-600 dark:text-slate-300 leading-relaxed">"{advice}"</p>
     </div>
   );
 
@@ -126,6 +113,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
   const [activeTab, setActiveTab] = useState<'DOSSIER' | 'TIMELINE' | 'TECH' | 'PHENOPHASE'>('DOSSIER');
   const [lastLoggedAction, setLastLoggedAction] = useState<LogType | null>(null);
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
+  const [isTogglingPriority, setIsTogglingPriority] = useState(false);
   
   
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -296,6 +284,25 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
     setTimeout(() => setAlertMessage(null), 4000);
   };
 
+  const handleTogglePriority = async () => {
+    if (isTogglingPriority) return;
+    setIsTogglingPriority(true);
+    try {
+      const newPriorityStatus = !plant.isPriority;
+      await updatePlant(plant.id, { isPriority: newPriorityStatus });
+      
+      const actionText = newPriorityStatus ? t('btn_set_priority') : t('btn_remove_priority');
+      const dateString = new Date().toLocaleDateString(language, { month: 'long', day: 'numeric' });
+      const message = t('log_alert_message').replace('{action}', actionText).replace('{date}', dateString);
+      setAlertMessage(message);
+      setTimeout(() => setAlertMessage(null), 4000);
+    } catch (e) {
+      console.error("Failed to toggle priority:", e);
+    } finally {
+      setIsTogglingPriority(false);
+    }
+  };
+
   const handleDelete = async () => {
     await deletePlant(plant.id);
     onClose();
@@ -342,6 +349,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
         <button 
             onClick={onClose}
             className="absolute top-4 right-4 md:top-8 md:right-8 z-[100] w-10 h-10 md:w-14 md:h-14 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-full flex items-center justify-center text-gray-900 dark:text-white transition-all shadow-2xl border border-gray-200 dark:border-slate-700 group hover:scale-110 active:scale-95"
+            title={t('btn_close')}
         >
             <svg className="w-5 h-5 md:w-7 md:h-7 group-hover:rotate-90 transition-transform duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
@@ -372,100 +380,190 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
             </div>
             <div className="max-w-5xl mx-auto w-full p-6 lg:p-12 space-y-12">
                 {/* HERO SECTION */}
-                <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-center lg:items-start">
-                    <div className="w-full lg:w-1/4 space-y-6 flex flex-col items-center lg:items-start">
-                        <div className="relative group aspect-square w-full max-w-[320px] rounded-[40px] overflow-hidden shadow-2xl border-4 md:border-8 border-white dark:border-slate-800">
-                            {plant.images?.[0] ? (
-                                <img 
-                                  src={plant.images[0]} 
-                                  className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-500" 
-                                  alt={lv(plant.nickname)} 
-                                  referrerPolicy="no-referrer"
-                                  onClick={() => setEnlargedImageIndex(0)}
-                                />
-                            ) : (
-                                <div className="w-full h-full bg-gray-50 dark:bg-slate-800 flex items-center justify-center">
-                                    <svg className="w-16 h-16 text-gray-200 dark:text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                </div>
-                            )}
-                            <button onClick={() => setIsAddingPhoto(true)} className="absolute bottom-6 right-6 w-12 h-12 bg-verdant text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform active:scale-95 border-2 border-white dark:border-slate-800">
-                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><circle cx="12" cy="13" r="3" /></svg>
-                            </button>
-                        </div>
-
-                        <div className="flex justify-center gap-4 py-2">
-                            <button 
-                                onClick={() => setIsTransferOpen(true)}
-                                className="w-12 h-12 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-900 dark:text-white transition-all shadow-md border border-gray-200 dark:border-slate-700 group"
-                                title="Transfer Specimen"
-                            >
-                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-                            </button>
-                            <button 
-                                onClick={() => setIsEditOpen(true)}
-                                className="w-12 h-12 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-900 dark:text-white transition-all shadow-md border border-gray-200 dark:border-slate-700 group"
-                                title="Edit Specimen"
-                            >
-                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L16.732 3.732z" /></svg>
-                            </button>
-                        </div>
-                        
-                        <div className="flex gap-3 overflow-x-auto no-scrollbar py-2">
-                            {plant.images?.slice(1).map((img, idx) => (
-                                <img 
-                                    key={idx} 
-                                    src={img} 
-                                    onClick={() => setEnlargedImageIndex(idx + 1)}
-                                    className="w-20 h-20 rounded-2xl object-cover cursor-pointer border-2 border-white shadow-sm hover:scale-105 transition-transform" 
-                                    referrerPolicy="no-referrer"
-                                />
-                            ))}
-                        </div>
+                <div className="relative -mx-6 lg:-mx-12 -mt-6 lg:-mt-12 mb-12">
+                  <div className="relative h-[400px] md:h-[600px] w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
+                    {/* Editorial Background Text */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+                      <span className="text-[25vw] font-display text-slate-200 dark:text-slate-800/20 uppercase select-none opacity-30 tracking-tighter">
+                        {t('tab_dossier_caps')}
+                      </span>
                     </div>
 
-                    <div className="w-full lg:w-3/4 space-y-8">
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-4">
-                                <h1 className="text-2xl lg:text-4xl font-black text-gray-900 dark:text-white tracking-tighter uppercase leading-none">{lv(plant.nickname)}</h1>
+                    {plant.images?.[0] ? (
+                      <motion.img
+                        initial={{ scale: 1.1, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        src={plant.images[0]}
+                        alt={lv(plant.nickname)}
+                        className="h-full w-full object-cover relative z-10"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center relative z-10">
+                        <Leaf className="h-24 w-24 text-slate-300 dark:text-slate-700" />
+                      </div>
+                    )}
+
+                    {/* Hardware Telemetry Overlay */}
+                    <div className="absolute top-8 left-8 z-20 space-y-2">
+                      <div className="flex items-center gap-3 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
+                        <div className="w-2 h-2 rounded-full bg-verdant animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                        <span className="text-[10px] font-mono text-white tracking-[0.2em] uppercase">{t('status_uplink_active')}</span>
+                      </div>
+                      <div className="text-[10px] font-mono text-white/60 tracking-widest pl-1">
+                        {t('lbl_id_caps')}: {plant.id.slice(0, 12).toUpperCase()}
+                      </div>
+                    </div>
+
+                    {/* Vertical Species Label */}
+                    <div className="absolute bottom-24 right-8 z-20 [writing-mode:vertical-rl] rotate-180">
+                      <span className="text-[11px] font-black text-white/40 uppercase tracking-[0.5em] whitespace-nowrap">
+                        {plant.species || t('unclassified_specimen')}
+                      </span>
+                    </div>
+
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10" />
+                    
+                    <div className="absolute bottom-0 left-0 right-0 p-8 md:p-16 z-20">
+                      <motion.div
+                        initial={{ y: 30, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.2, duration: 0.8 }}
+                      >
+                        <div className="flex items-center gap-4 mb-4">
+                          <span className="h-px w-12 bg-verdant" />
+                          <p className="text-[11px] font-black text-verdant uppercase tracking-[0.4em]">{t('lbl_specimen_profile')}</p>
+                        </div>
+                        <h2 className="text-6xl md:text-[120px] font-black text-white tracking-tighter leading-[0.8] uppercase mb-4">
+                          {lv(plant.nickname)}
+                        </h2>
+                        <div className="flex flex-wrap items-center gap-6 text-white/60">
+                          {plant.isPriority && (
+                            <div className="flex items-center gap-2 bg-amber-500/20 backdrop-blur-md px-3 py-1 rounded-full border border-amber-500/30">
+                              <span className="text-amber-400 text-lg">⭐</span>
+                              <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest">{t('lbl_priority_specimen')}</span>
                             </div>
-                            <p className="text-xl font-sans font-normal normal-case text-verdant opacity-80">{plant.species}</p>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono uppercase tracking-widest">{t('lbl_variety')}</span>
+                            <span className="text-sm font-serif italic text-white">{plant.variety || t('lbl_standard')}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono uppercase tracking-widest">{t('lbl_status')}</span>
+                            <span className="text-sm font-serif italic text-white">{plant.healthStatus || t('sys_stable')}</span>
+                          </div>
                         </div>
-
-                        {/* ACTION GRID */}
-                        <div className="grid grid-cols-4 gap-3 md:gap-4 w-full">
-                            <Button variant="primary" size="lg" className={`rounded-[24px] h-16 md:h-20 shadow-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all duration-200 ${lastLoggedAction === 'WATER' ? 'bg-emerald-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} onClick={() => handleLogAction('WATER')}>
-                                <span className="text-2xl md:text-3xl">💧</span>
-                            </Button>
-                            <Button variant="primary" size="lg" className={`rounded-[24px] h-16 md:h-20 shadow-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all duration-200 ${lastLoggedAction === 'MOISTURE' ? 'bg-emerald-500 text-white' : 'bg-sky-500 hover:bg-sky-600 text-white'}`} onClick={() => setIsMoistureOpen(true)}>
-                                <MoistureProbeIcon className="w-8 h-8 md:w-10 md:h-10" />
-                            </Button>
-                            <Button variant="primary" size="lg" className={`rounded-[24px] h-16 md:h-20 shadow-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all duration-200 ${lastLoggedAction === 'NOTE' ? 'bg-emerald-500 text-white' : 'bg-amber-500 hover:bg-amber-600 text-white'}`} onClick={() => setIsNoteOpen(true)}>
-                                <span className="text-2xl md:text-3xl">📝</span>
-                            </Button>
-                            <Button variant="secondary" size="lg" className="rounded-[24px] h-16 md:h-20 border-2 border-red-100 dark:border-red-900/30 text-red-600 bg-red-50/20 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2" onClick={() => setIsHealthOpen(true)}>
-                              <svg className="w-8 h-8 md:w-10 md:h-10 text-red-500" viewBox="0 0 24 24" fill="currentColor"><path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z" /></svg>
-                            </Button>
-                        </div>
-
-                        <div className="grid grid-cols-3 md:grid-cols-6 gap-3 md:gap-4 w-full items-center">
-                            {[
-                                { type: 'FERTILIZED', icon: '🧪' },
-                                { type: 'PRUNED', icon: '✂️' },
-                                { type: 'REPOTTED', icon: '🪴' },
-                                { type: 'NEW_LEAF', icon: '🌱' },
-                                ...(plant.flowers ? [{ type: 'FLOWER', icon: '🌸' }] : []),
-                                { type: 'ROTATED', icon: <PotRotationIcon className="w-8 h-8 md:w-10 md:h-10" /> }
-                            ].map(action => (
-                                <button 
-                                    key={action.type}
-                                    onClick={() => handleLogAction(action.type as any)}
-                                    className={`h-14 md:h-16 rounded-2xl border border-gray-100 dark:border-white/10 bg-white dark:bg-slate-800 shadow-xl shadow-black/5 flex items-center justify-center text-2xl md:text-3xl hover:bg-gray-50 dark:hover:bg-slate-700 hover:scale-105 active:scale-95 transition-all duration-300 ${lastLoggedAction === action.type ? 'ring-4 ring-emerald-500/20 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-500/30' : ''}`}
-                                >
-                                    {action.icon}
-                                </button>
-                            ))}
-                        </div>
+                      </motion.div>
                     </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col lg:flex-row gap-12">
+                  <div className="w-full lg:w-1/3 space-y-8">
+                    <div className="grid grid-cols-3 gap-4">
+                      <button onClick={() => setIsAddingPhoto(true)} className="flex flex-col items-center justify-center gap-3 p-6 bg-white dark:bg-slate-900 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm hover:border-verdant transition-all group">
+                        <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center group-hover:bg-verdant/10 transition-colors">
+                          <Camera className="w-6 h-6 text-slate-400 group-hover:text-verdant" />
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{t('btn_add_image')}</span>
+                      </button>
+                      <button onClick={() => setIsEditOpen(true)} className="flex flex-col items-center justify-center gap-3 p-6 bg-white dark:bg-slate-900 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm hover:border-verdant transition-all group">
+                        <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center group-hover:bg-verdant/10 transition-colors">
+                          <Edit3 className="w-6 h-6 text-slate-400 group-hover:text-verdant" />
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{t('btn_edit_data')}</span>
+                      </button>
+                      <button onClick={() => setIsTransferOpen(true)} className="flex flex-col items-center justify-center gap-3 p-6 bg-white dark:bg-slate-900 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm hover:border-verdant transition-all group">
+                        <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center group-hover:bg-verdant/10 transition-colors">
+                          <QrCode className="w-6 h-6 text-slate-400 group-hover:text-verdant" />
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{t('btn_transfer_caps') || 'TRANSFER'}</span>
+                      </button>
+                      <button 
+                        onClick={handleTogglePriority} 
+                        disabled={isTogglingPriority}
+                        className={`flex flex-col items-center justify-center gap-3 p-6 rounded-[32px] border shadow-sm transition-all group col-span-3 md:col-span-1 ${
+                          plant.isPriority 
+                            ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 hover:border-amber-400' 
+                            : 'bg-white dark:bg-slate-900 border-gray-100 dark:border-slate-800 hover:border-verdant'
+                        }`}
+                      >
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
+                          plant.isPriority 
+                            ? 'bg-amber-100 dark:bg-amber-800/40' 
+                            : 'bg-slate-50 dark:bg-slate-800 group-hover:bg-verdant/10'
+                        }`}>
+                          <span className={`text-2xl transition-transform duration-500 ${plant.isPriority ? 'scale-125' : 'group-hover:scale-110'}`}>
+                            {plant.isPriority ? '⭐' : '☆'}
+                          </span>
+                        </div>
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${
+                          plant.isPriority ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'
+                        }`}>
+                          {plant.isPriority ? t('btn_remove_priority') : t('btn_set_priority')}
+                        </span>
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">{t('lbl_image_archive')}</h4>
+                      <div className="grid grid-cols-3 gap-3">
+                        {plant.images?.map((img, idx) => (
+                          <motion.div
+                            key={idx}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="aspect-square rounded-2xl overflow-hidden border-2 border-white dark:border-slate-800 shadow-sm cursor-pointer"
+                            onClick={() => setEnlargedImageIndex(idx)}
+                          >
+                            <img src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="w-full lg:w-2/3 space-y-12">
+                    {/* ACTION GRID */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <Button variant="primary" size="lg" className={`rounded-[32px] h-24 shadow-xl text-[11px] font-black uppercase tracking-[0.2em] flex flex-col items-center justify-center gap-2 transition-all duration-300 ${lastLoggedAction === 'WATER' ? 'bg-emerald-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} onClick={() => handleLogAction('WATER')}>
+                        <span className="text-3xl">💧</span>
+                        <span>{t('btn_hydrate')}</span>
+                      </Button>
+                      <Button variant="primary" size="lg" className={`rounded-[32px] h-24 shadow-xl text-[11px] font-black uppercase tracking-[0.2em] flex flex-col items-center justify-center gap-2 transition-all duration-300 ${lastLoggedAction === 'MOISTURE' ? 'bg-emerald-500 text-white' : 'bg-sky-500 hover:bg-sky-600 text-white'}`} onClick={() => setIsMoistureOpen(true)}>
+                        <MoistureProbeIcon className="w-10 h-10" />
+                        <span>{t('btn_probe')}</span>
+                      </Button>
+                      <Button variant="primary" size="lg" className={`rounded-[32px] h-24 shadow-xl text-[11px] font-black uppercase tracking-[0.2em] flex flex-col items-center justify-center gap-2 transition-all duration-300 ${lastLoggedAction === 'NOTE' ? 'bg-emerald-500 text-white' : 'bg-amber-500 hover:bg-amber-600 text-white'}`} onClick={() => setIsNoteOpen(true)}>
+                        <span className="text-3xl">📝</span>
+                        <span>{t('btn_log_caps')}</span>
+                      </Button>
+                      <Button variant="secondary" size="lg" className="rounded-[32px] h-24 border-2 border-red-100 dark:border-red-900/30 text-red-600 bg-red-50/20 text-[11px] font-black uppercase tracking-[0.2em] flex flex-col items-center justify-center gap-2" onClick={() => setIsHealthOpen(true)}>
+                        <Activity className="w-10 h-10 text-red-500" />
+                        <span>{t('lbl_health')}</span>
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
+                      {[
+                        { type: 'FERTILIZED', icon: '🧪', label: t('btn_feed') },
+                        { type: 'PRUNED', icon: '✂️', label: t('btn_prune_caps') },
+                        { type: 'REPOTTED', icon: '🪴', label: t('btn_repot_caps') },
+                        { type: 'NEW_LEAF', icon: '🌱', label: t('btn_growth') },
+                        ...(plant.flowers ? [{ type: 'FLOWER', icon: '🌸', label: t('btn_bloom') }] : []),
+                        { type: 'ROTATED', icon: <PotRotationIcon className="w-8 h-8 group-hover:animate-[spin_3s_linear_infinite]" />, label: t('btn_rotate_caps') }
+                      ].map(action => (
+                        <button 
+                          key={action.type}
+                          onClick={() => handleLogAction(action.type as any)}
+                          className={`h-20 rounded-3xl clay-button flex flex-col items-center justify-center gap-1 hover:scale-105 transition-all duration-300 group ${lastLoggedAction === action.type ? 'ring-4 ring-emerald-500/20 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-500/30' : ''}`}
+                        >
+                          <span className="text-2xl">{action.icon}</span>
+                          <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600">{action.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 {/* TAB CONTENT */}
@@ -814,7 +912,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                           <button 
                             onClick={(e) => { e.stopPropagation(); handleSetMainImage(enlargedImageIndex); setEnlargedImageIndex(0); }} 
                             className="w-12 h-12 bg-verdant/20 hover:bg-verdant backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all border border-white/20"
-                            title="Set as Primary"
+                            title={t('btn_set_primary')}
                           >
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                           </button>
@@ -823,14 +921,14 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                         onClick={(e) => { e.stopPropagation(); handleDeleteImage(enlargedImageIndex); }} 
                         className={`w-12 h-12 bg-red-500/20 hover:bg-red-500 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all border border-white/20 ${plant.images && plant.images.length <= 1 ? 'opacity-50 cursor-not-allowed' : ''}`} 
                         disabled={plant.images && plant.images.length <= 1}
-                        title="Delete Image"
+                        title={t('btn_delete_image')}
                       >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                       </button>
                       <button 
                         onClick={(e) => { e.stopPropagation(); setEnlargedImageIndex(null); }} 
                         className="w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all border border-white/20"
-                        title="Close"
+                        title={t('btn_close')}
                       >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>

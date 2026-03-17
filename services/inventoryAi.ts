@@ -11,11 +11,16 @@ export const identifyInventoryItem = async (
   apiKey?: string
 ) => {
   // Fix: Use provided apiKey or fallback to global GEMINI_API_KEY
-  const ai = new GoogleGenAI({ apiKey: apiKey || GEMINI_API_KEY });
+  const key = apiKey || GEMINI_API_KEY;
+  if (!key) {
+    throw new Error("UPLINK_FAULT: Gemini API Key is missing. Please ensure GEMINI_API_KEY is set in your environment variables.");
+  }
+  const maskedKey = `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
+  const ai = new GoogleGenAI({ apiKey: key });
   const model = 'gemini-3-flash-preview';
   const base64Data = image.split(',')[1];
 
-  onLog?.("Initiating Deep Specimen Scan & Multi-Lingual Synthesis...", "GEMINI");
+  onLog?.(`Initiating Deep Specimen Scan with ${model} (Key: ${maskedKey})...`, "GEMINI");
 
   const callGeminiWithRetry = async (fn: () => Promise<any>, maxRetries = 3): Promise<any> => {
     let lastError: any;

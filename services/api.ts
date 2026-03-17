@@ -4,7 +4,7 @@ import { encryptPayload, decryptPayload } from './crypto';
 /**
  * Enhanced fetch with Transport (TLS) and Payload (AES-GCM) encryption
  */
-export const fetchWithAuth = async (endpoint: string, token: string, options: RequestInit = {}) => {
+export const fetchWithAuth = async (endpoint: string, token: string, options: RequestInit = {}): Promise<any> => {
   // Check for the administrative master key to enable payload-level encryption
   let masterKey = localStorage.getItem('verdant_master_key');
   const storedUser = localStorage.getItem('verdant_user');
@@ -61,9 +61,8 @@ export const fetchWithAuth = async (endpoint: string, token: string, options: Re
       try {
           const errData = await cloned.json();
           if (errData.error === 'DECRYPTION_PROTOCOL_FAULT') {
-              localStorage.removeItem('verdant_master_key');
-              console.warn("Master key out of sync. Cleared local key. Retrying...");
-              
+              console.warn("[API] Decryption Protocol Fault detected. Attempting key re-sync...");
+              const userRole = localStorage.getItem('verdant_user_role');
               if (userRole === 'OWNER' || userRole === 'CO_CEO') {
                   const configRes = await fetch(`${API_URL}/api/system/config`, {
                       headers: { 'Authorization': `Bearer ${token}`, 'x-user-role': userRole }
@@ -71,22 +70,17 @@ export const fetchWithAuth = async (endpoint: string, token: string, options: Re
                   if (configRes.ok) {
                       const config = await configRes.json();
                       if (config.masterKey) {
+                          console.info("[API] Master key re-synced from server.");
                           localStorage.setItem('verdant_master_key', config.masterKey);
-                          masterKey = config.masterKey;
-                          
-                          if (options.body && typeof options.body === 'string') {
-                              const originalData = JSON.parse(options.body);
-                              const encryptedData = await encryptPayload(originalData, masterKey!);
-                              processedOptions.body = JSON.stringify({ vault: encryptedData, secure: true });
-                              (processedOptions.headers as Record<string, string>)['X-Payload-Encryption'] = 'AES-256-GCM';
-                          }
-                          response = await fetch(`${API_URL}${endpoint}`, processedOptions);
+                          // Recursive call to handle encryption/decryption on retry
+                          return fetchWithAuth(endpoint, token, options);
                       }
                   }
               } else {
+                  console.warn("[API] Non-admin user detected. Falling back to unencrypted retry.");
                   processedOptions.body = options.body;
                   delete (processedOptions.headers as Record<string, string>)['X-Payload-Encryption'];
-                  response = await fetch(`${API_URL}${endpoint}`, processedOptions);
+                  return fetch(`${API_URL}${endpoint}`, processedOptions);
               }
           }
       } catch (e) {}

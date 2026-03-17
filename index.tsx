@@ -22,16 +22,8 @@ window.addEventListener('appinstalled', (event) => {
   window.dispatchEvent(new CustomEvent('pwa-installed'));
 });
 
-// Register Service Worker
-/* if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').then(registration => {
-      console.log('SW registered: ', registration);
-    }).catch(registrationError => {
-      console.log('SW registration failed: ', registrationError);
-    });
-  });
-} */
+// Register Service Worker (Handled by VitePWA in production)
+// if ('serviceWorker' in navigator) { ... }
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { API_URL, GEMINI_API_KEY } from '../constants';
 import { Plant, LocalizedString, LocalizedArray } from '../types';
 import { fetchTrefleData, fetchOpenPlantBookData, fetchPerenualData, searchGroundingData } from './botanicalServices';
@@ -50,11 +50,11 @@ export const verifyApiKey = async (apiKey?: string): Promise<boolean> => {
         await callGeminiWithRetry(() => ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: 'ping',
-            config: { maxOutputTokens: 1, thinkingConfig: { thinkingBudget: 0 } }
+            config: { maxOutputTokens: 1 }
         }));
         return true;
-    } catch (e) {
-        console.warn("API Verification Failed:", e);
+    } catch (e: any) {
+        console.warn("API Verification Failed:", e.message || e);
         return false;
     }
 };
@@ -93,11 +93,18 @@ export const identifyPlantWithPlantNet = async (imageBlobs: Blob[]): Promise<any
  * 2. Visual Identification Fallback (Gemini)
  */
 export const identifyPlantWithGemini = async (base64: string, apiKey?: string): Promise<any> => {
-  const ai = new GoogleGenAI({ apiKey: apiKey || GEMINI_API_KEY });
+  const key = apiKey || GEMINI_API_KEY;
+  if (!key) {
+    throw new Error("UPLINK_FAULT: Gemini API Key is missing. Please ensure GEMINI_API_KEY is set in your environment variables.");
+  }
+  
+  const maskedKey = `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
+  const ai = new GoogleGenAI({ apiKey: key });
   const model = 'gemini-3-flash-preview';
   
   try {
     reportSystemHit();
+    console.log(`[GEMINI] Identifying specimen with ${model} (Key: ${maskedKey})...`);
     const res = await callGeminiWithRetry(() => ai.models.generateContent({
       model,
       contents: {
@@ -107,9 +114,17 @@ export const identifyPlantWithGemini = async (base64: string, apiKey?: string): 
         ]
       }
     }));
-    return { bestMatch: res.text?.trim() || "Unknown", score: 0.99 };
-  } catch (e) {
-    return null;
+    const bestMatch = res.text?.trim() || "Unknown";
+    console.log(`[GEMINI] Identification Result: ${bestMatch}`);
+    return { bestMatch, score: 0.99 };
+  } catch (e: any) {
+    console.error("[GEMINI] Identification Protocol Fault:", e.message || e);
+    if (e.message?.toLowerCase().includes("api key not valid") || 
+        e.message?.toLowerCase().includes("invalid api key") ||
+        e.message?.toLowerCase().includes("api_key_invalid")) {
+        throw new Error("API_KEY_INVALID");
+    }
+    throw e;
   }
 };
 
@@ -122,7 +137,11 @@ export const generatePlantDetails = async (
   onLog?: (msg: string, source: string) => void,
   apiKey?: string
 ): Promise<Partial<Plant>> => {
-  const ai = new GoogleGenAI({ apiKey: apiKey || GEMINI_API_KEY });
+  const key = apiKey || GEMINI_API_KEY;
+  if (!key) {
+    throw new Error("UPLINK_FAULT: Gemini API Key is missing. Please ensure GEMINI_API_KEY is set in your environment variables.");
+  }
+  const ai = new GoogleGenAI({ apiKey: key });
   const model = 'gemini-3-flash-preview';
 
   onLog?.("Accessing global botanical archives...", "NETWORK");
@@ -339,7 +358,9 @@ export const analyzePlantHealth = async (
   userObservations?: string,
   apiKey?: string
 ): Promise<{ diagnosis: LocalizedString; recoveryPlan: LocalizedArray } | null> => {
-  const ai = new GoogleGenAI({ apiKey: apiKey || GEMINI_API_KEY });
+  const key = apiKey || GEMINI_API_KEY;
+  if (!key) return null;
+  const ai = new GoogleGenAI({ apiKey: key });
   const model = 'gemini-3-flash-preview';
 
   const translationSchema = {

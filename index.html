@@ -29,17 +29,10 @@
       })();
     </script>
 </head>
-  <body class="bg-[#020617] text-gray-900 antialiased dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300 no-scrollbar">
+  <body class="bg-white text-slate-900 antialiased dark:bg-[#020617] dark:text-slate-100 transition-colors duration-300 no-scrollbar">
     <div id="root"></div>
     <script src="/env-config.js"></script>
     <!-- Vite Entry Point -->
     <script type="module" src="/index.tsx"></script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js');
-        });
-      }
-    </script>
   </body>
 </html>
