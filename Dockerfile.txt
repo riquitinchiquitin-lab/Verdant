@@ -1,31 +1,23 @@
-# Use a lightweight Node.js image
 FROM node:20-slim
 
-# Set working directory inside the container
 WORKDIR /app
 
-# Install build dependencies (optional but recommended for SQLite/Native modules)
-RUN apt-get update && apt-get install -y python3 build-essential && rm -rf /var/lib/apt/lists/*
+# Install dependencies for SQLite and healthcheck
+RUN apt-get update && apt-get install -y python3 build-essential curl && rm -rf /var/lib/apt/lists/*
 
-# Copy package files first to leverage Docker layer caching
 COPY package*.json ./
-
-# Install all dependencies (including devDependencies like Vite)
 RUN npm install
 
-# --- CRITICAL FIX: Copy all source files ---
-# This ensures index.html, vite.config.ts, and your source folders are present
 COPY . .
 
-# Run the frontend production build
-# This creates the 'dist' folder that server.ts looks for
+# Build frontend during image creation, not container start
 RUN npm run build
 
-# Expose the application port
-EXPOSE 3000
+# Setup data directory
+RUN mkdir -p /app/data && chmod 777 /app/data
 
-# Set environment to production
+EXPOSE 3000
 ENV NODE_ENV=production
 
-# Start the server using tsx as defined in your package.json
-CMD ["npm", "start"]
+# Use node directly for faster startup
+CMD ["node", "--loader", "ts-node/esm", "server.ts"]
