@@ -46,3 +46,13 @@ a. Attribution.
       D. retain a notice that refers to the disclaimer of warranties;
       E. leave a URI or hyperlink to the Licensed Material to the 
          extent reasonably practicable.
+
+Section 4 -- Third-Party Credits.
+This application utilizes the following third-party services and APIs:
+- Google Gemini Studio (AI Engine)
+- PlantNet API (Botanical Identification)
+- Trefle API (Botanical Database)
+- OpenPlantBook (Botanical Data)
+- Serper (Search Grounding)
+
+The use of these services is subject to their respective terms of service and privacy policies.
