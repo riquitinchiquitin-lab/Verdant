@@ -169,7 +169,11 @@ export const LabelsView: React.FC = () => {
                     </td>
                     <td className="px-4 md:px-6 py-3 md:py-6">
                       <div className="flex items-center gap-2 md:gap-4">
-                        <img src={p.images[0]} className="w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-xl object-cover shadow-sm border border-gray-100 dark:border-slate-700" alt="" />
+                        {p.images && p.images[0] ? (
+                          <img src={p.images[0]} className="w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-xl object-cover shadow-sm border border-gray-100 dark:border-slate-700" alt="" referrerPolicy="no-referrer" />
+                        ) : (
+                          <div className="w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-gray-300 dark:text-slate-700 font-black text-[10px]">?</div>
+                        )}
                         <div className="min-w-0">
                           <p className="font-black text-gray-900 dark:text-white uppercase tracking-tight leading-none mb-0.5 md:mb-1 truncate text-xs md:text-base">{lv(p.nickname)}</p>
                           <p className="text-[8px] md:text-[10px] font-serif italic text-gray-400 truncate">{p.species}</p>

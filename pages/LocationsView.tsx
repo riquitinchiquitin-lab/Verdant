@@ -48,7 +48,21 @@ const LocationAccordion: React.FC<{
                 <div className="p-3 md:p-4 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 space-y-2 animate-in slide-in-from-top-2 duration-300">
                     {plants.length > 0 ? (
                         <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
-                            {plants.map(plant => <div key={plant.id} onClick={() => onPlantClick(plant)} className="flex items-center gap-2 md:gap-3 p-1.5 md:p-2 rounded-lg md:rounded-xl bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 cursor-pointer hover:border-verdant transition-colors shadow-sm"><div className="w-8 h-8 md:w-10 md:h-10 rounded-md md:rounded-lg overflow-hidden shrink-0 bg-gray-100">{plant.images[0] ? <img src={plant.images[0]} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-300 text-[8px] md:text-[10px]">?</div>}</div><div className="min-w-0"><p className="text-[10px] md:text-sm font-bold text-gray-900 dark:text-white truncate leading-tight">{lv(plant.nickname)}</p><p className="text-[8px] md:text-[10px] text-gray-400 font-sans font-normal normal-case truncate leading-none">{plant.species}</p></div></div>)}
+                            {plants.map(plant => (
+                              <div key={plant.id} onClick={() => onPlantClick(plant)} className="flex items-center gap-2 md:gap-3 p-1.5 md:p-2 rounded-lg md:rounded-xl bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-700 cursor-pointer hover:border-verdant transition-colors shadow-sm">
+                                <div className="w-8 h-8 md:w-10 md:h-10 rounded-md md:rounded-lg overflow-hidden shrink-0 bg-gray-100">
+                                  {plant.images && plant.images[0] ? (
+                                    <img src={plant.images[0]} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-gray-300 text-[8px] md:text-[10px]">?</div>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-[10px] md:text-sm font-bold text-gray-900 dark:text-white truncate leading-tight">{lv(plant.nickname)}</p>
+                                  <p className="text-[8px] md:text-[10px] text-gray-400 font-sans font-normal normal-case truncate leading-none">{plant.species}</p>
+                                </div>
+                              </div>
+                            ))}
                         </div>
                     ) : <p className="text-center py-4 md:py-6 text-[8px] md:text-[10px] font-black uppercase tracking-widest text-gray-400 italic">{t('empty_jungle')}</p>}
                 </div>

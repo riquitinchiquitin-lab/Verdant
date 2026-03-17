@@ -415,7 +415,13 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
             <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-gray-100 dark:border-slate-800 p-6 shadow-sm space-y-6">
               <div className="flex gap-6">
                 <div className="w-32 h-32 rounded-2xl overflow-hidden bg-gray-100 dark:bg-slate-800 shrink-0">
-                  <img src={identifiedItem.images[0]} className="w-full h-full object-cover" alt="" />
+                  {identifiedItem.images && identifiedItem.images[0] ? (
+                    <img src={identifiedItem.images[0]} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-slate-700">
+                       <Logo className="w-8 h-8 opacity-20" />
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <span className="inline-block px-2 py-0.5 bg-verdant/10 text-verdant text-[8px] font-black uppercase tracking-widest rounded-full mb-2">
@@ -438,7 +444,13 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
                   <div className="flex flex-wrap gap-2">
                     {compatiblePlants.map(p => (
                       <div key={p.id} className="flex items-center gap-2 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg border border-emerald-100/20 shadow-sm">
-                        <img src={p.images[0]} className="w-5 h-5 rounded-md object-cover" alt="" />
+                        {p.images && p.images[0] ? (
+                          <img src={p.images[0]} className="w-5 h-5 rounded-md object-cover" alt="" referrerPolicy="no-referrer" />
+                        ) : (
+                          <div className="w-5 h-5 rounded-md bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                            <span className="text-[6px] font-black">?</span>
+                          </div>
+                        )}
                         <span className="text-[10px] font-bold dark:text-white">{lv(p.nickname)}</span>
                       </div>
                     ))}

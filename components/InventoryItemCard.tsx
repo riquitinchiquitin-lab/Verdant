@@ -68,7 +68,7 @@ export const InventoryItemCard: React.FC<{
       className={`bg-white dark:bg-slate-900 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col group hover:shadow-xl hover:border-verdant/30 transition-all duration-500 ${onClick ? 'cursor-pointer' : ''}`}
     >
       <div className="relative h-44 bg-gray-50 dark:bg-slate-800/50 overflow-hidden">
-        {item.images[0] ? (
+        {item.images && item.images[0] ? (
           <img src={item.images[0]} alt={lv(item.name)} className="w-full h-full object-contain p-4 group-hover:scale-110 transition-transform duration-700" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-200 dark:text-slate-700">

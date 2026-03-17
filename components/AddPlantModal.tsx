@@ -458,7 +458,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
                   {compatibleItems.map(item => (
                     <div key={item.id} className="flex items-center gap-3 bg-white dark:bg-slate-800 p-3 rounded-2xl shadow-sm border border-blue-100/20">
                       <div className="w-10 h-10 rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-700 shrink-0">
-                        <img src={item.images[0]} className="w-full h-full object-cover" alt="" />
+                        {item.images && item.images[0] && <img src={item.images[0]} className="w-full h-full object-cover" alt="" />}
                       </div>
                       <div className="min-w-0">
                         <p className="text-[10px] font-black truncate dark:text-white leading-none mb-1 uppercase tracking-tight">{lv(item.name)}</p>

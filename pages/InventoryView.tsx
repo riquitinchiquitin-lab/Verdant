@@ -38,7 +38,16 @@ export const InventoryView: React.FC = () => {
     .filter(i => {
         const f = searchFilter.toLowerCase();
         if (!f) return true;
-        return (lv(i.name) || '').toLowerCase().includes(f) || (lv(i.brand as any) || '').toLowerCase().includes(f);
+        
+        // --- SAFE SEARCH FILTERING ---
+        // Ensure name exists before calling toLowerCase
+        const nameMatch = (lv(i.name) || '').toLowerCase().includes(f);
+        
+        // Ensure brand exists before calling toLowerCase
+        const brandLabel = i.brand ? lv(i.brand as any) : '';
+        const brandMatch = (brandLabel || '').toLowerCase().includes(f);
+        
+        return nameMatch || brandMatch;
     });
 
   const handleItemClick = (item: InventoryItem) => {
@@ -109,7 +118,7 @@ export const InventoryView: React.FC = () => {
         </div>
       )}
 
-      {/* ... (Modals remain same) ... */}
+      {/* Modals */}
       <AddInventoryModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
       <Modal isOpen={isCalcOpen} onClose={() => setIsCalcOpen(false)} title={t('mix_calculator')} size="2xl">
         <div className="py-2"><CustomMixCalculator onSaveSuccess={() => setIsCalcOpen(false)} /></div>
@@ -127,7 +136,7 @@ export const InventoryView: React.FC = () => {
           size="2xl"
         >
           <div className="py-2">
-            <InventoryItemDetails item={selectedItem} />
+            <InventoryItemDetails item={selectedItem} onClose={() => setSelectedItem(null)} />
           </div>
         </Modal>
       )}

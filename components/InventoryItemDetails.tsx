@@ -95,7 +95,7 @@ export const InventoryItemDetails: React.FC<InventoryItemDetailsProps> = ({ item
       {/* Header Info */}
       <div className="flex flex-col md:flex-row gap-6">
         <div className="w-full md:w-56 h-56 rounded-3xl overflow-hidden bg-gray-100 dark:bg-slate-800 shadow-inner shrink-0 relative group">
-          {item.images[0] ? (
+          {item.images && item.images[0] ? (
             <img src={item.images[0]} alt={lv(item.name)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-300">
@@ -195,7 +195,7 @@ export const InventoryItemDetails: React.FC<InventoryItemDetailsProps> = ({ item
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
              {compatibleJunglePlants.map(p => (
                <div key={p.id} className="flex items-center gap-4 bg-white dark:bg-slate-800 p-3 rounded-2xl shadow-sm border border-emerald-100/20">
-                 <img src={p.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-inner" />
+                 {p.images && p.images[0] && <img src={p.images[0]} className="w-12 h-12 rounded-xl object-cover shadow-inner" />}
                  <div className="min-w-0">
                    <p className="text-sm font-bold truncate dark:text-white leading-none mb-1">{lv(p.nickname)}</p>
                    <p className="text-[10px] text-gray-500 italic truncate font-serif">{p.species}</p>
@@ -251,7 +251,7 @@ export const InventoryItemDetails: React.FC<InventoryItemDetailsProps> = ({ item
       )}
 
       {/* Image Gallery */}
-      {item.images.length > 1 && (
+      {item.images && item.images.length > 1 && (
         <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-slate-800">
            <div className="flex items-center gap-2 px-1">
              <div className="w-1.5 h-1.5 rounded-full bg-verdant"></div>

@@ -67,7 +67,7 @@ export const FertilizerLogModal: React.FC<FertilizerLogModalProps> = ({ isOpen, 
                     }`}
                   >
                     <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 shrink-0">
-                      <img src={f.images[0]} className="w-full h-full object-cover" alt="" />
+                      {f.images && f.images[0] && <img src={f.images[0]} className="w-full h-full object-cover" alt="" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-serif font-bold truncate dark:text-white">{lv(f.name)}</p>
@@ -99,7 +99,7 @@ export const FertilizerLogModal: React.FC<FertilizerLogModalProps> = ({ isOpen, 
                     }`}
                   >
                     <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 shrink-0">
-                      <img src={f.images[0]} className="w-full h-full object-cover" alt="" />
+                      {f.images && f.images[0] && <img src={f.images[0]} className="w-full h-full object-cover" alt="" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-serif font-bold truncate dark:text-white">{lv(f.name)}</p>

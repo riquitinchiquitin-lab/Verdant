@@ -86,7 +86,7 @@ const GoogleLoginButton = memo(({ onResponse, isDarkMode, language }: { onRespon
 });
 
 export const SecureAuth: React.FC = () => {
-  const { login } = useAuth();
+  const { login, user, loading: authLoading } = useAuth();
   const { t, language } = useLanguage();
   const { users } = usePersonnel(); 
   const { showNotification } = useSystem();
@@ -95,6 +95,13 @@ export const SecureAuth: React.FC = () => {
   const [authError, setAuthError] = useState<string | null>(null);
   const [configMissing, setConfigMissing] = useState(false);
   const [envLoaded, setEnvLoaded] = useState(false);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate('/');
+    }
+  }, [user, authLoading, navigate]);
   
   const usersRef = useRef(users);
   useEffect(() => { usersRef.current = users; }, [users]);

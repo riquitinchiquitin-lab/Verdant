@@ -86,27 +86,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.setItem('verdant_token', token);
     localStorage.setItem('verdant_user', JSON.stringify(userToStore));
     
-    // Recovery Protocol: Fetch Master Key from server if we are Owner/Director
-    if (['OWNER', 'CO_CEO'].includes(user.role)) {
-        try {
-            const res = await fetch(`${API_URL}/api/system/config`, {
-                headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'x-user-role': user.role 
-                }
-            });
-            if (res.ok) {
-                const config = await res.json();
-                if (config.masterKey) {
-                    localStorage.setItem('verdant_master_key', config.masterKey);
-                }
-            }
-        } catch (e) {
-            console.warn("System Handshake Failure: Master Key could not be re-synchronized.");
-        }
-    }
-
+    // Update state immediately so ProtectedRoute allows entry
     setState({ token, user, loading: false });
+
+    // Recovery Protocol: Fetch Master Key from server if we are Owner/Director in background
+    if (['OWNER', 'CO_CEO'].includes(user.role)) {
+        fetch(`${API_URL}/api/system/config`, {
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'x-user-role': user.role 
+            }
+        }).then(res => res.ok ? res.json() : null)
+          .then(config => {
+              if (config?.masterKey) {
+                  localStorage.setItem('verdant_master_key', config.masterKey);
+              }
+          }).catch(() => {
+              console.warn("System Handshake Failure: Master Key could not be re-synchronized.");
+          });
+    }
   }, []);
 
   const logout = useCallback(() => {
