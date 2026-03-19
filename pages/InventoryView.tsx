@@ -20,7 +20,7 @@ export const InventoryView: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isCalcOpen, setIsCalcOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
-  const [editingMix, setEditingMix] = useState<InventoryItem | null>(null);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [compatibilityItem, setCompatibilityItem] = useState<InventoryItem | null>(null);
 
   const isAdmin = user?.role === 'OWNER' || user?.role === 'CO_CEO';
@@ -55,7 +55,7 @@ export const InventoryView: React.FC = () => {
   };
 
   const handleEditClick = (item: InventoryItem) => {
-    setEditingMix(item);
+    setEditingItem(item);
   };
 
   return (
@@ -83,12 +83,12 @@ export const InventoryView: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex py-2 md:py-3 sticky top-14 xl:top-0 z-30 -mx-2 px-2 bg-white dark:bg-slate-950 rounded-b-2xl md:rounded-b-3xl overflow-x-auto no-scrollbar flex-nowrap md:flex-wrap gap-1.5 md:gap-2 touch-pan-x">
+      <div className="flex py-2 md:py-3 sticky top-0 z-30 -mx-2 px-2 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md rounded-b-2xl md:rounded-b-3xl overflow-x-auto no-scrollbar flex-nowrap md:flex-wrap gap-1.5 md:gap-2 touch-pan-x border-b border-gray-100 dark:border-slate-800 md:border-none">
         {categories.map(cat => (
           <button
             key={cat}
             onClick={() => setFilter(cat)}
-            className={`shrink-0 px-3 md:px-4 py-1.5 md:py-2.5 rounded-xl md:rounded-2xl text-[8px] md:text-[10px] font-black uppercase tracking-[0.1em] md:tracking-[0.15em] transition-all border-2 whitespace-nowrap ${
+            className={`shrink-0 px-3 md:px-4 py-1.5 md:py-2.5 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-[0.1em] md:tracking-[0.15em] transition-all border-2 whitespace-nowrap ${
               filter === cat ? 'bg-verdant border-verdant text-white shadow-xl shadow-verdant/20 scale-105' 
                 : 'bg-white/80 dark:bg-slate-950/80 border-gray-100 dark:border-slate-700 text-gray-500 dark:text-slate-400 hover:border-verdant/50'
             }`}
@@ -99,14 +99,14 @@ export const InventoryView: React.FC = () => {
         <div className="shrink-0 w-4 md:hidden"></div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-8">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-8">
         {filtered.map(item => (
           <InventoryItemCard 
             key={item.id} 
             item={item} 
             onCompatibilityClick={() => setCompatibilityItem(item)}
             onClick={() => handleItemClick(item)}
-            onEditClick={item.category === 'custom-mix' ? () => handleEditClick(item) : undefined}
+            onEditClick={can('manage_inventory') ? () => handleEditClick(item) : undefined}
           />
         ))}
       </div>
@@ -119,13 +119,27 @@ export const InventoryView: React.FC = () => {
       )}
 
       {/* Modals */}
-      <AddInventoryModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
+      <AddInventoryModal 
+        isOpen={isAddModalOpen || (!!editingItem && editingItem.category !== 'custom-mix')} 
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingItem(null);
+        }} 
+        itemToEdit={editingItem && editingItem.category !== 'custom-mix' ? editingItem : null}
+      />
       <Modal isOpen={isCalcOpen} onClose={() => setIsCalcOpen(false)} title={t('mix_calculator')} size="2xl">
         <div className="py-2"><CustomMixCalculator onSaveSuccess={() => setIsCalcOpen(false)} /></div>
       </Modal>
-      <Modal isOpen={!!editingMix} onClose={() => setEditingMix(null)} title={t('mix_calculator')} size="2xl">
+      <Modal 
+        isOpen={!!editingItem && editingItem.category === 'custom-mix'} 
+        onClose={() => setEditingItem(null)} 
+        title={t('mix_calculator')} 
+        size="2xl"
+      >
         <div className="py-2">
-          {editingMix && <CustomMixCalculator itemToEdit={editingMix} onSaveSuccess={() => setEditingMix(null)} />}
+          {editingItem && editingItem.category === 'custom-mix' && (
+            <CustomMixCalculator itemToEdit={editingItem} onSaveSuccess={() => setEditingItem(null)} />
+          )}
         </div>
       </Modal>
       {selectedItem && (

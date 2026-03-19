@@ -224,7 +224,7 @@ export const InventoryItemDetails: React.FC<InventoryItemDetailsProps> = ({ item
       )}
 
       {/* Dynamic Specs Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
         {item.category === 'pots' && (
           <>
             <SpecItem label={t('lbl_material')} value={item.material} />

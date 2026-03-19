@@ -16,7 +16,7 @@ declare global {
   }
 }
 
-const ROOT_OWNER_EMAIL = "riquitin.chiquitin@gmail.com";
+const ROOT_OWNER_EMAIL = import.meta.env.VITE_ROOT_OWNER_EMAIL || "riquitin.chiquitin@gmail.com";
 
 // Refined Google Button to resolve double-click issues and handle React 19 lifecycles
 const GoogleLoginButton = memo(({ onResponse, isDarkMode, language }: { onResponse: (resp: any) => void, isDarkMode: boolean, language: string }) => {

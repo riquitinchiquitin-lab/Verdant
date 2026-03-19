@@ -17,6 +17,7 @@ import { getCompatiblePlants } from '../services/compatibilityService';
 interface AddInventoryModalProps {
   isOpen: boolean;
   onClose: () => void;
+  itemToEdit?: InventoryItem | null;
 }
 
 type AddMode = 'CHOICE' | 'CAMERA' | 'PROCESSING' | 'MANUAL' | 'REVIEW';
@@ -28,9 +29,9 @@ interface ProtocolLog {
     type: 'SYSTEM' | 'GEMINI' | 'NETWORK' | 'DEBUG' | 'WARNING';
 }
 
-export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, onClose }) => {
+export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, onClose, itemToEdit }) => {
   const { t, lv, language } = useLanguage();
-  const { addItem } = useInventory();
+  const { addItem, updateItem } = useInventory();
   const { plants, getEffectiveApiKey } = usePlants();
   const { user } = useAuth();
   
@@ -53,6 +54,26 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
     potColor: '#3B82F6',
     drainageCapability: 'Has drainage'
   });
+
+  useEffect(() => {
+    if (itemToEdit) {
+      setFormData({
+        category: itemToEdit.category,
+        name: lv(itemToEdit.name),
+        brand: lv(itemToEdit.brand),
+        description: lv(itemToEdit.description),
+        quantity: itemToEdit.quantity,
+        unit: itemToEdit.unit,
+        images: itemToEdit.images || [],
+        potType: itemToEdit.potType || 'ceramic',
+        potColor: itemToEdit.potColor || '#3B82F6',
+        drainageCapability: itemToEdit.drainageCapability || 'Has drainage'
+      });
+      setAddMode('MANUAL');
+    } else {
+      resetForm();
+    }
+  }, [itemToEdit]);
   const [identifiedItem, setIdentifiedItem] = useState<InventoryItem | null>(null);
   const [compatiblePlants, setCompatiblePlants] = useState<Plant[]>([]);
   const [countdown, setCountdown] = useState(0);
@@ -159,19 +180,34 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
         const brandObj = formData.brand ? await translateInput(formData.brand, 'en', apiKey) : { en: '' };
         const descObj = formData.description ? await translateInput(formData.description, 'en', apiKey) : { en: '' };
 
-        const newItem: InventoryItem = {
-          id: `inv-${Date.now()}`,
-          houseId: user?.houseId,
-          category: formData.category as InventoryCategory,
-          name: nameObj,
-          brand: brandObj,
-          description: descObj,
-          quantity: formData.quantity,
-          unit: formData.unit,
-          images: formData.images,
-        };
+        if (itemToEdit) {
+          updateItem(itemToEdit.id, {
+            category: formData.category as InventoryCategory,
+            name: nameObj,
+            brand: brandObj,
+            description: descObj,
+            quantity: formData.quantity,
+            unit: formData.unit,
+            images: formData.images,
+            potType: formData.potType,
+            potColor: formData.potColor,
+            drainageCapability: formData.drainageCapability
+          });
+        } else {
+          const newItem: InventoryItem = {
+            id: `inv-${Date.now()}`,
+            houseId: user?.houseId,
+            category: formData.category as InventoryCategory,
+            name: nameObj,
+            brand: brandObj,
+            description: descObj,
+            quantity: formData.quantity,
+            unit: formData.unit,
+            images: formData.images,
+          };
+          addItem(newItem);
+        }
 
-        addItem(newItem);
         onClose();
         resetForm();
     } catch (e) {
@@ -223,7 +259,7 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={() => { onClose(); resetForm(); }} title={t('add_item')}>
+    <Modal isOpen={isOpen} onClose={() => { onClose(); resetForm(); }} title={itemToEdit ? t('edit_item') : t('add_item')}>
       <div className="space-y-6 max-h-[85vh] overflow-y-auto no-scrollbar px-2 pb-4">
         
         {addMode === 'CHOICE' && (

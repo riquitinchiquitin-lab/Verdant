@@ -10,11 +10,13 @@ export const fetchWithAuth = async (endpoint: string, token: string, options: Re
   const storedUser = localStorage.getItem('verdant_user');
   let userRole = '';
   let userHouseId = '';
+  let userId = '';
   if (storedUser) {
     try { 
       const u = JSON.parse(storedUser);
       userRole = u.role; 
       userHouseId = u.houseId;
+      userId = u.id;
     } catch (e) {}
   }
   
@@ -24,6 +26,7 @@ export const fetchWithAuth = async (endpoint: string, token: string, options: Re
     'X-Verdant-Version': '3.1.0',
     ...(userRole ? { 'x-user-role': userRole } : {}),
     ...(userHouseId ? { 'x-user-house-id': userHouseId } : {}),
+    ...(userId ? { 'x-user-id': userId } : {}),
     ...((options.headers as Record<string, string>) || {}),
   };
 

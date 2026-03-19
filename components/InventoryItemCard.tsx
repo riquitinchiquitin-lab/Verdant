@@ -67,7 +67,7 @@ export const InventoryItemCard: React.FC<{
       onClick={onClick}
       className={`bg-white dark:bg-slate-900 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col group hover:shadow-xl hover:border-verdant/30 transition-all duration-500 ${onClick ? 'cursor-pointer' : ''}`}
     >
-      <div className="relative h-44 bg-gray-50 dark:bg-slate-800/50 overflow-hidden">
+      <div className="relative h-32 md:h-44 bg-gray-50 dark:bg-slate-800/50 overflow-hidden">
         {item.images && item.images[0] ? (
           <img src={item.images[0]} alt={lv(item.name)} className="w-full h-full object-contain p-4 group-hover:scale-110 transition-transform duration-700" />
         ) : (
@@ -105,74 +105,78 @@ export const InventoryItemCard: React.FC<{
             </span>
           )}
           {isPotOrAccessory && (
-            <span className={`backdrop-blur-md text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-lg border border-white/20 ${associatedPlant ? 'bg-blue-500/90 text-white' : 'bg-verdant/20 text-verdant dark:text-verdant-light'}`}>
+            <span className={`backdrop-blur-md text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-lg border border-white/20 truncate max-w-[120px] md:max-w-none ${associatedPlant ? 'bg-blue-500/90 text-white' : 'bg-verdant/20 text-verdant dark:text-verdant-light'}`}>
               {associatedPlant ? `${t('in_use')}: ${lv(associatedPlant.nickname)}` : t('available')}
             </span>
           )}
         </div>
       </div>
 
-      <div className="p-5 flex-1 flex flex-col space-y-4">
+      <div className="p-3 md:p-5 flex-1 flex flex-col space-y-2 md:space-y-4">
         <div>
-          <h3 className="font-bold text-gray-900 dark:text-white leading-tight group-hover:text-verdant transition-colors">{lv(item.name)}</h3>
+          <h3 className="font-bold text-gray-900 dark:text-white leading-tight group-hover:text-verdant transition-colors text-xs md:text-base line-clamp-2">{lv(item.name)}</h3>
           {(item.brand || item.model) && (
-            <p className="text-[10px] text-gray-500 dark:text-slate-500 font-black uppercase tracking-wider mt-1">
+            <p className="text-[8px] md:text-[10px] text-gray-500 dark:text-slate-500 font-black uppercase tracking-wider mt-0.5 md:mt-1 truncate">
               {lv(item.brand)} {item.model ? `• ${item.model}` : ''}
             </p>
           )}
         </div>
 
-        <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-50 dark:border-slate-800">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-auto pt-2 md:pt-3 border-t border-gray-50 dark:border-slate-800 gap-2">
           {canConsume ? (
-            <div className="flex items-center gap-1 bg-gray-50 dark:bg-slate-800 rounded-2xl p-1 border border-gray-100 dark:border-slate-700/50 shadow-inner">
+            <div className="flex items-center gap-1 bg-gray-50 dark:bg-slate-800 rounded-xl md:rounded-2xl p-0.5 md:p-1 border border-gray-100 dark:border-slate-700/50 shadow-inner w-full sm:w-auto justify-between sm:justify-start">
                <button 
                 onClick={handleDecrement}
                 disabled={isLowStock}
-                className="w-8 h-8 flex items-center justify-center bg-white dark:bg-slate-700 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 rounded-xl transition-all active:scale-90 disabled:opacity-30 shadow-sm border border-gray-100 dark:border-slate-600"
+                className="w-7 h-7 md:w-8 md:h-8 flex items-center justify-center bg-white dark:bg-slate-700 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 rounded-lg md:rounded-xl transition-all active:scale-90 disabled:opacity-30 shadow-sm border border-gray-100 dark:border-slate-600"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path d="M20 12H4" /></svg>
+                <svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path d="M20 12H4" /></svg>
               </button>
               
-              <div className="px-3 flex flex-col items-center">
-                <span className="text-[8px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-tighter leading-none mb-0.5">{formattedVolume.unit}</span>
-                <span className={`text-sm font-black transition-colors ${isLowStock ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>
+              <div className="px-1.5 md:px-3 flex flex-col items-center">
+                <span className="text-[7px] md:text-[8px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-tighter leading-none mb-0.5">{formattedVolume.unit}</span>
+                <span className={`text-xs md:text-sm font-black transition-colors ${isLowStock ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>
                   {formattedVolume.value}
                 </span>
               </div>
 
               <button 
                 onClick={handleIncrement}
-                className="w-8 h-8 flex items-center justify-center bg-white dark:bg-slate-700 hover:bg-verdant/10 dark:hover:bg-verdant/20 text-gray-400 hover:text-verdant rounded-xl transition-all active:scale-90 shadow-sm border border-gray-100 dark:border-slate-600"
+                className="w-7 h-7 md:w-8 md:h-8 flex items-center justify-center bg-white dark:bg-slate-700 hover:bg-verdant/10 dark:hover:bg-verdant/20 text-gray-400 hover:text-verdant rounded-lg md:rounded-xl transition-all active:scale-90 shadow-sm border border-gray-100 dark:border-slate-600"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path d="M12 4v16m8-8H4" /></svg>
+                <svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path d="M12 4v16m8-8H4" /></svg>
               </button>
             </div>
           ) : (
             <div className="flex flex-col">
-              <span className="text-[9px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-[0.2em]">{t('lbl_quantity')}</span>
-              <span className="text-sm font-black text-gray-900 dark:text-white">
-                {formattedVolume.value} <span className="text-[10px] text-gray-400 font-bold ml-0.5">{formattedVolume.unit}</span>
+              <span className="text-[8px] md:text-[9px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-[0.2em]">{t('lbl_quantity')}</span>
+              <span className="text-xs md:text-sm font-black text-gray-900 dark:text-white">
+                {formattedVolume.value} <span className="text-[9px] md:text-[10px] text-gray-400 font-bold ml-0.5">{formattedVolume.unit}</span>
               </span>
             </div>
           )}
           
-          <div className="flex gap-2">
+          <div className="flex gap-1.5 md:gap-2 ml-auto sm:ml-0">
             {hasCompatibility && !isCustomMix && (
               <button 
                 onClick={(e) => { e.stopPropagation(); onCompatibilityClick?.(); }}
-                className="w-10 h-10 flex items-center justify-center bg-verdant/10 dark:bg-verdant/20 text-verdant dark:text-verdant-light rounded-2xl hover:bg-verdant hover:text-white transition-all shadow-sm border border-verdant/10"
+                className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center bg-verdant/10 dark:bg-verdant/20 text-verdant dark:text-verdant-light rounded-xl md:rounded-2xl hover:bg-verdant hover:text-white transition-all shadow-sm border border-verdant/10"
                 title={t('btn_compatibility')}
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </button>
             )}
 
-            {isCustomMix && onEditClick && (
+            {onEditClick && (
               <button 
                 onClick={(e) => { e.stopPropagation(); onEditClick(); }}
-                className="px-3 py-2 bg-amber-500/10 text-amber-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-500 hover:text-white transition-all shadow-sm border border-amber-500/20"
+                className={`px-2 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[8px] md:text-[10px] font-black uppercase tracking-widest transition-all shadow-sm border ${
+                  isCustomMix 
+                    ? 'bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500 hover:text-white' 
+                    : 'bg-blue-500/10 text-blue-600 border-blue-500/20 hover:bg-blue-500 hover:text-white'
+                }`}
               >
-                {t('edit_mix')}
+                {isCustomMix ? t('edit_mix') : t('edit')}
               </button>
             )}
           </div>
