@@ -46,7 +46,7 @@ For detailed installation instructions, including prerequisites and API key setu
 
 ### Quick Start (Docker)
 ```bash
-git clone https://github.com/your-username/verdant.git
+git clone https://github.com/riquitinchiquitin-lab/verdant.git
 cd verdant
 cp .env.example .env
 # Edit .env with your API keys
