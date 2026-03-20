@@ -7,7 +7,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useSystem } from '../context/SystemContext';
 import { Button } from '../components/ui/Button';
 import { Plant } from '../types';
-import { Plus, RefreshCw, Scan, Download } from 'lucide-react';
+import { Plus, Scan, Download } from 'lucide-react';
 import { AddPlantModal } from '../components/AddPlantModal';
 import { PlantCard } from '../components/PlantCard';
 import { PlantDetailsModal } from '../components/PlantDetailsModal';
@@ -115,33 +115,23 @@ export const Dashboard: React.FC = () => {
                 </div>
                 <div>
                     <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tighter uppercase leading-none">Verdant</h1>
-                    <p className="text-[10px] font-bold text-verdant uppercase tracking-widest mt-1 opacity-70">
-                        {user?.houseId ? lv(houses.find(h => h.id === user.houseId)?.name) : t('global_view')} • {user ? t('role_' + user.role.toLowerCase()) : ''}
-                    </p>
                 </div>
             </div>
             
             <div className="flex items-center gap-3">
-                <button
-                    onClick={() => refreshAllData()}
-                    className="p-3 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl text-gray-500 hover:text-verdant hover:border-verdant/30 transition-all shadow-sm active:scale-95"
-                    title={t('sync_now')}
-                >
-                    <RefreshCw className={`w-5 h-5 ${!isSynced ? 'animate-spin' : ''}`} />
-                </button>
                 <Button
                     onClick={() => setIsAddModalOpen(true)}
                     className="h-12 px-6 bg-verdant text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-verdant/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
                 >
                     <Plus className="w-4 h-4" />
-                    {t('add_plant')}
+                    {t('btn_add_plant')}
                 </Button>
             </div>
         </div>
 
         <PlantTelemetry />
 
-        <div className="px-6 md:px-10 grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-8">
+        <div className="px-6 md:px-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 pb-8">
             {featured && (
                 <div key={featured.id} className="relative group">
                     {!featured.houseId && (

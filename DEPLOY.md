@@ -44,6 +44,7 @@ Log into your Ubuntu terminal via SSH or the Proxmox console.
     nano .env
     ```
     -   Paste the configuration from the "System Master Configuration" section.
+    -   **CRITICAL**: Set `VITE_ROOT_OWNER_EMAIL` to your Google email address. This is the only way to gain initial access to the system as the **Owner**.
     -   Save with `CTRL+O`, `Enter`, and exit with `CTRL+X`.
 
 ---

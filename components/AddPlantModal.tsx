@@ -53,15 +53,15 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
   const currentHouse = useMemo(() => houses.find(h => h.id === user?.houseId), [houses, user?.houseId]);
 
   const progressState = useMemo(() => {
-    if (logs.length === 0) return { percent: 0, status: t('status_initializing'), time: 15 };
+    if (logs.length === 0) return { percent: 0, status: t('status_initializing'), time: 42 };
     const lastMsg = logs[logs.length - 1].message.toLowerCase();
-    if (lastMsg.includes("multi-specimen")) return { percent: 10, status: t('status_initializing_protocol'), time: 14 };
-    if (lastMsg.includes("uplinking to pl@ntnet")) return { percent: 25, status: t('status_visual_pattern_matching'), time: 12 };
-    if (lastMsg.includes("gemini vision")) return { percent: 40, status: t('status_neural_specimen_identification'), time: 10 };
-    if (lastMsg.includes("fetching technical parameters") || lastMsg.includes("accessing global")) return { percent: 65, status: t('status_querying_global_archives'), time: 7 };
-    if (lastMsg.includes("harmonizing")) return { percent: 85, status: t('status_synthesizing_botanical_dossier'), time: 3 };
+    if (lastMsg.includes("multi-specimen")) return { percent: 10, status: t('status_initializing_protocol'), time: 40 };
+    if (lastMsg.includes("uplinking to pl@ntnet")) return { percent: 25, status: t('status_visual_pattern_matching'), time: 35 };
+    if (lastMsg.includes("gemini vision")) return { percent: 40, status: t('status_neural_specimen_identification'), time: 25 };
+    if (lastMsg.includes("fetching technical parameters") || lastMsg.includes("accessing global")) return { percent: 65, status: t('status_querying_global_archives'), time: 15 };
+    if (lastMsg.includes("harmonizing")) return { percent: 85, status: t('status_synthesizing_botanical_dossier'), time: 5 };
     if (lastMsg.includes("finalized")) return { percent: 100, status: t('status_identity_confirmed'), time: 0 };
-    return { percent: 50, status: t('status_processing_specimen'), time: 8 };
+    return { percent: 50, status: t('status_processing_specimen'), time: 20 };
   }, [logs, t]);
 
   useEffect(() => {
@@ -121,7 +121,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
       addLog(t('msg_fetching_params'), "NETWORK");
       
       const details = await generatePlantDetails(idResult.bestMatch, specimenImages[0], (msg, src) => {
-          addLog(msg, src === 'NETWORK' ? 'NETWORK' : 'GEMINI');
+          addLog(t(msg) || msg, src === 'NETWORK' ? 'NETWORK' : 'GEMINI');
       }, getEffectiveApiKey());
 
       setIdentifiedPlant(createPlant({
@@ -409,7 +409,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
                     : error}
                 </p>
                 <div className="flex gap-2 justify-center">
-                  <button onClick={initiateSync} className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-600 hover:text-emerald-700 transition-colors border border-emerald-100 dark:border-emerald-900/30 px-3 py-1 rounded-lg">{t('btn_retry') || 'Retry'}</button>
+                  <button onClick={initiateSync} className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-600 hover:text-emerald-700 transition-colors border border-emerald-100 dark:border-emerald-900/30 px-3 py-1 rounded-lg">{t('btn_retry')}</button>
                   <button onClick={reset} className="text-[9px] font-black uppercase tracking-[0.2em] text-red-400 hover:text-red-600 transition-colors border border-red-100 dark:border-red-900/30 px-3 py-1 rounded-lg">{t('btn_reset_protocol')}</button>
                 </div>
               </div>

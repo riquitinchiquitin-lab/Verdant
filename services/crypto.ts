@@ -56,11 +56,11 @@ export async function encryptPayload(data: any, passphrase: string): Promise<str
     combined.set(new Uint8Array(ciphertext), iv.length);
 
     // Robust base64 conversion for large payloads
-    let binary = '';
     const bytes = new Uint8Array(combined);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(bytes[i]);
+    let binary = '';
+    const chunk_size = 8192;
+    for (let i = 0; i < bytes.length; i += chunk_size) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk_size) as any);
     }
     return btoa(binary);
   } catch (err) {

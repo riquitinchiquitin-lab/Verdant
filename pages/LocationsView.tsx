@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { PlantDetailsModal } from '../components/PlantDetailsModal';
 import { Plant } from '../types';
+import { useDraggableScroll } from '../hooks/useDraggableScroll';
 
 const LocationAccordion: React.FC<{ 
     name: string; 
@@ -16,6 +17,7 @@ const LocationAccordion: React.FC<{
 }> = ({ name, plants, isCustom, onDelete, onPlantClick }) => {
     const [isOpen, setIsOpen] = useState(false);
     const { t, lv } = useLanguage();
+    const accordionScroll = useDraggableScroll();
 
     const translatedRoomName = useMemo(() => {
         // Predefined rooms in constants use specific strings that we map to translation keys
@@ -47,9 +49,9 @@ const LocationAccordion: React.FC<{
             {isOpen && (
                 <div className="p-3 md:p-4 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 space-y-2 animate-in slide-in-from-top-2 duration-300">
                     {plants.length > 0 ? (
-                        <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
+                        <div {...accordionScroll.props} className={`flex gap-2 pb-2 ${accordionScroll.props.className}`}>
                             {plants.map(plant => (
-                              <div key={plant.id} onClick={() => onPlantClick(plant)} className="flex items-center gap-2 md:gap-3 p-1.5 md:p-2 rounded-lg md:rounded-xl bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-700 cursor-pointer hover:border-verdant transition-colors shadow-sm">
+                              <div key={plant.id} onClick={() => onPlantClick(plant)} className="w-48 flex-shrink-0 flex items-center gap-2 md:gap-3 p-1.5 md:p-2 rounded-lg md:rounded-xl bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-700 cursor-pointer hover:border-verdant transition-colors shadow-sm">
                                 <div className="w-8 h-8 md:w-10 md:h-10 rounded-md md:rounded-lg overflow-hidden shrink-0 bg-gray-100">
                                   {plant.images && plant.images[0] ? (
                                     <img src={plant.images[0]} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />

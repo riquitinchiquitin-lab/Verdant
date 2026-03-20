@@ -144,7 +144,7 @@ export const generatePlantDetails = async (
   const ai = new GoogleGenAI({ apiKey: key });
   const model = 'gemini-3-flash-preview';
 
-  onLog?.("Accessing global botanical archives...", "NETWORK");
+  onLog?.("msg_accessing_archives", "NETWORK");
   const [trefle, opb, perenual, grounding] = await Promise.all([
     fetchTrefleData(scientificName).catch(() => null),
     fetchOpenPlantBookData(scientificName).catch(() => null),
@@ -152,7 +152,7 @@ export const generatePlantDetails = async (
     searchGroundingData(`how to propagate and repot ${scientificName} successfully`).catch(() => null)
   ]);
 
-  onLog?.("Harmonizing & Localizing data...", "GEMINI");
+  onLog?.("msg_harmonizing_data", "GEMINI");
   
   const translationSchema = {
     type: Type.OBJECT,

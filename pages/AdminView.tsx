@@ -5,24 +5,33 @@ import { usePlants } from '../context/PlantContext';
 import { usePersonnel } from '../context/PersonnelContext';
 import { useSystem, SystemLog } from '../context/SystemContext';
 import { useInventory } from '../context/InventoryContext';
-import { House, User } from '../types';
+import { House, User, Plant } from '../types';
 import { Button } from '../components/ui/Button';
 import { SystemTelemetry } from '../components/SystemTelemetry';
 import { fetchWithAuth } from '../services/api'; // Mandatory import for handshake
 import { generateSecure50CharKey } from '../services/security';
+import { useDraggableScroll } from '../hooks/useDraggableScroll';
 
 export const AdminView: React.FC = () => {
   const { user } = useAuth();
   const { t, lv, language } = useLanguage();
   const { showNotification, fetchSystemLogs } = useSystem();
-  const { houses, plants, updateHouse, deleteHouse, addHouse } = usePlants();
+  const { houses, plants, updateHouse, deleteHouse, addHouse, updatePlant } = usePlants();
   const { users, addUser, updateUser, deleteUser } = usePersonnel();
-  const [activeTab, setActiveTab] = useState<'HOUSES' | 'PERSONNEL' | 'DATABASE' | 'SECURITY' | 'LOGS'>('HOUSES');
+  const [activeTab, setActiveTab] = useState<'HOUSES' | 'PERSONNEL' | 'PLANTS' | 'DATABASE' | 'SECURITY' | 'LOGS'>('HOUSES');
   const [isRestoring, setIsRestoring] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [logs, setLogs] = useState<SystemLog[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [movingPlantId, setMovingPlantId] = useState<string | null>(null);
+  const [targetHouseId, setTargetHouseId] = useState<string>('');
+  const [isMoving, setIsMoving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const tabsScroll = useDraggableScroll();
+  const housesScroll = useDraggableScroll();
+  const plantsScroll = useDraggableScroll();
+  const personnelScroll = useDraggableScroll();
 
   // Modal States
   const [editingHouse, setEditingHouse] = useState<House | null>(null);
@@ -61,8 +70,9 @@ export const AdminView: React.FC = () => {
   const visiblePersonnel = useMemo(() => (isOwner || isDirector || isLeadHand ? users : []), [users, isOwner, isDirector, isLeadHand]);
 
   const availableTabs = useMemo(() => {
-    const tabs: ('HOUSES' | 'PERSONNEL' | 'DATABASE' | 'SECURITY' | 'LOGS')[] = ['HOUSES', 'PERSONNEL'];
+    const tabs: ('HOUSES' | 'PERSONNEL' | 'PLANTS' | 'DATABASE' | 'SECURITY' | 'LOGS')[] = ['HOUSES', 'PERSONNEL'];
     if (isOwner || isDirector) {
+      tabs.splice(2, 0, 'PLANTS');
       tabs.push('DATABASE', 'SECURITY', 'LOGS');
     }
     return tabs;
@@ -81,7 +91,7 @@ export const AdminView: React.FC = () => {
     let backupKey: string | null = null;
     if (file.name.endsWith('.enc')) {
       backupKey = prompt(t('msg_enter_backup_key'));
-      if (!backupKey || backupKey.length < 32) return showNotification(t('msg_invalid_key'), "ERROR");
+      if (!backupKey) return;
     }
 
     setIsRestoring(true);
@@ -104,7 +114,7 @@ export const AdminView: React.FC = () => {
           }
         }
 
-        console.log("[ADMIN] Restore Payload Prepared:", payload);
+        console.log("[ADMIN] Restore Payload Prepared. Size:", rawContent.length);
         const token = localStorage.getItem('verdant_token') || '';
         const response = await fetchWithAuth('/api/system/restore', token, {
           method: 'POST',
@@ -114,8 +124,19 @@ export const AdminView: React.FC = () => {
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             console.error("[ADMIN] Restore failed:", response.status, errorData);
-            throw new Error("RESTORE_FAILED");
+            if (errorData.error === 'INVALID_BACKUP_KEY') {
+                showNotification(t('msg_invalid_key'), "ERROR");
+                return;
+            }
+            if (errorData.error === 'DECRYPTION_PROTOCOL_FAULT') {
+                showNotification(t('msg_decryption_protocol_fault'), "ERROR");
+                return;
+            }
+            showNotification(t('msg_restore_failed', { error: errorData.details || errorData.error || response.statusText }), "ERROR");
+            return;
         }
+
+        console.log("[ADMIN] Restore successful");
         showNotification(t('msg_restore_success'), "SUCCESS");
         setTimeout(() => window.location.reload(), 1500);
       } catch (err) { 
@@ -226,6 +247,21 @@ export const AdminView: React.FC = () => {
       showNotification(t('msg_property_established'), "SUCCESS");
     } catch (e) {
       showNotification(t('msg_establishment_failed'), "ERROR");
+    }
+  };
+
+  const handleMovePlant = async () => {
+    if (!movingPlantId) return;
+    setIsMoving(true);
+    try {
+      await updatePlant(movingPlantId, { houseId: targetHouseId || null });
+      showNotification(t('msg_plant_moved'), "SUCCESS");
+      setMovingPlantId(null);
+      setTargetHouseId('');
+    } catch (e) {
+      showNotification(t('msg_move_failed'), "ERROR");
+    } finally {
+      setIsMoving(false);
     }
   };
 
@@ -461,11 +497,36 @@ export const AdminView: React.FC = () => {
             </div>
         )}
 
+        {movingPlantId && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[40px] p-8 space-y-6 border border-slate-200 dark:border-slate-800 shadow-2xl">
+                    <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('btn_move_plant')}</h2>
+                    <div className="space-y-4">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('lbl_select_house')}</label>
+                            <select 
+                                value={targetHouseId}
+                                onChange={(e) => setTargetHouseId(e.target.value)}
+                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 ring-verdant/20"
+                            >
+                                <option value="">{t('lbl_unassigned').toUpperCase()}</option>
+                                {houses.map(h => <option key={h.id} value={h.id}>{lv(h.name)}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="flex gap-4 pt-4">
+                        <Button variant="secondary" onClick={() => setMovingPlantId(null)} className="flex-1 rounded-2xl uppercase font-black">{t('btn_cancel')}</Button>
+                        <Button variant="primary" onClick={handleMovePlant} isLoading={isMoving} className="flex-1 rounded-2xl uppercase font-black">{t('btn_move_plant')}</Button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         <h1 className="text-5xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('menu_admin')}</h1>
         
         <SystemTelemetry />
 
-        <div className="flex gap-x-10 border-b border-slate-200 dark:border-slate-800 pb-0.5 overflow-x-auto no-scrollbar whitespace-nowrap scroll-smooth">
+        <div {...tabsScroll.props} className={`flex gap-x-10 border-b border-slate-200 dark:border-slate-800 pb-0.5 whitespace-nowrap scroll-smooth ${tabsScroll.props.className}`}>
             {availableTabs.map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab as any)} className={`pb-4 px-4 text-[10px] font-black uppercase tracking-[0.4em] transition-all relative border-b-2 shrink-0 ${activeTab === tab ? 'text-slate-900 dark:text-white border-verdant' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 border-transparent'}`}>
                     {t(`tab_${tab.toLowerCase()}` as any)}
@@ -474,9 +535,9 @@ export const AdminView: React.FC = () => {
         </div>
         {activeTab === 'HOUSES' && (
             <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div {...housesScroll.props} className={`flex gap-6 pb-4 ${housesScroll.props.className}`}>
                     {visibleHouses.map(house => (
-                        <div key={house.id} className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <div key={house.id} className="w-80 flex-shrink-0 bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm">
                             <h3 className="text-xl font-black uppercase text-slate-900 dark:text-white mb-2">{lv(house.name)}</h3>
                             <p className="text-xs text-slate-500 uppercase tracking-widest mb-4">{t('lbl_id')}: {house.id}</p>
                             <div className="flex gap-2">
@@ -488,7 +549,7 @@ export const AdminView: React.FC = () => {
                     {!(isLeadHand) && (
                         <button 
                             onClick={() => setIsAddingHouse(true)}
-                            className="border-4 border-dashed border-slate-200 dark:border-slate-800 rounded-[32px] p-8 flex flex-col items-center justify-center text-slate-400 hover:text-verdant hover:border-verdant transition-all group"
+                            className="w-80 flex-shrink-0 border-4 border-dashed border-slate-200 dark:border-slate-800 rounded-[32px] p-8 flex flex-col items-center justify-center text-slate-400 hover:text-verdant hover:border-verdant transition-all group"
                         >
                             <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">+</span>
                             <span className="text-[10px] font-black uppercase tracking-widest">{t('lbl_add_house')}</span>
@@ -505,8 +566,8 @@ export const AdminView: React.FC = () => {
                         + {t('btn_add_personnel')}
                     </Button>
                 </div>
-                <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-                    <table className="w-full text-left">
+                <div {...personnelScroll.props} className={`bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm ${personnelScroll.props.className}`}>
+                    <table className="w-full text-left min-w-[600px]">
                         <thead>
                             <tr className="bg-slate-50 dark:bg-slate-800/50">
                                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('lbl_name')}</th>
@@ -533,6 +594,47 @@ export const AdminView: React.FC = () => {
                             ))}
                         </tbody>
                     </table>
+                </div>
+            </div>
+        )}
+        {activeTab === 'PLANTS' && (
+            <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                    <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('tab_plants')}</h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {plants.map(plant => {
+                        const house = houses.find(h => h.id === plant.houseId);
+                        return (
+                            <div key={plant.id} className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 p-4 shadow-sm flex items-center gap-4 hover:border-verdant/40 transition-all group">
+                                <div className="w-16 h-16 rounded-2xl bg-slate-50 dark:bg-slate-800 flex-shrink-0 overflow-hidden ring-2 ring-white dark:ring-slate-800">
+                                    {plant.images?.[0] ? (
+                                        <img src={plant.images[0]} alt={lv(plant.nickname)} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-slate-300 dark:text-slate-700 font-black text-xs">?</div>
+                                    )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-lg font-black text-slate-900 dark:text-white truncate uppercase tracking-tight leading-none mb-1">{lv(plant.nickname)}</h3>
+                                    <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate font-sans font-normal normal-case leading-none mb-2">{plant.species}</p>
+                                    <div className="flex items-center justify-between">
+                                        <span className={`text-[9px] font-black uppercase tracking-widest ${house ? 'text-verdant' : 'text-amber-500'}`}>
+                                            {house ? t('lbl_assigned_to', { house: lv(house.name) }) : t('lbl_unassigned')}
+                                        </span>
+                                        <button 
+                                            onClick={() => {
+                                                setMovingPlantId(plant.id);
+                                                setTargetHouseId(plant.houseId || '');
+                                            }}
+                                            className="text-verdant font-black text-[9px] uppercase tracking-widest hover:underline border border-verdant/20 px-2 py-1 rounded-lg"
+                                        >
+                                            {t('btn_move_plant')}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         )}

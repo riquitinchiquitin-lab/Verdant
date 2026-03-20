@@ -49,7 +49,7 @@ For detailed installation instructions, including prerequisites and API key setu
 git clone https://github.com/riquitinchiquitin-lab/verdant.git
 cd verdant
 cp .env.example .env
-# Edit .env with your API keys
+# Edit .env with your API keys and set VITE_ROOT_OWNER_EMAIL
 docker-compose up -d
 ```
 

@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { Plant, Log } from '../types';
 import { Button } from '../components/ui/Button';
 import { PotRotationIcon } from '../components/ui/Icons';
+import { useDraggableScroll } from '../hooks/useDraggableScroll';
 
 const getDaysDue = (plant: Plant): number | null => {
     let effectiveInterval = plant.wateringInterval;
@@ -63,6 +64,7 @@ export const CareSchedule: React.FC = () => {
   const { user } = useAuth();
   const { t, lv, language } = useLanguage();
   const location = useLocation();
+  const scheduleScroll = useDraggableScroll();
   
   const queryParams = new URLSearchParams(location.search);
   const shouldHighlightThirsty = queryParams.get('filter') === 'thirsty';
@@ -165,7 +167,7 @@ export const CareSchedule: React.FC = () => {
             )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+        <div {...scheduleScroll.props} className={`flex gap-4 pb-8 ${scheduleScroll.props.className}`}>
             {sortedPlants.length > 0 ? sortedPlants.map(plant => {
                 const daysDue = getDaysDue(plant);
                 const rotationDaysDue = getRotationDaysDue(plant);
@@ -176,7 +178,7 @@ export const CareSchedule: React.FC = () => {
                 const isUrgentThirsty = shouldHighlightThirsty && isWaterOverdue;
                 
                 return (
-                    <div key={plant.id} className={`bg-white dark:bg-slate-900 rounded-[24px] md:rounded-[32px] border-2 ${isUrgentThirsty ? 'border-red-500 ring-4 ring-red-500/10 animate-pulse' : 'border-gray-100 dark:border-slate-800'} p-3 md:p-5 shadow-sm flex flex-col items-center gap-3 md:gap-6 hover:border-verdant/40 transition-all duration-500 group`}>
+                    <div key={plant.id} className={`w-80 flex-shrink-0 bg-white dark:bg-slate-900 rounded-[24px] md:rounded-[32px] border-2 ${isUrgentThirsty ? 'border-red-500 ring-4 ring-red-500/10 animate-pulse' : 'border-gray-100 dark:border-slate-800'} p-3 md:p-5 shadow-sm flex flex-col items-center gap-3 md:gap-6 hover:border-verdant/40 transition-all duration-500 group`}>
                         <div className="flex items-center gap-3 md:gap-5 w-full">
                             <div className="w-14 h-14 md:w-20 md:h-20 rounded-xl md:rounded-[24px] bg-gray-100 dark:bg-slate-800 flex-shrink-0 overflow-hidden shadow-inner ring-2 md:ring-4 ring-white dark:ring-slate-800 transition-transform group-hover:scale-105 duration-500">
                                 {plant.images?.[0] ? (

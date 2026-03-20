@@ -134,7 +134,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '100mb' }));
 
 // 1. HEALTH CHECK ENDPOINT
 app.get('/api/health', (req, res) => {
@@ -167,7 +167,10 @@ app.use(async (req, res, next) => {
       req.body = decrypt(req.body.vault);
       (req as any).wasEncrypted = true;
     }
-    catch (e) { return res.status(400).json({ error: "DECRYPTION_FAULT" }); }
+    catch (e) { 
+      console.error('[SECURITY] Decryption Protocol Fault:', e);
+      return res.status(400).json({ error: "DECRYPTION_PROTOCOL_FAULT" }); 
+    }
   }
   const originalJson = res.json;
   res.json = function (data) {
@@ -259,26 +262,111 @@ app.post('/api/system/restore', checkAuth, async (req, res) => {
   if (!['OWNER', 'CO_CEO'].includes(role)) {
     return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
   }
+  
   try {
-    const { data } = req.body;
-    const decoded = typeof data === 'string' ? JSON.parse(data) : data;
-    await query('DELETE FROM plants');
-    await query('DELETE FROM houses');
-    await query('DELETE FROM tasks');
-    await query('DELETE FROM inventory');
-    if (decoded.plants) {
-      for (const p of decoded.plants) {
-        await query('INSERT INTO plants (id, houseId, species, data) VALUES (?, ?, ?, ?)', [p.id, p.houseId, p.species, JSON.stringify(p)]);
+    let { data, backupKey } = req.body;
+    if (!data) return res.status(400).json({ error: "MISSING_DATA" });
+
+    let decoded: any;
+    
+    // 1. Handle Decryption if backupKey is provided
+    if (backupKey) {
+      console.log("[RESTORE] Decrypting backup with provided key...");
+      try {
+        const key = deriveKey(backupKey);
+        const combined = Buffer.from(data, 'base64');
+        if (combined.length < 28) throw new Error("INVALID_PAYLOAD_SIZE");
+        const iv = combined.slice(0, 12);
+        const authTag = combined.slice(combined.length - 16);
+        const ciphertext = combined.slice(12, combined.length - 16);
+        const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, key, iv);
+        decipher.setAuthTag(authTag);
+        let decrypted = decipher.update(ciphertext);
+        decrypted = Buffer.concat([decrypted, decipher.final()]);
+        decoded = JSON.parse(decrypted.toString('utf8'));
+      } catch (err) {
+        console.error("[RESTORE] Decryption failed:", err);
+        return res.status(400).json({ error: "INVALID_BACKUP_KEY" });
       }
+    } else {
+      decoded = typeof data === 'string' ? JSON.parse(data) : data;
     }
-    if (decoded.houses) {
-      for (const h of decoded.houses) {
-        await query('INSERT INTO houses (id, name, data) VALUES (?, ?, ?)', [h.id, JSON.stringify(h.name), JSON.stringify(h)]);
+
+    console.log("[RESTORE] Initiating system restore. Version:", decoded.version || 'unknown');
+
+    // 2. Perform Restore in a Transaction
+    try {
+      await query('BEGIN TRANSACTION');
+      
+      console.log("[RESTORE] Clearing existing data...");
+      await query('DELETE FROM plants');
+      await query('DELETE FROM houses');
+      await query('DELETE FROM tasks');
+      await query('DELETE FROM inventory');
+      await query('DELETE FROM users');
+      await query('DELETE FROM system_logs');
+
+      if (decoded.plants && Array.isArray(decoded.plants)) {
+        console.log(`[RESTORE] Restoring ${decoded.plants.length} plants...`);
+        for (const p of decoded.plants) {
+          await query('INSERT OR REPLACE INTO plants (id, houseId, species, nickname, images, logs, lastWatered, updatedAt, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [p.id, p.houseId, p.species, JSON.stringify(p.nickname), JSON.stringify(p.images), JSON.stringify(p.logs), p.lastWatered, p.updatedAt, JSON.stringify(p)]);
+        }
       }
+
+      if (decoded.houses && Array.isArray(decoded.houses)) {
+        console.log(`[RESTORE] Restoring ${decoded.houses.length} houses...`);
+        for (const h of decoded.houses) {
+          await query('INSERT OR REPLACE INTO houses (id, name, googleApiKey, createdAt, data) VALUES (?, ?, ?, ?, ?)',
+            [h.id, JSON.stringify(h.name), h.googleApiKey, h.createdAt, JSON.stringify(h)]);
+        }
+      }
+
+      if (decoded.tasks && Array.isArray(decoded.tasks)) {
+        console.log(`[RESTORE] Restoring ${decoded.tasks.length} tasks...`);
+        for (const t of decoded.tasks) {
+          await query('INSERT OR REPLACE INTO tasks (id, houseId, plantIds, type, title, description, date, completed, completedAt, recurrence, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [t.id, t.houseId, JSON.stringify(t.plantIds), t.type, JSON.stringify(t.title), JSON.stringify(t.description), t.date, t.completed ? 1 : 0, t.completedAt, JSON.stringify(t.recurrence), JSON.stringify(t)]);
+        }
+      }
+
+      if (decoded.inventory && Array.isArray(decoded.inventory)) {
+        console.log(`[RESTORE] Restoring ${decoded.inventory.length} inventory items...`);
+        for (const i of decoded.inventory) {
+          await query('INSERT OR REPLACE INTO inventory (id, houseId, name, data) VALUES (?, ?, ?, ?)',
+            [i.id, i.houseId, JSON.stringify(i.name), JSON.stringify(i)]);
+        }
+      }
+
+      if (decoded.users && Array.isArray(decoded.users)) {
+        console.log(`[RESTORE] Restoring ${decoded.users.length} users...`);
+        for (const u of decoded.users) {
+          await query('INSERT OR REPLACE INTO users (id, email, name, role, houseId, personalAiKey, personalAiKeyTestedAt, deletedAt, caretakerStart, caretakerEnd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [u.id, u.email, typeof u.name === 'object' ? JSON.stringify(u.name) : u.name, u.role, u.houseId, u.personalAiKey, u.personalAiKeyTestedAt, u.deletedAt, u.caretakerStart || null, u.caretakerEnd || null]);
+        }
+      }
+
+      if (decoded.system_logs && Array.isArray(decoded.system_logs)) {
+        console.log(`[RESTORE] Restoring ${decoded.system_logs.length} system logs...`);
+        for (const l of decoded.system_logs) {
+          await query('INSERT INTO system_logs (id, event, details, level, created_at) VALUES (?, ?, ?, ?, ?)',
+            [l.id, l.event, l.details, l.level, l.created_at]);
+        }
+      }
+
+      await query('COMMIT');
+      await logSystemEvent('DATABASE_RESTORED', `System restored by ${(req as any).userId || 'ADMIN'}`, 'WARN');
+      console.log("[RESTORE] System restore completed successfully");
+      res.json({ status: "ok" });
+    } catch (err) {
+      await query('ROLLBACK');
+      console.error("[RESTORE] Transaction failed:", err);
+      res.status(500).json({ error: "RESTORE_FAULT", details: (err as Error).message });
     }
-    await logSystemEvent('DATABASE_RESTORED', `System restored by ${(req as any).userId || 'ADMIN'}`, 'WARN');
-    res.json({ status: "ok" });
-  } catch (e) { res.status(500).json({ error: "RESTORE_FAULT" }); }
+  } catch (e) { 
+    console.error("[RESTORE] Critical failure:", e);
+    res.status(500).json({ error: "RESTORE_FAULT" }); 
+  }
 });
 
 // PLANTS

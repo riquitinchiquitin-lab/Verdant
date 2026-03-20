@@ -146,9 +146,18 @@ To ensure Google Auth and API uploads work correctly through Cloudflare, you mus
   - **Action**: Choose **Skip**.
   - **WAF components to skip**: Check **all boxes**.
 
+#### J. Root Owner Setup (Required for Initial Access)
+The Root Owner is the primary administrator who has full control over the system and is the only one who can invite other users initially.
+1. Decide which Google account will be the Root Owner.
+2. Copy the email address of that account to your `.env` file as `VITE_ROOT_OWNER_EMAIL`.
+   ```env
+   VITE_ROOT_OWNER_EMAIL=your_username@gmail.com
+   ```
+3. The first time you sign in with this email, the system will automatically recognize you as the **Founder/Owner**.
+
 ### 3. Clone the Repository
 ```bash
-git clone https://github.com/your-username/verdant.git
+git clone https://github.com/riquitinchiquitin-lab/verdant.git
 cd verdant
 ```
 
@@ -193,10 +202,11 @@ npm start
 ```
 
 ## 🚀 Getting Started
-1. **Authentication**: Sign in via the secure botanical portal.
-2. **Setup Property**: Create your first house or property.
-3. **Add Specimens**: Use the "Add Plant" interface or QR sync to populate your jungle.
-4. **Follow Protocol**: Complete automated tasks to maintain optimal specimen health.
+1. **Initial Authentication**: Sign in using the Google account specified in `VITE_ROOT_OWNER_EMAIL`. You will be granted the **Owner** role automatically.
+2. **Setup Property**: Create your first house or property via the **Admin > Houses** tab.
+3. **Invite Personnel**: Go to **Admin > Personnel** to invite gardeners or other staff by adding their Google email addresses.
+4. **Add Specimens**: Use the "Add Plant" interface or QR sync to populate your jungle.
+5. **Follow Protocol**: Complete automated tasks to maintain optimal specimen health.
 
 ## 📄 License
 This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license.

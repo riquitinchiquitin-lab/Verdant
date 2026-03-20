@@ -63,9 +63,6 @@ export const InventoryView: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-6 border-b border-gray-100 dark:border-slate-800 pb-4 md:pb-8">
         <div>
           <h1 className="text-2xl md:text-4xl font-black text-gray-900 dark:text-white tracking-tighter uppercase leading-none">{t('inventory_title')}</h1>
-          <p className="text-gray-500 dark:text-slate-400 mt-1.5 md:mt-2 text-[10px] md:text-lg font-medium uppercase tracking-widest md:tracking-normal">
-             {isAdmin ? t('global_view') : t('inventory_subtitle')}
-          </p>
         </div>
         <div className="flex flex-wrap gap-2 md:gap-3 w-full md:w-auto">
           {can('manage_inventory') && (
