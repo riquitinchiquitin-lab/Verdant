@@ -12,7 +12,7 @@ This directory contains scripts to automate the installation of Verdant on a Pro
 On your Proxmox host, run:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/your-repo/verdant/main/scripts/proxmox/proxmox_helper.sh | bash
+curl -sSL https://raw.githubusercontent.com/riquitinchiquitin-lab/verdant/main/scripts/proxmox/proxmox_helper.sh | bash
 ```
 
 ## Customization

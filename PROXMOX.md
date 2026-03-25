@@ -16,7 +16,7 @@ Run the following command on your Proxmox host's shell to create the LXC and tri
 
 ```bash
 # Fetch and run the helper script
-curl -sSL https://raw.githubusercontent.com/your-repo/verdant/main/scripts/proxmox/proxmox_helper.sh | bash
+curl -sSL https://raw.githubusercontent.com/riquitinchiquitin-lab/verdant/main/scripts/proxmox/proxmox_helper.sh | bash
 ```
 
 *Note: Replace the URL with the actual URL of the script in your repository.*
