@@ -21,6 +21,8 @@ interface PlantContextType {
   updateHouse: (id: string, updates: Partial<House>) => Promise<void>;
   deleteHouse: (id: string) => Promise<void>;
   addLog: (plantId: string, log: Log) => Promise<void>;
+  deleteAllLogs: () => Promise<void>;
+  deleteLogsByDay: (date: string) => Promise<void>;
   restoreDemoData: () => void;
   allRooms: string[];
   customRooms: string[];
@@ -84,8 +86,24 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
       }
       if (houseRes.ok) {
-        const remoteHouses = await houseRes.json();
-        if (Array.isArray(remoteHouses)) setHouses(remoteHouses);
+        const remoteHouses: House[] = await houseRes.json();
+        if (Array.isArray(remoteHouses)) {
+          setHouses(prev => {
+            const merged = [...prev];
+            remoteHouses.forEach(remote => {
+              const localIdx = merged.findIndex(h => h.id === remote.id);
+              if (localIdx === -1) {
+                merged.push(remote);
+              } else {
+                // If remote exists, overwrite local to ensure server consistency
+                merged[localIdx] = remote;
+              }
+            });
+            // Filter out houses that are not in the remote list (meaning they were deleted)
+            // UNLESS they were just created locally and haven't synced yet (but here we are after a sync)
+            return merged.filter(h => remoteHouses.some(rh => rh.id === h.id) || h.id.startsWith('h-temp-'));
+          });
+        }
       }
       if (taskRes.ok) {
         const remoteTasks = await taskRes.json();
@@ -176,7 +194,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     if (rotationInterval) {
       newTasks.push({
-        id: `t-rotate-${plant.id}-${Date.now()}`,
+        id: `t-rotate-${plant.id}-${crypto.randomUUID()}`,
         plantIds: [plant.id],
         type: 'GENERAL',
         title: { en: `Rotate ${lv(plant.nickname)}`, fr: `Pivoter ${lv(plant.nickname)}` },
@@ -195,7 +213,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const nutritionAdvice = lv(plant.nutritionAdvice).toLowerCase();
     if (nutritionAdvice.includes('fertilize') || nutritionAdvice.includes('month')) {
       newTasks.push({
-        id: `t-fert-${plant.id}-${Date.now()}`,
+        id: `t-fert-${plant.id}-${crypto.randomUUID()}`,
         plantIds: [plant.id],
         type: 'FERTILIZE',
         title: { en: `Fertilize ${lv(plant.nickname)}`, fr: `Fertiliser ${lv(plant.nickname)}` },
@@ -210,7 +228,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     // 3. Repotting Task
     if (plant.repottingFrequency && plant.lastPotSize) {
       newTasks.push({
-        id: `t-repot-${plant.id}-${Date.now()}`,
+        id: `t-repot-${plant.id}-${crypto.randomUUID()}`,
         plantIds: [plant.id],
         type: 'REPOT',
         title: { en: `Repot ${lv(plant.nickname)}`, fr: `Rempoter ${lv(plant.nickname)}` },
@@ -225,10 +243,11 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       });
     }
 
-    // 4. Watering Task
+    // 4. Watering Task - Removed as requested, watering is handled in CareSchedule
+    /*
     if (plant.wateringInterval) {
       newTasks.push({
-        id: `t-water-${plant.id}-${Date.now()}`,
+        id: `t-water-${plant.id}-${crypto.randomUUID()}`,
         plantIds: [plant.id],
         type: 'WATER',
         title: { en: `Water ${lv(plant.nickname)}`, fr: `Arroser ${lv(plant.nickname)}` },
@@ -239,13 +258,15 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         houseId: plant.houseId
       });
     }
+    */
 
     if (newTasks.length > 0) {
       setTasks(prev => [...newTasks, ...prev]);
       if (token) {
-        for (const task of newTasks) {
-          await fetchWithAuth('/api/tasks', token, { method: 'POST', body: JSON.stringify(task) });
-        }
+        // Parallelize task synchronization to speed up the process
+        Promise.all(newTasks.map(task => 
+          fetchWithAuth('/api/tasks', token, { method: 'POST', body: JSON.stringify(task) })
+        )).catch(e => console.error("Failed to sync some automated tasks:", e));
       }
     }
   };
@@ -314,12 +335,12 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const addHouse = async (name: string, googleApiKey?: string) => {
-    // 1. Localize the property name via AI
+    // 1. Localize the house name via AI
     const localizedName = await translateInput(name);
     
-    // 2. Create the internal object
+    // 2. Create the internal object with a temporary ID prefix
     const newH: House = { 
-      id: `h-${Date.now()}`, 
+      id: `h-temp-${crypto.randomUUID()}`, 
       name: localizedName, 
       googleApiKey,
       createdAt: new Date().toISOString() 
@@ -335,9 +356,11 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 method: 'POST', 
                 body: JSON.stringify(newH) 
             });
-            if (!response.ok) throw new Error("Server rejected property creation protocol.");
-            // Re-sync after successful POST to ensure ID consistency and linked data
-            await refreshAllData();
+            if (!response.ok) throw new Error("Server rejected house creation protocol.");
+            
+            // Wait a brief moment for the DB to settle before refreshing
+            // This helps avoid race conditions where the server returns old data
+            setTimeout(() => refreshAllData(), 500);
         } catch (e) {
             console.error("House Creation Error:", e);
             // Rollback local state if server fails
@@ -400,7 +423,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (isCompleting && task.type === 'WATER' && task.plantIds.length > 0) {
       for (const plantId of task.plantIds) {
         await addLog(plantId, {
-          id: `l-auto-${Date.now()}`,
+          id: `l-auto-${crypto.randomUUID()}`,
           date: new Date().toISOString(),
           type: 'WATER',
           localizedNote: { en: 'Automated task completed', fr: 'Tâche automatisée terminée' }
@@ -480,6 +503,34 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
+  const deleteAllLogs = async () => {
+    const updatedPlants = plants.map(p => ({ ...p, logs: [], lastModified: new Date().toISOString() }));
+    setPlants(updatedPlants);
+    if (token) {
+      try {
+        await fetchWithAuth('/api/logs/clear', token, { method: 'POST' });
+      } catch (e) {
+        console.error("Failed to clear logs on server:", e);
+      }
+    }
+  };
+
+  const deleteLogsByDay = async (date: string) => {
+    const updatedPlants = plants.map(p => ({
+      ...p,
+      logs: (p.logs || []).filter(l => !l.date.startsWith(date)),
+      lastModified: new Date().toISOString()
+    }));
+    setPlants(updatedPlants);
+    if (token) {
+      try {
+        await fetchWithAuth('/api/logs/clear-day', token, { method: 'POST', body: JSON.stringify({ date }) });
+      } catch (e) {
+        console.error("Failed to clear day logs on server:", e);
+      }
+    }
+  };
+
   const cloneHouse = async (s: string, n: string) => {}; 
   const addCustomRoom = (name: string) => { setCustomRooms(prev => [...new Set([...prev, name])]); };
   const removeCustomRoom = (name: string) => { setCustomRooms(prev => prev.filter(r => r !== name)); };
@@ -489,7 +540,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   return (
     <PlantContext.Provider value={{ 
         plants, tasks, houses, isLoading, isSynced, addPlant, updatePlant, deletePlant, 
-        addLog, restoreDemoData, allRooms, addHouse, updateHouse, deleteHouse, cloneHouse,
+        addLog, deleteAllLogs, deleteLogsByDay, restoreDemoData, allRooms, addHouse, updateHouse, deleteHouse, cloneHouse,
         customRooms, addCustomRoom, removeCustomRoom, addTask, deleteTask, toggleTaskCompletion,
         refreshAllData, getEffectiveApiKey,
         alertMessage,

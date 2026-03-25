@@ -8,6 +8,15 @@ admin_personnel
 admin_proxmox_console
 admin_security
 admin_system_logs
+api_configuration
+api_gemini
+api_google_maps
+api_key_notice
+api_key_updated
+api_perenual
+api_plantnet
+api_serper
+api_trefle
 app_name
 assign_room_label
 authority_updated
@@ -272,6 +281,11 @@ lbl_translating
 lbl_trefle_id
 lbl_unknown
 lbl_upload_picture
+lbl_api_usage
+lbl_database_size
+lbl_system_load
+lbl_terminal_active
+lbl_uplink_status
 lbl_usage_desc
 lbl_usage_instructions
 lbl_vault_security

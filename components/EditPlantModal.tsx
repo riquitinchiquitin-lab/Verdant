@@ -7,7 +7,7 @@ import { usePlants } from '../context/PlantContext';
 import { useAuth } from '../context/AuthContext';
 import { translateInput, translateArrayInput } from '../services/translationService';
 import { generatePlantDetails } from '../services/plantAi';
-import { ROOM_TYPES } from '../constants';
+import { ROOM_TYPES, CURRENCIES, getCurrencyForLanguage } from '../constants';
 
 interface EditPlantModalProps {
   isOpen: boolean;
@@ -18,7 +18,7 @@ interface EditPlantModalProps {
 }
 
 export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose, plant, onSave, onDelete }) => {
-  const { t, lv, lva } = useLanguage();
+  const { t, lv, lva, language } = useLanguage();
   const { houses, getEffectiveApiKey } = usePlants();
   const { user } = useAuth();
   
@@ -50,6 +50,7 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
   const [error, setError] = useState<string | null>(null);
   const [refreshedData, setRefreshedData] = useState<Partial<Plant> | null>(null);
   const [isAddingImage, setIsAddingImage] = useState(false);
+  const [isTransferring, setIsTransferring] = useState(false);
 
   // LOGIC: If a plant has no house, only Owner or CEO can assign it to one.
   const isUnattributed = !plant.houseId;
@@ -80,7 +81,7 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
         setNursery(plant.provenance?.nursery || '');
         setDateOfPurchase(plant.provenance?.dateOfPurchase || '');
         setCost(plant.provenance?.cost || null);
-        setCurrency(plant.provenance?.currency || 'USD');
+        setCurrency(plant.provenance?.currency || getCurrencyForLanguage(language));
         setImages(plant.images || []);
         const isPredefined = ROOM_TYPES.includes(currentRoom);
         setIsCustom(!!currentRoom && !isPredefined);
@@ -126,27 +127,43 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
       setError(null);
       try {
           const apiKey = getEffectiveApiKey();
-          const nicknameObj = await translateInput(nickname, 'en', apiKey);
-          const categoryObj = await translateInput(category, 'en', apiKey);
-          const growthRateObj = await translateInput(growthRate, 'en', apiKey);
-          const propagationInstructionsObj = await translateInput(propagationInstructions, 'en', apiKey);
-          const repottingInstructionsObj = await translateInput(repottingInstructions, 'en', apiKey);
-          const propagationMethodsObj = await translateArrayInput(propagationMethods.split(',').map(s => s.trim()).filter(Boolean), 'en', apiKey);
-          
-          let roomResult: any = room;
-          if (isCustom && room.trim() !== '') {
-            roomResult = await translateInput(room, 'en', apiKey);
-          } else if (!room) {
-            roomResult = null;
-          }
 
-          await onSave(plant.id, { 
-              ...refreshedData,
+          // Only translate if the field has actually changed from its original localized value
+          // This avoids redundant API calls and potential failures for unchanged data
+          const needsTranslation = (current: string, original: any) => {
+              const originalStr = lv(original);
+              return current.trim() !== originalStr.trim();
+          };
+
+          const [
+            nicknameObj,
+            categoryObj,
+            growthRateObj,
+            propagationInstructionsObj,
+            repottingInstructionsObj,
+            propagationMethodsObj,
+            roomResult
+          ] = await Promise.all([
+            needsTranslation(nickname, plant.nickname) ? translateInput(nickname, 'en', apiKey) : Promise.resolve(plant.nickname),
+            needsTranslation(category, plant.category) ? translateInput(category, 'en', apiKey) : Promise.resolve(plant.category),
+            needsTranslation(growthRate, plant.growthRate) ? translateInput(growthRate, 'en', apiKey) : Promise.resolve(plant.growthRate),
+            needsTranslation(propagationInstructions, plant.propagationInstructions) ? translateInput(propagationInstructions, 'en', apiKey) : Promise.resolve(plant.propagationInstructions),
+            needsTranslation(repottingInstructions, plant.repottingInstructions) ? translateInput(repottingInstructions, 'en', apiKey) : Promise.resolve(plant.repottingInstructions),
+            (propagationMethods.trim() !== lva(plant.propagationMethods).join(', ').trim()) 
+                ? translateArrayInput(propagationMethods.split(',').map(s => s.trim()).filter(Boolean), 'en', apiKey) 
+                : Promise.resolve(plant.propagationMethods),
+            (isCustom && room.trim() !== '' && room.trim() !== lv(plant.room as any).trim()) 
+                ? translateInput(room, 'en', apiKey) 
+                : Promise.resolve(isCustom ? (room || null) : (room || plant.room || null))
+          ]);
+
+          const finalUpdates: Partial<Plant> = { 
+              ...(refreshedData || {}),
               species: plant.species,
               nickname: nicknameObj, 
-              room: roomResult,
-              category: categoryObj,
-              growthRate: growthRateObj,
+              room: roomResult as any,
+              category: categoryObj as any,
+              growthRate: growthRateObj as any,
               houseId: houseId,
               wateringInterval: wateringInterval,
               targetPh,
@@ -157,9 +174,9 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
               lastPotSize,
               rotationFrequency,
               lastRotated,
-              propagationMethods: propagationMethodsObj,
-              propagationInstructions: propagationInstructionsObj,
-              repottingInstructions: repottingInstructionsObj,
+              propagationMethods: propagationMethodsObj as any,
+              propagationInstructions: propagationInstructionsObj as any,
+              repottingInstructions: repottingInstructionsObj as any,
               images,
               provenance: {
                   nursery,
@@ -167,10 +184,12 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
                   cost: cost ?? undefined,
                   currency
               }
-          });
+          };
+
+          await onSave(plant.id, finalUpdates);
           onClose();
       } catch (e: any) {
-          console.error(e);
+          console.error("[EditPlantModal] Save failed:", e);
           setError(e.message || "Save failed");
       } finally {
           setIsSaving(false);
@@ -425,21 +444,35 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
               <div className="space-y-4">
                   <div>
                       <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_nursery_origin')}</label>
-                      <input type="text" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={nursery} onChange={e => setNursery(e.target.value)} />
+                      <input 
+                          type="text"
+                          value={nursery}
+                          onChange={e => setNursery(e.target.value)}
+                          className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold"
+                          placeholder={t('lbl_nursery_origin')}
+                      />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                       <div>
                           <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_acquisition_date')}</label>
                           <input type="date" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={dateOfPurchase} onChange={e => setDateOfPurchase(e.target.value)} />
                       </div>
-                      <div className="flex gap-2">
-                           <div className="flex-1">
+                      <div className="flex gap-3">
+                           <div className="flex-[3]">
                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_cost')}</label>
                                <input type="number" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={cost || ''} onChange={e => setCost(parseFloat(e.target.value) || null)} />
                            </div>
-                           <div className="w-20">
+                           <div className="flex-1 min-w-[100px]">
                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_ccy')}</label>
-                               <input type="text" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={currency} onChange={e => setCurrency(e.target.value)} />
+                               <select 
+                                   className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold appearance-none"
+                                   value={currency} 
+                                   onChange={e => setCurrency(e.target.value)}
+                               >
+                                   {CURRENCIES.map(c => (
+                                       <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
+                                   ))}
+                               </select>
                            </div>
                       </div>
                   </div>

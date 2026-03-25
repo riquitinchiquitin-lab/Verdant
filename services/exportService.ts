@@ -47,3 +47,44 @@ export const exportPlantsToNiimbotExcel = (plants: Plant[], lv: (val: any) => st
   
   XLSX.writeFile(workbook, fileName);
 };
+
+export const exportLogsToExcel = (plants: Plant[], lv: (val: any) => string, fileName: string = 'verdant_care_logs.xlsx') => {
+  const allLogs: any[] = [];
+
+  plants.forEach(plant => {
+    (plant.logs || []).forEach(log => {
+      allLogs.push({
+        'Date': new Date(log.date).toLocaleString(),
+        'Plant ID': plant.id,
+        'Plant Name': lv(plant.nickname),
+        'Species': plant.species,
+        'Log Type': log.type,
+        'Value': log.value || '-',
+        'Note': log.localizedNote ? lv(log.localizedNote) : (log.note || '-'),
+        'House ID': plant.houseId || 'GLOBAL'
+      });
+    });
+  });
+
+  // Sort by date descending
+  allLogs.sort((a, b) => new Date(b.Date).getTime() - new Date(a.Date).getTime());
+
+  const worksheet = XLSX.utils.json_to_sheet(allLogs);
+  
+  const wscols = [
+    { wch: 20 }, // Date
+    { wch: 15 }, // Plant ID
+    { wch: 25 }, // Plant Name
+    { wch: 25 }, // Species
+    { wch: 15 }, // Log Type
+    { wch: 10 }, // Value
+    { wch: 50 }, // Note
+    { wch: 15 }, // House ID
+  ];
+  worksheet['!cols'] = wscols;
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Care Logs");
+  
+  XLSX.writeFile(workbook, fileName);
+};

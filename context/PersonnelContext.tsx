@@ -18,7 +18,7 @@ interface PersonnelContextType {
 const PersonnelContext = createContext<PersonnelContextType | undefined>(undefined);
 
 export const PersonnelProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { token, user } = useAuth();
+  const { token, user, updateCurrentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPersistenceReady, setIsPersistenceReady] = useState(false);
@@ -94,6 +94,11 @@ export const PersonnelProvider: React.FC<{ children: ReactNode }> = ({ children 
 
     const updatedUser = { ...target, ...updates };
     setUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
+
+    // If updating the currently logged-in user, sync with AuthContext
+    if (userId === user?.id) {
+      updateCurrentUser(updates);
+    }
 
     if (token) {
       fetchWithAuth('/api/users', token, { method: 'POST', body: JSON.stringify(updatedUser) })

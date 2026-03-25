@@ -45,7 +45,7 @@ export const HealthCheckModal: React.FC<HealthCheckModalProps> = ({ isOpen, onCl
         setResult(diagnosis);
         // Save to history
         await addLog(plant.id, {
-          id: `h-${Date.now()}`,
+          id: `h-${crypto.randomUUID()}`,
           date: new Date().toISOString(),
           type: 'DISEASE_CHECK',
           imageUrl: photo,

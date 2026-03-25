@@ -60,7 +60,6 @@
     lbl_select_house:
     msg_plant_moved:
     msg_move_failed:
-    status_not_configured:
     lbl_name:
     lbl_role:
     lbl_property:
@@ -206,28 +205,30 @@
     sys_proxmox_online:
     other_room:
     msg_discard_confirm:
-    lbl_optimal_range_confirmed:
-    lbl_new_specimen:
-    lbl_decommission_confirm:
-    lbl_target_ph_desc:
-    lbl_target_ec_desc:
-    lbl_target_vpd_desc:
-    lbl_target_dli_desc:
     lbl_google_api_key_optional:
     lbl_id:
     btn_edit:
     btn_delete:
     lbl_no_key_deployed:
     btn_generate_key:
+    btn_add_personnel:
+    lbl_add_house:
+    lbl_edit_house:
+    lbl_edit_personnel:
+    lbl_add_personnel:
+    lbl_email:
+    btn_save:
+    btn_cancel:
     status_thirsty:
+    status_not_configured:
     status_soon:
     status_stable:
     status_data_needed:
     status_due_now:
     menu_sign_out:
     stats_locations:
-    manage_desc:
     add_location:
+    manage_desc:
     predefined_location_tag:
     lbl_sync:
     care_title_page:
@@ -252,9 +253,6 @@
     role_lead_hand:
     role_gardener:
     role_seasonal:
-    dossier:
-    tech:
-    history:
     global_view:
     search_placeholder:
     btn_add_task:
@@ -287,6 +285,10 @@
     lbl_target_dli_unit:
     lbl_target_vpd_unit:
     lbl_target_ec_unit:
+    lbl_target_ph_desc:
+    lbl_target_ec_desc:
+    lbl_target_vpd_desc:
+    lbl_target_dli_desc:
     lbl_advanced_technical_metrics:
     btn_add_photo:
     lbl_primary:
@@ -344,13 +346,6 @@
     msg_compression_fault:
     msg_camera_denied:
     msg_camera_empty:
-    lbl_uplink_fault:
-    msg_server_overloaded:
-    btn_reset_protocol:
-    btn_retry:
-    btn_confirm_specimen:
-    lbl_compatible_items:
-    placeholder_guide:
     status_initializing_lens:
     btn_capture_specimen:
     live_identity_lens:
@@ -420,7 +415,6 @@
     msg_no_house:
     auth_personnel:
     full_legal_name:
-    enterprise_email:
     cat_tools:
     cat_insecticide:
     cat_fertiliser:
@@ -512,15 +506,27 @@
     restore_success:
     protocol_fault:
     personnel_added:
-    btn_add_personnel:
-    lbl_add_house:
-    lbl_edit_house:
-    lbl_edit_personnel:
-    lbl_add_personnel:
-    lbl_email:
-    btn_save:
-    btn_cancel:
     authority_updated:
+    lbl_usage_instructions:
+    lbl_compatible_with_collection:
+    btn_confirm_add:
+    placeholder_inventory_name:
+    placeholder_inventory_unit:
+    lbl_recommended_for_plants:
+    lbl_plant_association:
+    lbl_available_not_assigned:
+    btn_release:
+    lbl_species_compatibility:
+    lbl_visual_records:
+    lbl_desc:
+    lbl_quantity:
+    lbl_model:
+    lbl_material:
+    lbl_color:
+    lbl_hole_size:
+    lbl_depth:
+    lbl_drainage:
+    btn_consume:
     property_prefix:
     notifications_house_enabled:
     notifications_global_enabled:
@@ -573,7 +579,6 @@
     login_autonomous_node:
     manual_aes:
     manual_proxmox:
-    manual_system_node:
     manual_ai_uplink:
     manual_access_level:
     manual_visual_asset_preview:
@@ -588,26 +593,6 @@
     manual_hash:
     manual_footer_copyright:
     manual_footer_optimized:
-    lbl_usage_instructions:
-    lbl_compatible_with_collection:
-    btn_confirm_add:
-    placeholder_inventory_name:
-    placeholder_inventory_unit:
-    lbl_recommended_for_plants:
-    lbl_plant_association:
-    lbl_available_not_assigned:
-    btn_release:
-    lbl_species_compatibility:
-    lbl_visual_records:
-    lbl_desc:
-    lbl_quantity:
-    lbl_model:
-    lbl_material:
-    lbl_color:
-    lbl_hole_size:
-    lbl_depth:
-    lbl_drainage:
-    btn_consume:
     log_water:
     log_moisture:
     log_note:
@@ -622,12 +607,8 @@
     lbl_light:
     lbl_nutrition:
     lbl_temp:
+    lbl_moist:
     lbl_ec:
-    api_configuration:
-    api_key_notice:
-    api_key_updated:
-    invalid_api_key:
-    update:
     status_safe:
     status_toxic:
     plant_category_foliage_plants:
@@ -637,34 +618,10 @@
     log_action_repotted:
     log_action_flowered:
     log_alert_message:
-    btn_record_phenophase:
-    lbl_select_biological_phase:
-    lbl_observation_date:
-    lbl_notes_observations:
-    btn_record_event:
-    msg_no_phenophase:
-    PHASE_FIRST_BUD:
-    PHASE_FULL_BLOOM:
-    PHASE_SEED_SET:
-    PHASE_DORMANCY_ENTRANCE:
-    PHASE_FIRST_LEAF_SPRING:
-    PHASE_BUDDING:
-    PHASE_IN_FLOWER:
-    PHASE_DORMANCY_START:
-    msg_no_history:
-    lbl_record_type:
     tab_dossier:
     tab_tech:
     tab_phenophase:
     tab_history:
-    health_check_title:
-    lbl_observations:
-    placeholder_observations:
-    lbl_specimen_photo:
-    btn_run_check:
-    btn_new_check:
-    lbl_diagnosis:
-    lbl_recovery_plan:
     lbl_watering_delta_desc:
     lbl_last_observed_action_desc:
     lbl_unknown:
@@ -684,7 +641,15 @@
     growth_slow:
     growth_moderate:
     days:
+    update:
     lbl_standard:
+    lbl_uplink_fault:
+    msg_server_overloaded:
+    btn_reset_protocol:
+    btn_retry:
+    btn_confirm_specimen:
+    lbl_compatible_items:
+    placeholder_guide:
     lbl_rotation_frequency:
     lbl_last_rotated:
     log_rotated_manual:
@@ -722,13 +687,18 @@
     lbl_image_archive:
     btn_add_image:
     btn_edit_data:
-    btn_transfer_caps:
     lbl_serial_number:
     unclassified_specimen:
     btn_set_primary:
     btn_delete_image:
     btn_close:
+    lbl_optimal_range_confirmed:
+    lbl_new_specimen:
+    lbl_decommission_confirm:
     sys_node_online:
+    dossier:
+    tech:
+    history:
     msg_admin_transfer_only:
     placeholder_category:
     placeholder_days:
@@ -736,6 +706,7 @@
     placeholder_propagation_methods:
     btn_refresh_ai:
     msg_establishing_uplink:
+    lbl_record_type:
     log_moisture_manual:
     log_note_manual:
     log_fertilized_manual:
@@ -743,7 +714,29 @@
     log_disease_check_manual:
     log_image_manual:
     log_new_leaf:
+    enterprise_email:
     sec_syncing:
+    manual_system_node:
+    api_configuration:
+    api_key_notice:
+    api_key_updated:
+    invalid_api_key:
+    btn_record_phenophase:
+    lbl_select_biological_phase:
+    lbl_observation_date:
+    lbl_notes_observations:
+    btn_record_event:
+    msg_no_phenophase:
+    msg_no_history:
+    health_check_title:
+    lbl_observations:
+    placeholder_observations:
+    lbl_specimen_photo:
+    btn_run_check:
+    btn_new_check:
+    lbl_diagnosis:
+    lbl_recovery_plan:
+    btn_transfer_caps:
     view_my_house:
     view_all_plants:
     lbl_api_usage:

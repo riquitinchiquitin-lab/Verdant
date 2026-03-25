@@ -2,15 +2,25 @@
 import React, { useMemo } from 'react';
 import { usePlants } from '../context/PlantContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import { Database, Droplets } from 'lucide-react';
 
 export const PlantTelemetry: React.FC = () => {
     const { plants } = usePlants();
     const { t } = useLanguage();
+    const { user } = useAuth();
+
+    const isAdmin = user?.role === 'OWNER' || user?.role === 'CO_CEO';
 
     const stats = useMemo(() => {
-        const total = plants.length;
-        const thirsty = plants.filter(p => {
+        const filtered = plants.filter(p => {
+            if (user?.houseId) return p.houseId === user.houseId;
+            if (isAdmin) return true;
+            return false;
+        });
+
+        const total = filtered.length;
+        const thirsty = filtered.filter(p => {
             if (!p.lastWatered || !p.wateringInterval) return false;
             const lastDate = new Date(p.lastWatered);
             const intervalMs = p.wateringInterval * 86400000;
@@ -24,7 +34,7 @@ export const PlantTelemetry: React.FC = () => {
             thirsty,
             hydrationLevel
         };
-    }, [plants]);
+    }, [plants, user?.houseId, isAdmin]);
 
     return (
         <div className="px-6 md:px-10 mb-8">

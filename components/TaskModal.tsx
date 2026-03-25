@@ -38,7 +38,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave })
         const titleObj = await translateInput(title);
 
         const newTask: Task = {
-          id: `t-${Date.now()}`,
+          id: `t-${crypto.randomUUID()}`,
           title: titleObj,
           date: new Date(date).toISOString(),
           recurrence,

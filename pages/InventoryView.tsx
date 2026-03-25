@@ -27,14 +27,14 @@ export const InventoryView: React.FC = () => {
 
   const categories: (InventoryCategory | 'all')[] = ['all', 'tools', 'insecticide', 'fertiliser', 'seeds', 'soil', 'accessories', 'pots', 'custom-mix'];
 
-  const filteredByHouse = inventory.filter(i => {
+  const filteredByProperty = inventory.filter(i => {
     // --- STRICT INVENTORY VISIBILITY ---
-    if (isAdmin) return true;
     if (user?.houseId) return i.houseId === user.houseId;
+    if (isAdmin) return true; // Global admins with no property see everything
     return false;
   });
 
-  const filtered = (filter === 'all' ? filteredByHouse : filteredByHouse.filter(i => i.category === filter))
+  const filtered = (filter === 'all' ? filteredByProperty : filteredByProperty.filter(i => i.category === filter))
     .filter(i => {
         const f = searchFilter.toLowerCase();
         if (!f) return true;
@@ -96,7 +96,7 @@ export const InventoryView: React.FC = () => {
         <div className="shrink-0 w-4 md:hidden"></div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
         {filtered.map(item => (
           <InventoryItemCard 
             key={item.id} 

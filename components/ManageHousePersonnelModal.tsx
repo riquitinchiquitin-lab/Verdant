@@ -73,7 +73,7 @@ export const ManageHousePersonnelModal: React.FC<ManageHousePersonnelModalProps>
                 </Button>
             </div>
             <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest px-1">
-                {t('api_key_notice') || "THIS KEY ENABLES AI DIAGNOSTICS FOR THIS SPECIFIC PROPERTY."}
+                {t('api_key_notice') || "THIS KEY ENABLES AI DIAGNOSTICS FOR THIS SPECIFIC HOUSE."}
             </p>
         </div>
         
@@ -102,7 +102,7 @@ export const ManageHousePersonnelModal: React.FC<ManageHousePersonnelModalProps>
                 )}
             </div>
         </div>
-
+        
         <div className="pt-6 border-t border-gray-100 dark:border-slate-800">
             <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 px-1">{t('available_personnel')}</h4>
             <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto no-scrollbar">

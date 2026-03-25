@@ -71,7 +71,17 @@ Verdant requires several API keys to function at full capacity. For a complete l
 4. Create a new API key in a new or existing project.
 5. Copy the key to your `.env` file as `GEMINI_API_KEY`.
 
-#### B. Google Client ID (Required for Authentication)
+#### B. Google Maps API Key (Required for Property Visualization)
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
+2. Select your project.
+3. Navigate to **APIs & Services > Library**.
+4. Search for and enable **Maps JavaScript API**.
+5. Navigate to **APIs & Services > Credentials**.
+6. Click **Create Credentials > API key**.
+7. Copy the key to your `.env` file as `GOOGLE_MAPS_API_KEY`.
+8. (Optional) Restrict the key to your App URL for security.
+
+#### C. Google Client ID (Required for Authentication)
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
 2. Create a new project.
 3. Navigate to **APIs & Services > Credentials**.
@@ -87,31 +97,42 @@ Verdant requires several API keys to function at full capacity. For a complete l
 2. Navigate to your dashboard to find your API key.
 3. Copy the key to your `.env` file as `PLANTNET_API_KEY`.
 
-#### D. Trefle API Token (Botanical Data)
+#### E. Trefle API Token (Botanical Data)
 1. Sign up at [Trefle.io](https://trefle.io/).
 2. Verify your email address.
 3. Access your token from the user dashboard.
 4. Copy the token to your `.env` file as `TREFLE_TOKEN`.
 
-#### E. Perenual API Key (Plant Care Data)
+#### F. Open Plantbook (OPB) API Key (Botanical Data)
+1. Register at [Open Plantbook](https://open.plantbook.io/).
+2. Create a new application in your dashboard.
+3. Retrieve your **Client ID** and **Client Secret**.
+4. Copy them to your `.env` file as `OPB_CLIENT_ID` and `OPB_CLIENT_SECRET`.
+
+#### G. Perenual API Key (Plant Care Data)
 1. Register at [Perenual](https://perenual.com/docs/api).
 2. Choose a plan (Free tier available).
 3. Retrieve your API key from your profile.
 4. Copy the key to your `.env` file as `PERENUAL_API_KEY`.
 
-#### F. Serper.dev API Key (Search Grounding)
+#### H. Serper.dev API Key (Search Grounding)
 1. Sign up at [Serper.dev](https://serper.dev/).
 2. You will receive free credits upon registration.
 3. Copy the API key from the dashboard to your `.env` file as `SERPER_API_KEY`.
 
-#### G. System Security Keys
+#### I. API Usage Monitoring & Limits
+Verdant includes a built-in API usage tracking system to help you stay within free tier limits (e.g., Google Maps $200 monthly credit). 
+- **Google Maps Safety Limit**: The system automatically disables the Maps API if usage exceeds 10,000 sessions per month to prevent unexpected charges.
+- **Monitoring**: You can monitor real-time usage for all integrated APIs (Gemini, PlantNet, Trefle, etc.) via the **System Telemetry** dashboard in the Admin panel.
+
+#### J. System Security Keys
 - **MASTER_KEY**: This must be a random 50-character string. You can generate one using:
   ```bash
   openssl rand -base64 38 | tr -d '\n' | cut -c1-50
   ```
 - **DB_PASSWORD**: Set a strong, unique password for your PostgreSQL database.
 
-#### H. Cloudflare Tunnel & Domain Name (For Public Access)
+#### K. Cloudflare Tunnel & Domain Name (For Public Access)
 To expose your local Verdant instance to the public web (e.g., via `yknet.org`):
 1. Create a [Cloudflare account](https://dash.cloudflare.com/).
 2. Navigate to **Zero Trust > Networks > Tunnels**.
@@ -119,7 +140,7 @@ To expose your local Verdant instance to the public web (e.g., via `yknet.org`):
 4. Add a **Public Hostname** (e.g., `verdant.yourdomain.com`) pointing to `http://localhost:3000`.
 5. Copy your **Tunnel Token** to your `.env` file as `CF_UNIFIED_TOKEN`.
 
-#### I. Advanced Cloudflare Configuration (WAF & Bot Protection)
+#### L. Advanced Cloudflare Configuration (WAF & Bot Protection)
 To ensure Google Auth and API uploads work correctly through Cloudflare, you must adjust the following security settings:
 
 **1. Deactivate Bot Fight Mode:**
@@ -146,7 +167,7 @@ To ensure Google Auth and API uploads work correctly through Cloudflare, you mus
   - **Action**: Choose **Skip**.
   - **WAF components to skip**: Check **all boxes**.
 
-#### J. Root Owner Setup (Required for Initial Access)
+#### M. Root Owner Setup (Required for Initial Access)
 The Root Owner is the primary administrator who has full control over the system and is the only one who can invite other users initially.
 1. Decide which Google account will be the Root Owner.
 2. Copy the email address of that account to your `.env` file as `VITE_ROOT_OWNER_EMAIL`.

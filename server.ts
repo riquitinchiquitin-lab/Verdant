@@ -121,7 +121,7 @@ app.use((req, res, next) => {
   res.setHeader(
     'Content-Security-Policy',
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://www.gstatic.com https://cdn.jsdelivr.net; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://www.gstatic.com https://cdn.jsdelivr.net https://maps.googleapis.com https://maps.gstatic.com; " +
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; " +
     "font-src 'self' https://fonts.gstatic.com; " +
     "img-src 'self' data: blob: https://*; " +
@@ -253,6 +253,126 @@ app.get('/api/system/logs', checkAuth, async (req, res) => {
     res.json(result.rows);
   } catch (e) {
     res.status(500).json({ error: "LOGS_FAULT" });
+  }
+});
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+app.post('/api/system/track-usage', checkAuth, async (req, res) => {
+  const { type } = req.body;
+  const validTypes = ['google_maps', 'gemini', 'plantnet', 'trefle', 'perenual', 'serper', 'opb'];
+  if (!validTypes.includes(type)) return res.status(400).json({ error: "INVALID_TYPE" });
+
+  const now = new Date();
+  const monthId = `${now.getFullYear()}-${now.getMonth() + 1}`;
+  const column = `${type}_count`;
+  
+  try {
+    const result = await query('SELECT * FROM api_usage WHERE id = ?', [monthId]);
+    if (result.rows.length === 0) {
+      // Initialize all columns to 0
+      await query(`INSERT INTO api_usage (id, google_maps_count, gemini_count, plantnet_count, trefle_count, perenual_count, serper_count, opb_count, last_updated) VALUES (?, 0, 0, 0, 0, 0, 0, 0, ?)`, [monthId, now.toISOString()]);
+    }
+    await query(`UPDATE api_usage SET ${column} = ${column} + 1, last_updated = ? WHERE id = ?`, [now.toISOString(), monthId]);
+    res.json({ status: "ok" });
+  } catch (e) {
+    res.status(500).json({ error: "USAGE_TRACK_FAULT" });
+  }
+});
+
+// BOTANICAL PROXY CLUSTER
+app.post('/api/proxy/identify', checkAuth, upload.array('images'), async (req, res) => {
+  try {
+    const files = req.files as Express.Multer.File[];
+    const formData = new FormData();
+    files.forEach(file => {
+      formData.append('images', file.buffer, { filename: file.originalname, contentType: file.mimetype });
+    });
+    const response = await fetch(`https://my-api.plantnet.org/v2/identify/all?api-key=${process.env.PLANTNET_API_KEY}`, {
+      method: 'POST',
+      body: formData
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: "PLANTNET_PROXY_FAULT" });
+  }
+});
+
+app.post('/api/proxy/opb/token', checkAuth, async (req, res) => {
+  try {
+    const params = new URLSearchParams();
+    params.append('grant_type', 'client_credentials');
+    params.append('client_id', process.env.OPB_CLIENT_ID || '');
+    params.append('client_secret', process.env.OPB_CLIENT_SECRET || '');
+    
+    const response = await fetch('https://openplantbook.io/api/v1/token/', {
+      method: 'POST',
+      body: params
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: "OPB_TOKEN_PROXY_FAULT" });
+  }
+});
+
+app.get('/api/proxy/trefle', checkAuth, async (req, res) => {
+  try {
+    const q = req.query.q;
+    const response = await fetch(`https://trefle.io/api/v1/plants/search?token=${process.env.TREFLE_TOKEN}&q=${encodeURIComponent(q as string)}`);
+    const data = await response.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: "TREFLE_PROXY_FAULT" });
+  }
+});
+
+app.post('/api/proxy/serper', checkAuth, async (req, res) => {
+  try {
+    const response = await fetch('https://google.serper.dev/search', {
+      method: 'POST',
+      headers: {
+        'X-API-KEY': process.env.SERPER_API_KEY || '',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(req.body)
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: "SERPER_PROXY_FAULT" });
+  }
+});
+
+app.get('/api/proxy/perenual', checkAuth, async (req, res) => {
+  try {
+    const { q, page } = req.query;
+    const response = await fetch(`https://perenual.com/api/species-list?key=${process.env.PERENUAL_API_KEY}&q=${encodeURIComponent(q as string)}&page=${page || 1}`);
+    const data = await response.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: "PERENUAL_PROXY_FAULT" });
+  }
+});
+
+app.get('/api/system/usage', checkAuth, async (req, res) => {
+  const now = new Date();
+  const monthId = `${now.getFullYear()}-${now.getMonth() + 1}`;
+  try {
+    const result = await query('SELECT * FROM api_usage WHERE id = ?', [monthId]);
+    res.json(result.rows[0] || { 
+      id: monthId, 
+      google_maps_count: 0, 
+      gemini_count: 0, 
+      plantnet_count: 0, 
+      trefle_count: 0, 
+      perenual_count: 0,
+      serper_count: 0,
+      opb_count: 0
+    });
+  } catch (e) {
+    res.status(500).json({ error: "USAGE_FETCH_FAULT" });
   }
 });
 
@@ -539,11 +659,27 @@ app.post('/api/users', checkAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
 });
 
-app.get('/env-config.js', (req, res) => {
+app.get('/env-config.js', async (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
+  
+  const now = new Date();
+  const monthId = `${now.getFullYear()}-${now.getMonth() + 1}`;
+  let mapsUsage = 0;
+  try {
+    const result = await query('SELECT google_maps_count FROM api_usage WHERE id = ?', [monthId]);
+    if (result.rows.length > 0) mapsUsage = result.rows[0].google_maps_count;
+  } catch (e) {}
+
+  // $200 free credit is roughly 11,000 sessions. We set limit to 10,000 for safety.
+  const MAPS_LIMIT = 10000;
+  const mapsKey = (mapsUsage >= MAPS_LIMIT) ? '' : (process.env.GOOGLE_MAPS_API_KEY || '').trim();
+
   res.send(`window._ENV_ = ${JSON.stringify({
     GOOGLE_CLIENT_ID: (process.env.GOOGLE_CLIENT_ID || '').trim(),
-    API_KEY: (process.env.GEMINI_API_KEY || '').trim()
+    API_KEY: (process.env.GEMINI_API_KEY || '').trim(),
+    GOOGLE_MAPS_API_KEY: mapsKey,
+    GOOGLE_MAPS_USAGE: mapsUsage,
+    GOOGLE_MAPS_LIMIT: MAPS_LIMIT
   })};`);
 });
 
@@ -580,6 +716,17 @@ async function initializeDatabase() {
       db.run(`CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, houseId TEXT, plantIds TEXT, type TEXT, title TEXT, description TEXT, date TEXT, completed INTEGER, completedAt TEXT, recurrence TEXT, data TEXT)`);
       db.run(`CREATE TABLE IF NOT EXISTS inventory (id TEXT PRIMARY KEY, houseId TEXT, name TEXT, data TEXT)`);
       db.run(`CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, event TEXT, details TEXT, level TEXT, created_at TEXT)`);
+      db.run(`CREATE TABLE IF NOT EXISTS api_usage (
+        id TEXT PRIMARY KEY, 
+        google_maps_count INTEGER DEFAULT 0, 
+        gemini_count INTEGER DEFAULT 0,
+        plantnet_count INTEGER DEFAULT 0,
+        trefle_count INTEGER DEFAULT 0,
+        perenual_count INTEGER DEFAULT 0,
+        serper_count INTEGER DEFAULT 0,
+        opb_count INTEGER DEFAULT 0,
+        last_updated TEXT
+      )`);
       resolve();
     });
   });

@@ -44,14 +44,8 @@ Verdant is a high-precision botanical management system designed for professiona
 ## 🚀 Getting Started
 For detailed installation instructions, including prerequisites and API key setup, please refer to the **[Installation Guide (INSTALL.md)](./INSTALL.md)**.
 
-### Quick Start (Docker)
-```bash
-git clone https://github.com/riquitinchiquitin-lab/verdant.git
-cd verdant
-cp .env.example .env
-# Edit .env with your API keys and set VITE_ROOT_OWNER_EMAIL
-docker-compose up -d
-```
+### Proxmox Installation
+For users running Proxmox VE, we provide a helper script to quickly set up a dedicated LXC for Verdant. See the **[Proxmox Guide (PROXMOX.md)](./PROXMOX.md)** for details.
 
 ## 📄 License
 This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license.

@@ -10,10 +10,20 @@ interface PlantLogEntryProps {
   onClose: () => void;
   onLog: (type: LogType, note: LocalizedString) => void;
   initialType?: LogType;
+  apiKey?: string;
+  language?: string;
 }
 
-export const PlantLogEntry: React.FC<PlantLogEntryProps> = ({ isOpen, onClose, onLog, initialType = 'NOTE' }) => {
-  const { t } = useLanguage();
+export const PlantLogEntry: React.FC<PlantLogEntryProps> = ({ 
+  isOpen, 
+  onClose, 
+  onLog, 
+  initialType = 'NOTE',
+  apiKey,
+  language: propLanguage
+}) => {
+  const { t, language: contextLanguage } = useLanguage();
+  const language = propLanguage || contextLanguage;
   const [type, setType] = useState<LogType>(initialType);
   const [note, setNote] = useState('');
   const [isTranslating, setIsTranslating] = useState(false);
@@ -34,14 +44,14 @@ export const PlantLogEntry: React.FC<PlantLogEntryProps> = ({ isOpen, onClose, o
     
     setIsTranslating(true);
     try {
-      const localizedNote = await translateInput(note);
+      const localizedNote = await translateInput(note, language, apiKey);
       onLog(type, localizedNote);
       setNote('');
       onClose();
     } catch (error) {
       console.error("Translation failed:", error);
       // Fallback to English only if translation fails
-      onLog(type, { en: note });
+      onLog(type, { en: note, [language]: note });
       setNote('');
       onClose();
     } finally {

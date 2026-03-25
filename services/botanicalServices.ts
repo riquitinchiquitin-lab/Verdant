@@ -4,12 +4,14 @@
  * Redirected to internal backend proxy to prevent token exposure.
  */
 import { API_URL } from '../constants';
+import { trackUsage } from './usageService';
 
 /**
  * Fetches botanical metadata via Internal Proxy (Trefle)
  */
 export const fetchTrefleData = async (scientificName: string) => {
   try {
+    trackUsage('trefle');
     const response = await fetch(`${API_URL}/api/proxy/trefle?q=${encodeURIComponent(scientificName)}`);
     if (!response.ok) return null;
     const json = await response.json();
@@ -60,6 +62,7 @@ export const fetchOpenPlantBookData = async (scientificName: string) => {
  */
 export const fetchPerenualData = async (query: string, page: number = 1) => {
   try {
+    trackUsage('perenual');
     const response = await fetch(`${API_URL}/api/proxy/perenual?q=${encodeURIComponent(query)}&page=${page}`);
     if (!response.ok) return null;
     return await response.json();
@@ -73,6 +76,7 @@ export const fetchPerenualData = async (query: string, page: number = 1) => {
  */
 export const searchGroundingData = async (query: string) => {
   try {
+    trackUsage('serper');
     const response = await fetch(`${API_URL}/api/proxy/serper`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -98,7 +98,7 @@ export const CareSchedule: React.FC = () => {
   };
 
   const handleWater = async (plant: Plant) => {
-    await addLog(plant.id, { id: `l-${Date.now()}`, date: new Date().toISOString(), type: 'WATER', localizedNote: { en: t('log_water_manual') } });
+    await addLog(plant.id, { id: `l-${crypto.randomUUID()}`, date: new Date().toISOString(), type: 'WATER', localizedNote: { en: t('log_water_manual') } });
     updatePlant(plant.id, { lastWatered: new Date().toISOString() });
     setLastLoggedAction(plant.id + '-water');
     setTimeout(() => setLastLoggedAction(null), 2000);
@@ -106,7 +106,7 @@ export const CareSchedule: React.FC = () => {
 
   const handleRotate = async (plant: Plant) => {
     await addLog(plant.id, { 
-      id: `l-${Date.now()}`, 
+      id: `l-${crypto.randomUUID()}`, 
       date: new Date().toISOString(), 
       type: 'ROTATED', 
       localizedNote: { 
@@ -131,8 +131,8 @@ export const CareSchedule: React.FC = () => {
         if (!isWaterVisible && !isRotationVisible) return false;
 
         // Filtering based on user role and house assignment
-        if (isAdmin) return true;
-        if (user?.houseId && p.houseId === user.houseId) return true;
+        if (user?.houseId) return p.houseId === user.houseId;
+        if (isAdmin) return true; // Global admins with no house see everything
         if (isManager && !p.houseId) return true; // Managers see unattributed plants
         return false;
     });
@@ -147,7 +147,7 @@ export const CareSchedule: React.FC = () => {
   [filteredPlants]);
 
   return (
-    <div className="p-4 md:p-10 max-w-4xl mx-auto pb-32 transition-all">
+    <div className="p-4 md:p-10 max-w-7xl mx-auto pb-32 transition-all">
         
         
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 md:mb-10 gap-4 md:gap-6">
@@ -155,7 +155,7 @@ export const CareSchedule: React.FC = () => {
                 <h1 className="text-2xl md:text-4xl font-black text-gray-900 dark:text-white tracking-tighter uppercase leading-none">{t('care_title_page')}</h1>
                 {userHouseName && (
                     <p className="text-verdant mt-1.5 md:mt-2 font-black uppercase tracking-widest text-[8px] md:text-[10px] bg-verdant/5 px-2 md:px-3 py-0.5 md:py-1 rounded-full border border-verdant/10 inline-block">
-                        {t('property_prefix')}: {userHouseName}
+                        {t('house_prefix')}: {userHouseName}
                     </p>
                 )}
             </div>
@@ -167,7 +167,7 @@ export const CareSchedule: React.FC = () => {
             )}
         </div>
 
-        <div {...scheduleScroll.props} className={`flex gap-4 pb-8 ${scheduleScroll.props.className}`}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
             {sortedPlants.length > 0 ? sortedPlants.map(plant => {
                 const daysDue = getDaysDue(plant);
                 const rotationDaysDue = getRotationDaysDue(plant);
@@ -178,7 +178,7 @@ export const CareSchedule: React.FC = () => {
                 const isUrgentThirsty = shouldHighlightThirsty && isWaterOverdue;
                 
                 return (
-                    <div key={plant.id} className={`w-80 flex-shrink-0 bg-white dark:bg-slate-900 rounded-[24px] md:rounded-[32px] border-2 ${isUrgentThirsty ? 'border-red-500 ring-4 ring-red-500/10 animate-pulse' : 'border-gray-100 dark:border-slate-800'} p-3 md:p-5 shadow-sm flex flex-col items-center gap-3 md:gap-6 hover:border-verdant/40 transition-all duration-500 group`}>
+                    <div key={plant.id} className={`bg-white dark:bg-slate-900 rounded-[24px] md:rounded-[32px] border-2 ${isUrgentThirsty ? 'border-red-500 ring-4 ring-red-500/10 animate-pulse' : 'border-gray-100 dark:border-slate-800'} p-3 md:p-5 shadow-sm flex flex-col items-center gap-3 md:gap-6 hover:border-verdant/40 transition-all duration-500 group`}>
                         <div className="flex items-center gap-3 md:gap-5 w-full">
                             <div className="w-14 h-14 md:w-20 md:h-20 rounded-xl md:rounded-[24px] bg-gray-100 dark:bg-slate-800 flex-shrink-0 overflow-hidden shadow-inner ring-2 md:ring-4 ring-white dark:ring-slate-800 transition-transform group-hover:scale-105 duration-500">
                                 {plant.images?.[0] ? (

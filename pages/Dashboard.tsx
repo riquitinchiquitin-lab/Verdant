@@ -27,20 +27,44 @@ export const Dashboard: React.FC = () => {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [viewMode, setViewMode] = useState<'MY_HOUSE' | 'ALL'>('MY_HOUSE');
+  const [selectedHouseFilter, setSelectedHouseFilter] = useState<string | 'ALL' | 'UNATTRIBUTED'>('ALL');
 
   const isAdmin = user?.role === 'OWNER' || user?.role === 'CO_CEO';
 
   const filtered = useMemo(() => {
     return plants.filter(p => {
-      if (isAdmin) return true;
-      if (user?.houseId) return p.houseId === user.houseId;
+      // 1. Admin House Filter (if active)
+      if (isAdmin && selectedHouseFilter !== 'ALL') {
+        if (selectedHouseFilter === 'UNATTRIBUTED') return !p.houseId;
+        return p.houseId === selectedHouseFilter;
+      }
+
+      // 2. If viewing all plants (only for admins), show everything
+      if (isAdmin && viewMode === 'ALL') return true;
+      
+      // 3. If viewing "My House"
+      if (viewMode === 'MY_HOUSE') {
+        // If user has a house assigned, they see plants in that house
+        // Admins also see unattributed plants in "My House" mode
+        if (user?.houseId) {
+          return p.houseId === user.houseId || (isAdmin && !p.houseId);
+        }
+        
+        // Admins with NO house assigned see EVERYTHING in "My House" mode (since they own all houses)
+        if (isAdmin) return true;
+        
+        // If user has no house assigned and is NOT an admin, they see nothing in "My House" mode
+        return false;
+      }
+      
       return false;
     }).filter(p => {
         const f = searchFilter.toLowerCase();
         if (!f) return true;
         return (lv(p.nickname) || '').toLowerCase().includes(f) || (p.species || '').toLowerCase().includes(f);
     });
-  }, [plants, user, isAdmin, searchFilter, lv]);
+  }, [plants, user, isAdmin, viewMode, selectedHouseFilter, searchFilter, lv]);
 
   const { featured, others } = useMemo(() => {
     const priorityPlant = filtered.find(p => p.isPriority);
@@ -76,7 +100,7 @@ export const Dashboard: React.FC = () => {
         
         const syncedPlant: Plant = {
           ...details,
-          id: `p-synced-${Date.now()}`,
+          id: `p-synced-${crypto.randomUUID()}`,
           species: species,
           family: family || details.family,
           houseId: user?.houseId || null, 
@@ -119,6 +143,23 @@ export const Dashboard: React.FC = () => {
             </div>
             
             <div className="flex items-center gap-3">
+                {isAdmin && (
+                    <div className="flex flex-col md:flex-row items-end md:items-center gap-3">
+                        <select 
+                            className="h-12 px-4 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all appearance-none min-w-[160px]"
+                            value={selectedHouseFilter}
+                            onChange={(e) => setSelectedHouseFilter(e.target.value as any)}
+                        >
+                            <option value="ALL">{t('labels_all_global_properties')}</option>
+                            <option value="UNATTRIBUTED">{t('lbl_unattributed')}</option>
+                            {houses.map(h => (
+                                <option key={h.id} value={h.id}>{lv(h.name)}</option>
+                            ))}
+                        </select>
+
+
+                    </div>
+                )}
                 <Button
                     onClick={() => setIsAddModalOpen(true)}
                     className="h-12 px-6 bg-verdant text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-verdant/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"

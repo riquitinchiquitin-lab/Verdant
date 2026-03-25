@@ -8,28 +8,31 @@ import { useInventory } from '../context/InventoryContext';
 import { House, User, Plant } from '../types';
 import { Button } from '../components/ui/Button';
 import { SystemTelemetry } from '../components/SystemTelemetry';
+import { ConfirmationDialog } from '../components/ui/ConfirmationDialog';
 import { fetchWithAuth } from '../services/api'; // Mandatory import for handshake
 import { generateSecure50CharKey } from '../services/security';
 import { useDraggableScroll } from '../hooks/useDraggableScroll';
 
 export const AdminView: React.FC = () => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { t, lv, language } = useLanguage();
   const { showNotification, fetchSystemLogs } = useSystem();
-  const { houses, plants, updateHouse, deleteHouse, addHouse, updatePlant } = usePlants();
+  const { houses, plants, updateHouse, deleteHouse, addHouse, updatePlant, deleteAllLogs, deleteLogsByDay } = usePlants();
   const { users, addUser, updateUser, deleteUser } = usePersonnel();
   const [activeTab, setActiveTab] = useState<'HOUSES' | 'PERSONNEL' | 'PLANTS' | 'DATABASE' | 'SECURITY' | 'LOGS'>('HOUSES');
   const [isRestoring, setIsRestoring] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [logs, setLogs] = useState<SystemLog[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [selectedLogDate, setSelectedLogDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [isExportingLogs, setIsExportingLogs] = useState(false);
+  const [isDeletingLogs, setIsDeletingLogs] = useState(false);
   const [movingPlantId, setMovingPlantId] = useState<string | null>(null);
   const [targetHouseId, setTargetHouseId] = useState<string>('');
   const [isMoving, setIsMoving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const tabsScroll = useDraggableScroll();
-  const housesScroll = useDraggableScroll();
   const plantsScroll = useDraggableScroll();
   const personnelScroll = useDraggableScroll();
 
@@ -41,6 +44,17 @@ export const AdminView: React.FC = () => {
   const [newHouseName, setNewHouseName] = useState('');
   const [newUser, setNewUser] = useState<Partial<User>>({ role: 'GARDENER' });
   const [hasMasterKey, setHasMasterKey] = useState(false);
+  const [confirmation, setConfirmation] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
   useEffect(() => {
     setHasMasterKey(!!localStorage.getItem('verdant_master_key'));
@@ -202,7 +216,7 @@ export const AdminView: React.FC = () => {
 
     try {
       await addUser({
-        id: `u-${Date.now()}`,
+        id: `u-${crypto.randomUUID()}`,
         email: newUser.email,
         name: newUser.name,
         role: newUser.role as any,
@@ -232,7 +246,7 @@ export const AdminView: React.FC = () => {
     try {
       await updateHouse(editingHouse.id, editingHouse);
       setEditingHouse(null);
-      showNotification(t('msg_property_updated'), "SUCCESS");
+      showNotification(t('msg_house_updated'), "SUCCESS");
     } catch (e) {
       showNotification(t('msg_update_failed'), "ERROR");
     }
@@ -244,7 +258,7 @@ export const AdminView: React.FC = () => {
       await addHouse(newHouseName);
       setIsAddingHouse(false);
       setNewHouseName('');
-      showNotification(t('msg_property_established'), "SUCCESS");
+      showNotification(t('msg_house_established'), "SUCCESS");
     } catch (e) {
       showNotification(t('msg_establishment_failed'), "ERROR");
     }
@@ -265,47 +279,149 @@ export const AdminView: React.FC = () => {
     }
   };
 
-  const handleDeleteHouse = async (id: string) => {
-    if (!window.confirm(t('confirm_delete_location').replace('{name}', ''))) return;
+  const handleDeleteHouse = (id: string) => {
+    setConfirmation({
+      isOpen: true,
+      title: t('decommission_protocol'),
+      message: t('confirm_delete_location').replace('{name}', ''),
+      onConfirm: async () => {
+        try {
+          await deleteHouse(id);
+          showNotification(t('msg_house_decommissioned'), "SUCCESS");
+        } catch (e) {
+          showNotification(t('msg_deletion_failed'), "ERROR");
+        }
+        setConfirmation(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
+  const handleExportCareLogs = async () => {
+    const { exportLogsToExcel } = await import('../services/exportService');
+    setIsExportingLogs(true);
     try {
-      await deleteHouse(id);
-      showNotification(t('msg_property_decommissioned'), "SUCCESS");
-    } catch (e) {
-      showNotification(t('msg_deletion_failed'), "ERROR");
+      await exportLogsToExcel(plants, lv);
+      showNotification(t('msg_backup_downloaded'), 'SUCCESS');
+    } catch (error) {
+      showNotification(t('msg_backup_failed'), 'ERROR');
+    } finally {
+      setIsExportingLogs(false);
     }
   };
 
-  const handleRotateKey = async () => {
-    // Only warn if we are ROTATING an existing key. 
-    // If no key exists, we are GENERATING for the first time, which is safe.
-    if (hasMasterKey) {
-      if (!window.confirm(t('sec_key_warning'))) return;
-    }
-    
-    try {
-      const newKey = generateSecure50CharKey();
-      
-      // 1. Sync with server first (encrypted with OLD key if it exists)
-      const token = localStorage.getItem('verdant_token') || '';
-      const response = await fetchWithAuth('/api/system/vault-key', token, {
-        method: 'POST',
-        body: JSON.stringify({ key: newKey })
+  const handleDeleteAllCareLogs = () => {
+    setConfirmation({
+      isOpen: true,
+      title: t('admin_database'),
+      message: t('confirm_delete_all_logs'),
+      onConfirm: async () => {
+        setIsDeletingLogs(true);
+        try {
+          await deleteAllLogs();
+          showNotification(t('msg_logs_deleted'), 'SUCCESS');
+        } catch (error) {
+          showNotification(t('msg_deletion_failed'), 'ERROR');
+        } finally {
+          setIsDeletingLogs(false);
+          setConfirmation(prev => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
+  };
+
+  const handleDeleteDayCareLogs = () => {
+    setConfirmation({
+      isOpen: true,
+      title: t('admin_database'),
+      message: t('confirm_delete_day_logs').replace('{date}', selectedLogDate),
+      onConfirm: async () => {
+        setIsDeletingLogs(true);
+        try {
+          await deleteLogsByDay(selectedLogDate);
+          showNotification(t('msg_logs_deleted'), 'SUCCESS');
+        } catch (error) {
+          showNotification(t('msg_deletion_failed'), 'ERROR');
+        } finally {
+          setIsDeletingLogs(false);
+          setConfirmation(prev => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
+  };
+
+  const combinedLogs = useMemo(() => {
+    const systemLogsMapped = logs.map(l => ({
+      id: l.id,
+      timestamp: l.created_at,
+      category: 'SYSTEM',
+      event: l.event,
+      details: l.details,
+      level: l.level
+    }));
+
+    const careLogsMapped: any[] = [];
+    plants.forEach(plant => {
+      (plant.logs || []).forEach((log, idx) => {
+        careLogsMapped.push({
+          id: `care-${plant.id}-${idx}`,
+          timestamp: log.date,
+          category: 'CARE',
+          event: lv(plant.nickname),
+          details: `${log.type}${log.value ? `: ${log.value}` : ''}${log.note ? ` (${log.note})` : ''}`,
+          level: 'INFO'
+        });
       });
+    });
 
-      if (!response.ok) throw new Error("SERVER_SYNC_FAILED");
+    const all = [...systemLogsMapped, ...careLogsMapped];
+    
+    const filtered = all.filter(log => {
+        const logDate = new Date(log.timestamp).toISOString().split('T')[0];
+        return logDate === selectedLogDate;
+    });
 
-      // 2. Update local storage
-      localStorage.setItem('verdant_master_key', newKey);
-      setHasMasterKey(true);
-      showNotification(hasMasterKey ? t('msg_master_key_rotated') : t('msg_master_key_generated'), "SUCCESS");
-      
-      // Give the user a moment to see the success notification
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
-    } catch (err) {
-      console.error("Key generation failed:", err);
-      showNotification(t('msg_protocol_fault'), "ERROR");
+    return filtered.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [logs, plants, lv, selectedLogDate]);
+
+  const handleRotateKey = () => {
+    const rotate = async () => {
+      try {
+        const newKey = generateSecure50CharKey();
+        
+        // 1. Sync with server first (encrypted with OLD key if it exists)
+        const token = localStorage.getItem('verdant_token') || '';
+        const response = await fetchWithAuth('/api/system/vault-key', token, {
+          method: 'POST',
+          body: JSON.stringify({ key: newKey })
+        });
+
+        if (!response.ok) throw new Error("SERVER_SYNC_FAILED");
+
+        // 2. Update local storage
+        localStorage.setItem('verdant_master_key', newKey);
+        setHasMasterKey(true);
+        showNotification(hasMasterKey ? t('msg_master_key_rotated') : t('msg_master_key_generated'), "SUCCESS");
+        
+        // Give the user a moment to see the success notification
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } catch (err) {
+        console.error("Key generation failed:", err);
+        showNotification(t('msg_protocol_fault'), "ERROR");
+      }
+      setConfirmation(prev => ({ ...prev, isOpen: false }));
+    };
+
+    if (hasMasterKey) {
+      setConfirmation({
+        isOpen: true,
+        title: t('sec_rotate_key'),
+        message: t('sec_key_warning'),
+        onConfirm: rotate
+      });
+    } else {
+      rotate();
     }
   };
 
@@ -332,6 +448,12 @@ export const AdminView: React.FC = () => {
     });
     setIsAddingUser(true);
   };
+
+  const visiblePlants = useMemo(() => {
+    if (isOwner || isDirector) return plants;
+    if (user?.houseId) return plants.filter(p => p.houseId === user.houseId);
+    return plants;
+  }, [plants, user, isOwner, isDirector]);
 
   return (
     <div className="p-4 md:p-14 max-w-7xl mx-auto space-y-12 pb-32">
@@ -428,7 +550,7 @@ export const AdminView: React.FC = () => {
                             </select>
                         </div>
                         <div className="space-y-1">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('lbl_property')}</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('lbl_house')}</label>
                             <select 
                                 value={newUser.houseId || ''}
                                 onChange={(e) => setNewUser({...newUser, houseId: e.target.value || null})}
@@ -436,7 +558,7 @@ export const AdminView: React.FC = () => {
                                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 ring-verdant/20 disabled:opacity-50"
                             >
                                 {!(isLeadHand) && <option value="">{t('lbl_global').toUpperCase()}</option>}
-                                {houses.map(h => <option key={h.id} value={h.id}>{lv(h.name)}</option>)}
+                                {houses.map(p => <option key={p.id} value={p.id}>{lv(p.name)}</option>)}
                             </select>
                         </div>
                     </div>
@@ -477,7 +599,7 @@ export const AdminView: React.FC = () => {
                             </select>
                         </div>
                         <div className="space-y-1">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('lbl_property')}</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('lbl_house')}</label>
                             <select 
                                 value={editingUser.houseId || ''}
                                 onChange={(e) => setEditingUser({...editingUser, houseId: e.target.value || null})}
@@ -485,7 +607,7 @@ export const AdminView: React.FC = () => {
                                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 ring-verdant/20 disabled:opacity-50"
                             >
                                 {!(isLeadHand) && <option value="">{t('lbl_global').toUpperCase()}</option>}
-                                {houses.map(h => <option key={h.id} value={h.id}>{lv(h.name)}</option>)}
+                                {houses.map(p => <option key={p.id} value={p.id}>{lv(p.name)}</option>)}
                             </select>
                         </div>
                     </div>
@@ -510,7 +632,7 @@ export const AdminView: React.FC = () => {
                                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 ring-verdant/20"
                             >
                                 <option value="">{t('lbl_unassigned').toUpperCase()}</option>
-                                {houses.map(h => <option key={h.id} value={h.id}>{lv(h.name)}</option>)}
+                                {houses.map(p => <option key={p.id} value={p.id}>{lv(p.name)}</option>)}
                             </select>
                         </div>
                     </div>
@@ -535,9 +657,9 @@ export const AdminView: React.FC = () => {
         </div>
         {activeTab === 'HOUSES' && (
             <div className="space-y-6">
-                <div {...housesScroll.props} className={`flex gap-6 pb-4 ${housesScroll.props.className}`}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {visibleHouses.map(house => (
-                        <div key={house.id} className="w-80 flex-shrink-0 bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <div key={house.id} className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm">
                             <h3 className="text-xl font-black uppercase text-slate-900 dark:text-white mb-2">{lv(house.name)}</h3>
                             <p className="text-xs text-slate-500 uppercase tracking-widest mb-4">{t('lbl_id')}: {house.id}</p>
                             <div className="flex gap-2">
@@ -549,7 +671,7 @@ export const AdminView: React.FC = () => {
                     {!(isLeadHand) && (
                         <button 
                             onClick={() => setIsAddingHouse(true)}
-                            className="w-80 flex-shrink-0 border-4 border-dashed border-slate-200 dark:border-slate-800 rounded-[32px] p-8 flex flex-col items-center justify-center text-slate-400 hover:text-verdant hover:border-verdant transition-all group"
+                            className="border-4 border-dashed border-slate-200 dark:border-slate-800 rounded-[32px] p-8 flex flex-col items-center justify-center text-slate-400 hover:text-verdant hover:border-verdant transition-all group min-h-[160px]"
                         >
                             <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">+</span>
                             <span className="text-[10px] font-black uppercase tracking-widest">{t('lbl_add_house')}</span>
@@ -572,7 +694,7 @@ export const AdminView: React.FC = () => {
                             <tr className="bg-slate-50 dark:bg-slate-800/50">
                                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('lbl_name')}</th>
                                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('lbl_role')}</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('lbl_property')}</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('lbl_house')}</th>
                                 <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">{t('lbl_actions')}</th>
                             </tr>
                         </thead>
@@ -581,7 +703,7 @@ export const AdminView: React.FC = () => {
                                 <tr key={p.id} className="text-slate-900 dark:text-white">
                                     <td className="px-6 py-4 font-bold">{typeof p.name === 'object' ? lv(p.name as any) : p.name || t('lbl_unknown')}</td>
                                     <td className="px-6 py-4"><span className="text-[10px] font-black bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full">{t(`role_${p.role.toLowerCase()}` as any)}</span></td>
-                                    <td className="px-6 py-4 text-slate-500">{houses.find(h => h.id === p.houseId) ? lv(houses.find(h => h.id === p.houseId)!.name) : t('lbl_global')}</td>
+                                    <td className="px-6 py-4 text-slate-500">{houses.find(prop => prop.id === p.houseId) ? lv(houses.find(prop => prop.id === p.houseId)!.name) : t('lbl_global')}</td>
                                     <td className="px-6 py-4 text-right">
                                         <button 
                                             onClick={() => setEditingUser(p)}
@@ -603,8 +725,8 @@ export const AdminView: React.FC = () => {
                     <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('tab_plants')}</h2>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {plants.map(plant => {
-                        const house = houses.find(h => h.id === plant.houseId);
+                    {visiblePlants.map(plant => {
+                        const house = houses.find(p => p.id === plant.houseId);
                         return (
                             <div key={plant.id} className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 p-4 shadow-sm flex items-center gap-4 hover:border-verdant/40 transition-all group">
                                 <div className="w-16 h-16 rounded-2xl bg-slate-50 dark:bg-slate-800 flex-shrink-0 overflow-hidden ring-2 ring-white dark:ring-slate-800">
@@ -622,11 +744,8 @@ export const AdminView: React.FC = () => {
                                             {house ? t('lbl_assigned_to', { house: lv(house.name) }) : t('lbl_unassigned')}
                                         </span>
                                         <button 
-                                            onClick={() => {
-                                                setMovingPlantId(plant.id);
-                                                setTargetHouseId(plant.houseId || '');
-                                            }}
-                                            className="text-verdant font-black text-[9px] uppercase tracking-widest hover:underline border border-verdant/20 px-2 py-1 rounded-lg"
+                                            onClick={() => setMovingPlantId(plant.id)}
+                                            className="text-verdant font-black text-[10px] uppercase tracking-widest hover:underline border border-verdant/20 px-3 py-1 rounded-lg"
                                         >
                                             {t('btn_move_plant')}
                                         </button>
@@ -696,43 +815,94 @@ export const AdminView: React.FC = () => {
             </div>
         )}
         {activeTab === 'LOGS' && (
-            <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-                <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                    <h3 className="text-xl font-black uppercase text-slate-900 dark:text-white">{t('lbl_system_events')}</h3>
-                    <Button variant="ghost" size="sm" onClick={loadLogs} isLoading={isLoadingLogs}>{t('btn_refresh')}</Button>
+            <div className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div className="flex flex-col gap-1">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('lbl_select_day')}</label>
+                        <input
+                            type="date"
+                            value={selectedLogDate}
+                            onChange={(e) => setSelectedLogDate(e.target.value)}
+                            className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-2 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 ring-verdant/20"
+                        />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <Button variant="ghost" size="sm" onClick={loadLogs} isLoading={isLoadingLogs} className="rounded-xl uppercase font-black">
+                            {t('btn_refresh')}
+                        </Button>
+                        <Button variant="secondary" size="sm" onClick={handleExportCareLogs} isLoading={isExportingLogs} className="rounded-xl uppercase font-black">
+                            {t('btn_export_excel')}
+                        </Button>
+                        <Button variant="danger" size="sm" onClick={handleDeleteDayCareLogs} isLoading={isDeletingLogs} className="rounded-xl uppercase font-black">
+                            {t('btn_delete_day_logs')}
+                        </Button>
+                        <Button variant="danger" size="sm" onClick={handleDeleteAllCareLogs} isLoading={isDeletingLogs} className="rounded-xl uppercase font-black">
+                            {t('btn_delete_all_logs')}
+                        </Button>
+                    </div>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800/50">
-                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('lbl_timestamp')}</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('lbl_event')}</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('lbl_details')}</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('lbl_level')}</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {logs.map(log => (
-                                <tr key={log.id} className="text-slate-900 dark:text-white text-xs">
-                                    <td className="px-6 py-4 font-mono opacity-50">{new Date(log.created_at).toLocaleString()}</td>
-                                    <td className="px-6 py-4 font-bold">{log.event}</td>
-                                    <td className="px-6 py-4 text-slate-500">{log.details}</td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${
-                                            log.level === 'ERROR' ? 'bg-red-500/10 text-red-500' : 
-                                            log.level === 'WARN' ? 'bg-amber-500/10 text-amber-500' : 
-                                            'bg-blue-500/10 text-blue-500'
-                                        }`}>
-                                            {t(`lbl_${log.level.toLowerCase()}` as any)}
-                                        </span>
-                                    </td>
+
+                <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                    <div className="p-6 border-b border-slate-100 dark:border-slate-800">
+                        <h3 className="text-xl font-black uppercase text-slate-900 dark:text-white">{t('lbl_system_events')}</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="bg-slate-50 dark:bg-slate-800/50">
+                                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('lbl_timestamp')}</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('lbl_type')}</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('lbl_event')}</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('lbl_details')}</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('lbl_level')}</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                {combinedLogs.length > 0 ? (
+                                    combinedLogs.map(log => (
+                                        <tr key={log.id} className="text-slate-900 dark:text-white text-xs">
+                                            <td className="px-6 py-4 font-mono opacity-50">{new Date(log.timestamp).toLocaleString()}</td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${
+                                                    log.category === 'SYSTEM' ? 'bg-slate-100 dark:bg-slate-800 text-slate-500' : 'bg-verdant/10 text-verdant'
+                                                }`}>
+                                                    {log.category}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 font-bold">{log.event}</td>
+                                            <td className="px-6 py-4 text-slate-500">{log.details}</td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${
+                                                    log.level === 'ERROR' ? 'bg-red-500/10 text-red-500' : 
+                                                    log.level === 'WARN' ? 'bg-amber-500/10 text-amber-500' : 
+                                                    'bg-blue-500/10 text-blue-500'
+                                                }`}>
+                                                    {t(`lbl_${log.level.toLowerCase()}` as any)}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-12 text-center text-slate-400 uppercase font-black tracking-widest">
+                                            {t('msg_no_events_recorded')}
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         )}
+
+        <ConfirmationDialog
+          isOpen={confirmation.isOpen}
+          onClose={() => setConfirmation(prev => ({ ...prev, isOpen: false }))}
+          onConfirm={confirmation.onConfirm}
+          title={confirmation.title}
+          message={confirmation.message}
+        />
     </div>
   );
 };

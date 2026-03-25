@@ -43,7 +43,7 @@ export const NewUserModal: React.FC<NewUserModalProps> = ({ isOpen, onClose, hou
       if (!name || !email) return;
 
       const newUser: User = {
-          id: `u-${Date.now()}`,
+          id: `u-${crypto.randomUUID()}`,
           name,
           email,
           role,
@@ -113,7 +113,7 @@ export const NewUserModal: React.FC<NewUserModalProps> = ({ isOpen, onClose, hou
                     {!isLeadHand && <option value="">-- {t('unassigned_location')} ({t('global_view')}) --</option>}
                     {houses.map(h => <option key={h.id} value={h.id}>{lv(h.name)}</option>)}
                 </select>
-                {isLeadHand && <p className="mt-2 text-[8px] font-black text-amber-600 uppercase tracking-[0.2em] px-2">LOCKED TO PROPERTY ARCHIVE</p>}
+                {isLeadHand && <p className="mt-2 text-[8px] font-black text-amber-600 uppercase tracking-[0.2em] px-2">LOCKED TO HOUSE ARCHIVE</p>}
             </div>
 
             {role === 'SEASONAL' && (

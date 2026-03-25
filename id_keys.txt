@@ -5,49 +5,34 @@
     menu_inventory:
     menu_labels:
     menu_admin:
-    botanical_passport:
-    botanical_metadata:
-    lbl_origin:
-    lbl_family_genus:
-    lbl_growth_size:
-    lbl_category:
-    lbl_light_advice:
-    lbl_trefle_id:
-    lbl_opb_id:
-    lbl_toxicity:
-    lbl_propagation_instructions:
-    lbl_repotting_instructions:
-    msg_no_propagation_instructions:
-    msg_no_repotting_instructions:
-    btn_add_instructions:
-    lbl_soil_recipe:
-    lbl_atmospheric_soil_bounds:
-    lbl_moisture:
-    lbl_temperature:
-    lbl_illuminance:
-    lbl_soil_ec:
-    lbl_humidity:
-    lbl_target_ph:
-    lbl_target_ec:
-    lbl_target_vpd:
-    lbl_target_dli:
-    lbl_environmental_guards:
-    lbl_watering_delta:
-    lbl_last_observed_action:
-    lbl_biological_milestones:
-    lbl_repot_cadence:
-    lbl_last_pot_size:
-    lbl_propagation:
-    lbl_cites_status:
-    btn_switch_camera:
-    lbl_provenance_source:
-    lbl_nursery_source:
-    lbl_acquisition_date:
-    lbl_investment:
-    lbl_phenophase_tracking:
-    lbl_phase:
-    lbl_date:
-    lbl_notes:
+    menu_sign_out:
+    stats_locations:
+    add_location:
+    manage_desc:
+    predefined_location_tag:
+    lbl_sync:
+    care_title_page:
+    sys_install_app:
+    sys_ready_standalone:
+    sys_uplink:
+    sys_db_link:
+    sys_stable:
+    sys_busy:
+    sys_cooldown:
+    sys_local_cache:
+    sys_auth:
+    sys_strict:
+    sys_handshake:
+    sys_verification:
+    sys_config_req:
+    sys_config_desc:
+    genesis_quote:
+    genesis_ref:
+    role_owner:
+    role_co_ceo:
+    role_lead_hand:
+    role_gardener:
+    role_seasonal:
     tab_houses:
     tab_personnel:
     tab_database:
@@ -60,10 +45,16 @@
     lbl_select_house:
     msg_plant_moved:
     msg_move_failed:
-    status_not_configured:
-    lbl_name:
-    lbl_role:
-    lbl_property:
+    global_view:
+    search_placeholder:
+    btn_add_task:
+    btn_add_plant:
+    btn_add_log:
+    btn_add_property:
+    btn_analyze_specimens:
+    btn_add_more:
+    btn_save_entry:
+    btn_save_mix:
     lbl_actions:
     lbl_system_backup:
     lbl_download_backup_desc:
@@ -79,12 +70,12 @@
     lbl_system_events:
     btn_refresh:
     lbl_timestamp:
+    lbl_event:
+    lbl_details:
     lbl_level:
     lbl_error:
     lbl_warn:
     lbl_info:
-    lbl_event:
-    lbl_details:
     lbl_manage_houses_desc:
     lbl_manage_personnel_desc:
     lbl_manage_database_desc:
@@ -219,52 +210,19 @@
     btn_delete:
     lbl_no_key_deployed:
     btn_generate_key:
+    btn_add_personnel:
+    lbl_add_house:
+    lbl_edit_house:
+    lbl_edit_personnel:
+    lbl_add_personnel:
+    lbl_email:
+    btn_save:
+    btn_cancel:
     status_thirsty:
-    status_soon:
-    status_stable:
-    status_data_needed:
-    status_due_now:
-    menu_sign_out:
-    stats_locations:
-    manage_desc:
-    add_location:
-    predefined_location_tag:
-    lbl_sync:
-    care_title_page:
-    sys_install_app:
-    sys_ready_standalone:
-    sys_uplink:
-    sys_db_link:
-    sys_stable:
-    sys_busy:
-    sys_cooldown:
-    sys_local_cache:
-    sys_auth:
-    sys_strict:
-    sys_handshake:
-    sys_verification:
-    sys_config_req:
-    sys_config_desc:
-    genesis_quote:
-    genesis_ref:
-    role_owner:
-    role_co_ceo:
-    role_lead_hand:
-    role_gardener:
-    role_seasonal:
-    dossier:
-    tech:
-    history:
-    global_view:
-    search_placeholder:
-    btn_add_task:
-    btn_add_plant:
-    btn_add_log:
-    btn_add_property:
-    btn_analyze_specimens:
-    btn_add_more:
-    btn_save_entry:
-    btn_save_mix:
+    status_not_configured:
+    lbl_role:
+    lbl_property:
+    lbl_name:
     btn_select_api_key:
     btn_skip_manual:
     btn_return_choice:
@@ -280,13 +238,20 @@
     lbl_ccy:
     lbl_cost:
     lbl_nursery_origin:
+    lbl_acquisition_date:
     lbl_provenance_history:
     lbl_propagation_methods:
     lbl_repot_frequency:
+    lbl_last_pot_size:
     lbl_lifecycle_phenology:
     lbl_target_dli_unit:
     lbl_target_vpd_unit:
     lbl_target_ec_unit:
+    lbl_target_ph:
+    lbl_target_ec:
+    lbl_target_vpd:
+    lbl_target_dli:
+    lbl_environmental_guards:
     lbl_advanced_technical_metrics:
     btn_add_photo:
     lbl_primary:
@@ -402,7 +367,7 @@
     ROLE_CO_CEO:
     ROLE_LEAD_HAND:
     ROLE_SEASONAL:
-    category:
+    lbl_category:
     save:
     admin_houses:
     admin_personnel:
@@ -420,7 +385,6 @@
     msg_no_house:
     auth_personnel:
     full_legal_name:
-    enterprise_email:
     cat_tools:
     cat_insecticide:
     cat_fertiliser:
@@ -512,20 +476,30 @@
     restore_success:
     protocol_fault:
     personnel_added:
-    btn_add_personnel:
-    lbl_add_house:
-    lbl_edit_house:
-    lbl_edit_personnel:
-    lbl_add_personnel:
-    lbl_email:
-    btn_save:
-    btn_cancel:
     authority_updated:
+    lbl_usage_instructions:
+    lbl_compatible_with_collection:
+    btn_confirm_add:
+    placeholder_inventory_name:
+    placeholder_inventory_unit:
+    lbl_recommended_for_plants:
+    lbl_plant_association:
+    lbl_available_not_assigned:
+    btn_release:
+    lbl_species_compatibility:
+    lbl_visual_records:
+    lbl_desc:
+    lbl_quantity:
+    lbl_model:
+    lbl_material:
+    lbl_color:
+    lbl_hole_size:
+    lbl_depth:
+    lbl_drainage:
+    btn_consume:
     property_prefix:
     notifications_house_enabled:
     notifications_global_enabled:
-    notification_thirsty_single:
-    notification_thirsty_multiple:
     enable_alerts:
     due_today:
     care_days_overdue:
@@ -573,7 +547,6 @@
     login_autonomous_node:
     manual_aes:
     manual_proxmox:
-    manual_system_node:
     manual_ai_uplink:
     manual_access_level:
     manual_visual_asset_preview:
@@ -588,26 +561,6 @@
     manual_hash:
     manual_footer_copyright:
     manual_footer_optimized:
-    lbl_usage_instructions:
-    lbl_compatible_with_collection:
-    btn_confirm_add:
-    placeholder_inventory_name:
-    placeholder_inventory_unit:
-    lbl_recommended_for_plants:
-    lbl_plant_association:
-    lbl_available_not_assigned:
-    btn_release:
-    lbl_species_compatibility:
-    lbl_visual_records:
-    lbl_desc:
-    lbl_quantity:
-    lbl_model:
-    lbl_material:
-    lbl_color:
-    lbl_hole_size:
-    lbl_depth:
-    lbl_drainage:
-    btn_consume:
     log_water:
     log_moisture:
     log_note:
@@ -622,12 +575,15 @@
     lbl_light:
     lbl_nutrition:
     lbl_temp:
+    lbl_humidity:
+    lbl_moist:
     lbl_ec:
-    api_configuration:
-    api_key_notice:
-    api_key_updated:
-    invalid_api_key:
-    update:
+    lbl_toxicity:
+    lbl_propagation_instructions:
+    lbl_repotting_instructions:
+    msg_no_propagation_instructions:
+    msg_no_repotting_instructions:
+    btn_add_instructions:
     status_safe:
     status_toxic:
     plant_category_foliage_plants:
@@ -637,34 +593,10 @@
     log_action_repotted:
     log_action_flowered:
     log_alert_message:
-    btn_record_phenophase:
-    lbl_select_biological_phase:
-    lbl_observation_date:
-    lbl_notes_observations:
-    btn_record_event:
-    msg_no_phenophase:
-    PHASE_FIRST_BUD:
-    PHASE_FULL_BLOOM:
-    PHASE_SEED_SET:
-    PHASE_DORMANCY_ENTRANCE:
-    PHASE_FIRST_LEAF_SPRING:
-    PHASE_BUDDING:
-    PHASE_IN_FLOWER:
-    PHASE_DORMANCY_START:
-    msg_no_history:
-    lbl_record_type:
     tab_dossier:
     tab_tech:
     tab_phenophase:
     tab_history:
-    health_check_title:
-    lbl_observations:
-    placeholder_observations:
-    lbl_specimen_photo:
-    btn_run_check:
-    btn_new_check:
-    lbl_diagnosis:
-    lbl_recovery_plan:
     lbl_watering_delta_desc:
     lbl_last_observed_action_desc:
     lbl_unknown:
@@ -684,6 +616,7 @@
     growth_slow:
     growth_moderate:
     days:
+    update:
     lbl_standard:
     lbl_rotation_frequency:
     lbl_last_rotated:
@@ -722,13 +655,46 @@
     lbl_image_archive:
     btn_add_image:
     btn_edit_data:
-    btn_transfer_caps:
     lbl_serial_number:
     unclassified_specimen:
     btn_set_primary:
     btn_delete_image:
     btn_close:
+    botanical_passport:
+    botanical_metadata:
+    lbl_origin:
+    lbl_family_genus:
+    lbl_growth_size:
+    lbl_light_advice:
+    lbl_trefle_id:
+    lbl_opb_id:
+    lbl_soil_recipe:
+    lbl_atmospheric_soil_bounds:
+    lbl_moisture:
+    lbl_temperature:
+    lbl_illuminance:
+    lbl_soil_ec:
+    lbl_watering_delta:
+    lbl_last_observed_action:
+    lbl_biological_milestones:
+    lbl_repot_cadence:
+    lbl_propagation:
+    lbl_cites_status:
+    btn_switch_camera:
+    lbl_provenance_source:
+    lbl_nursery_source:
+    lbl_investment:
+    lbl_phenophase_tracking:
+    lbl_phase:
+    lbl_date:
+    lbl_notes:
+    status_soon:
+    status_stable:
+    status_data_needed:
+    status_due_now:
     sys_node_online:
+    dossier:
+    tech:
     msg_admin_transfer_only:
     placeholder_category:
     placeholder_days:
@@ -736,6 +702,7 @@
     placeholder_propagation_methods:
     btn_refresh_ai:
     msg_establishing_uplink:
+    lbl_record_type:
     log_moisture_manual:
     log_note_manual:
     log_fertilized_manual:
@@ -743,7 +710,32 @@
     log_disease_check_manual:
     log_image_manual:
     log_new_leaf:
+    category:
+    enterprise_email:
     sec_syncing:
+    notification_thirsty_single:
+    notification_thirsty_multiple:
+    manual_system_node:
+    api_configuration:
+    api_key_notice:
+    api_key_updated:
+    invalid_api_key:
+    btn_record_phenophase:
+    lbl_select_biological_phase:
+    lbl_observation_date:
+    lbl_notes_observations:
+    btn_record_event:
+    msg_no_phenophase:
+    msg_no_history:
+    health_check_title:
+    lbl_observations:
+    placeholder_observations:
+    lbl_specimen_photo:
+    btn_run_check:
+    btn_new_check:
+    lbl_diagnosis:
+    lbl_recovery_plan:
+    btn_transfer_caps:
     view_my_house:
     view_all_plants:
     lbl_api_usage:
@@ -763,3 +755,12 @@
     lbl_select_day:
     msg_logs_deleted:
     tab_care_logs:
+    app_name:
+    menu_my_plants:
+    menu_care:
+    menu_tasks:
+    menu_inventory:
+    menu_labels:
+    menu_admin:
+    menu_sign_out:
+    stats_locations:

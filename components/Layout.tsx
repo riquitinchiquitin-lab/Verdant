@@ -145,7 +145,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         const details = await generatePlantDetails(species, undefined, undefined, getEffectiveApiKey());
         const syncedPlant = {
           ...details,
-          id: `p-synced-${Date.now()}`,
+          id: `p-synced-${crypto.randomUUID()}`,
           species: species,
           family: family || details.family,
           houseId: user?.houseId || null, 

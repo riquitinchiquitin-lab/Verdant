@@ -27,6 +27,8 @@ const getGeminiApiKey = (): string => {
 
 export const GEMINI_API_KEY = getGeminiApiKey();
 
+export const GOOGLE_MAPS_API_KEY = (window as any)._ENV_?.GOOGLE_MAPS_API_KEY || '';
+
 // Current App Version
 export const APP_VERSION = '5.1.2-SECURE';
 
@@ -53,6 +55,39 @@ export const LANGUAGES = [
   { code: 'vi', label: 'Tiếng Việt', flag: '🇻🇳' },
   { code: 'tl', label: 'Tagalog', flag: '🇵🇭' },
 ];
+
+export const CURRENCIES = [
+  { code: 'USD', label: 'USD - US Dollar', symbol: '$' },
+  { code: 'GBP', label: 'GBP - British Pound', symbol: '£' },
+  { code: 'EUR', label: 'EUR - Euro', symbol: '€' },
+  { code: 'CNY', label: 'CNY - Chinese Yuan', symbol: '¥' },
+  { code: 'JPY', label: 'JPY - Japanese Yen', symbol: '¥' },
+  { code: 'KRW', label: 'KRW - South Korean Won', symbol: '₩' },
+  { code: 'BRL', label: 'BRL - Brazilian Real', symbol: 'R$' },
+  { code: 'IDR', label: 'IDR - Indonesian Rupiah', symbol: 'Rp' },
+  { code: 'VND', label: 'VND - Vietnamese Dong', symbol: '₫' },
+  { code: 'PHP', label: 'PHP - Philippine Peso', symbol: '₱' },
+  { code: 'THB', label: 'THB - Thai Baht', symbol: '฿' },
+  { code: 'CAD', label: 'CAD - Canadian Dollar', symbol: '$' },
+];
+
+export const getCurrencyForLanguage = (lang: string): string => {
+  switch (lang) {
+    case 'en': return 'GBP';
+    case 'zh': return 'CNY';
+    case 'ja': return 'JPY';
+    case 'ko': return 'KRW';
+    case 'es':
+    case 'fr':
+    case 'de': return 'EUR';
+    case 'pt': return 'BRL';
+    case 'id': return 'IDR';
+    case 'vi': return 'VND';
+    case 'tl': return 'PHP';
+    case 'th': return 'THB';
+    default: return 'USD';
+  }
+};
 
 export const ROOM_TYPES = [
   "Living Room/Lounge/Family Room",

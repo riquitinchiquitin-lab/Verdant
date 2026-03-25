@@ -38,13 +38,13 @@ export const CustomMixCalculator: React.FC<CustomMixCalculatorProps> = ({ onSave
   const [ingredients, setIngredients] = useState<IngredientState[]>(() => {
     if (itemToEdit?.ingredients) {
       return itemToEdit.ingredients.map((ing, idx) => ({
-        id: `ing-${idx}-${Date.now()}`,
+        id: `ing-${idx}-${crypto.randomUUID()}`,
         name: lv(ing.name),
         quantity: (ing.quantity || 0).toString(),
         unit: ing.unit || 'ml',
       }));
     }
-    return [{ id: '1', name: '', quantity: '0', unit: 'ml' }];
+    return [{ id: crypto.randomUUID(), name: '', quantity: '0', unit: 'ml' }];
   });
 
   const CONTAINER_OPTIONS: { label: string; value: ContainerType }[] = [
@@ -78,7 +78,7 @@ export const CustomMixCalculator: React.FC<CustomMixCalculatorProps> = ({ onSave
     return { totalVolume: totalInDominantUnit, totalUnit: dominantUnit, ratios: calculatedRatios };
   }, [ingredients]);
 
-  const addIngredient = () => setIngredients(prev => [...prev, { id: Date.now().toString(), name: '', quantity: '0', unit: 'ml' }]);
+  const addIngredient = () => setIngredients(prev => [...prev, { id: crypto.randomUUID(), name: '', quantity: '0', unit: 'ml' }]);
   const removeIngredient = (id: string) => { if (ingredients.length > 1) setIngredients(prev => prev.filter(ing => ing.id !== id)); };
   const updateIngredient = (id: string, newValues: Partial<IngredientState>) => {
     setIngredients(prev => prev.map(ing => ing.id === id ? { ...ing, ...newValues } : ing));
@@ -108,7 +108,7 @@ export const CustomMixCalculator: React.FC<CustomMixCalculatorProps> = ({ onSave
           houseId: itemToEdit?.houseId || user?.houseId
         };
         if (itemToEdit) updateItem(itemToEdit.id, itemData);
-        else addItem({ id: `inv-mix-${Date.now()}`, ...itemData } as InventoryItem);
+        else addItem({ id: `inv-mix-${crypto.randomUUID()}`, ...itemData } as InventoryItem);
         if (onSaveSuccess) onSaveSuccess();
     } catch (e) { console.error(e); } 
     finally { setIsSaving(false); }

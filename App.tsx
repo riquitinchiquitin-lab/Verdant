@@ -3,7 +3,6 @@ import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PlantProvider } from './context/PlantContext';
-import { TaskProvider } from './context/TaskContext';
 import { InventoryProvider } from './context/InventoryContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { PersonnelProvider } from './context/PersonnelContext';
@@ -48,9 +47,8 @@ const App: React.FC = () => {
           <PersonnelProvider>
             <InventoryProvider>
               <PlantProvider>
-                <TaskProvider>
-                  <HashRouter>
-                    <Routes>
+                <HashRouter>
+                  <Routes>
                       <Route path="/login" element={<SecureAuth />} />
                       <Route path="/" element={
                         <ProtectedRoute>
@@ -108,9 +106,8 @@ const App: React.FC = () => {
                           </Layout>
                         </ProtectedRoute>
                       } />
-                    </Routes>
-                  </HashRouter>
-                </TaskProvider>
+                  </Routes>
+                </HashRouter>
               </PlantProvider>
             </InventoryProvider>
           </PersonnelProvider>

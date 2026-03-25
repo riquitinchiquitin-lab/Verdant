@@ -63,7 +63,12 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onCance
     };
 
     // Attempt with current facingMode
-    let success = await tryStream({ video: { facingMode }, audio: false });
+    let success = await tryStream({ 
+      video: { 
+        facingMode: { ideal: facingMode } 
+      }, 
+      audio: false 
+    });
     
     // Fallback (Any camera)
     if (!success) {

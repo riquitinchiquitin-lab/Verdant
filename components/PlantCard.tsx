@@ -72,7 +72,7 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
           await updatePlant(plant.id, { images: [base64, ...(plant.images?.slice(1) || [])] });
         } else {
           await addLog(plant.id, { 
-            id: `l-${Date.now()}`, 
+            id: `l-${crypto.randomUUID()}`, 
             date: new Date().toISOString(), 
             type: 'IMAGE', 
             imageUrl: base64, 
@@ -142,13 +142,6 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
   const getAdvice = (type: 'moisture' | 'light' | 'temp' | 'humidity') => {
     const field = `${type}Advice` as keyof Plant;
     return lv(plant[field] as any);
-  };
-
-  const handleDelete = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (plant.id && window.confirm(t('lbl_decommission_confirm'))) {
-      await deletePlant(plant.id);
-    }
   };
 
     return (
@@ -234,7 +227,7 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
                             className={`w-full rounded-xl h-10 font-black text-[9px] uppercase tracking-widest shadow-sm active:scale-95 transition-all ${lastLoggedAction === 'WATER' ? 'bg-emerald-500 text-white' : status.daysLeft === 0 ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} 
                             onClick={async (e) => { 
                                 e.stopPropagation(); 
-                                await addLog(plant.id!, { id: `l-${Date.now()}`, date: new Date().toISOString(), type: 'WATER' }); 
+                                await addLog(plant.id!, { id: `l-${crypto.randomUUID()}`, date: new Date().toISOString(), type: 'WATER' }); 
                                 setLastLoggedAction('WATER');
                                 const dateString = new Date().toLocaleDateString(language, { month: 'long', day: 'numeric' });
                                 const message = t('log_alert_message').replace('{action}', t('log_action_watered')).replace('{date}', dateString);

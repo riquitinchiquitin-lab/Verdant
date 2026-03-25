@@ -80,7 +80,9 @@ export const LocationsView: React.FC = () => {
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [newRoomName, setNewRoomName] = useState('');
     const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
+    const [selectedHouseFilter, setSelectedHouseFilter] = useState<string | 'ALL' | 'UNATTRIBUTED'>('ALL');
     const isRestricted = user?.role === 'SEASONAL' || user?.role === 'GARDENER';
+    const isAdmin = user?.role === 'OWNER' || user?.role === 'CO_CEO';
     
     const handleAdd = () => { if (newRoomName.trim()) { addCustomRoom(newRoomName.trim()); setNewRoomName(''); setIsAddOpen(false); } };
     const handleDelete = (name: string) => {
@@ -89,24 +91,62 @@ export const LocationsView: React.FC = () => {
         if (confirm(t('confirm_delete_location', { name }))) { removeCustomRoom(name); }
     };
 
-    const roomsWithStats = useMemo(() => allRooms.map(room => ({ 
-        name: room, 
-        plants: plants.filter(p => lv(p.room) === room), 
-        isCustom: customRooms.includes(room) 
-    })).sort((a, b) => b.plants.length - a.plants.length || a.name.localeCompare(b.name)), [allRooms, plants, customRooms, lv]);
+    const roomsWithStats = useMemo(() => {
+        const filteredPlants = plants.filter(p => {
+            // 1. Admin House Filter (if active)
+            if (isAdmin && selectedHouseFilter !== 'ALL') {
+                if (selectedHouseFilter === 'UNATTRIBUTED') return !p.houseId;
+                return p.houseId === selectedHouseFilter;
+            }
+
+            // 2. Admins see their property's plants AND unattributed plants.
+            // If they have no property assigned, they see everything.
+            if (isAdmin) {
+                if (!user?.houseId) return true;
+                return p.houseId === user.houseId || !p.houseId;
+            }
+            
+            // 3. Non-admins see only their property's plants
+            if (user?.houseId) return p.houseId === user.houseId;
+            
+            return false;
+        });
+
+        return allRooms.map(room => ({ 
+            name: room, 
+            plants: filteredPlants.filter(p => lv(p.room) === room), 
+            isCustom: customRooms.includes(room) 
+        })).sort((a, b) => b.plants.length - a.plants.length || a.name.localeCompare(b.name));
+    }, [allRooms, plants, customRooms, lv, user, isAdmin, selectedHouseFilter]);
 
     return (
         <div className="p-4 md:p-10 max-w-4xl mx-auto space-y-6 md:space-y-8 pb-32">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div><h1 className="text-2xl md:text-4xl font-black text-gray-900 dark:text-white tracking-tighter uppercase leading-none">{t('stats_locations')}</h1><p className="text-gray-500 dark:text-slate-400 mt-1.5 md:mt-2 text-[10px] md:text-sm font-bold uppercase tracking-widest">{t('manage_desc')}</p></div>
-                {!isRestricted && (
-                    <Button 
-                        className="h-10 md:h-12 px-5 md:px-6 rounded-xl md:rounded-2xl shadow-xl shadow-verdant/20 font-black uppercase tracking-widest text-[10px] md:text-base w-full sm:w-auto" 
-                        onClick={() => setIsAddOpen(true)}
-                    >
-                        {t('add_location')}
-                    </Button>
-                )}
+                
+                <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3 w-full sm:w-auto">
+                    {isAdmin && (
+                        <select 
+                            className="h-10 md:h-12 px-4 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl md:rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all appearance-none min-w-[160px] w-full sm:w-auto"
+                            value={selectedHouseFilter}
+                            onChange={(e) => setSelectedHouseFilter(e.target.value as any)}
+                        >
+                            <option value="ALL">{t('labels_all_global_properties')}</option>
+                            <option value="UNATTRIBUTED">{t('lbl_unattributed')}</option>
+                            {usePlants().houses.map(h => (
+                                <option key={h.id} value={h.id}>{lv(h.name)}</option>
+                            ))}
+                        </select>
+                    )}
+                    {!isRestricted && (
+                        <Button 
+                            className="h-10 md:h-12 px-5 md:px-6 rounded-xl md:rounded-2xl shadow-xl shadow-verdant/20 font-black uppercase tracking-widest text-[10px] md:text-base w-full sm:w-auto" 
+                            onClick={() => setIsAddOpen(true)}
+                        >
+                            {t('add_location')}
+                        </Button>
+                    )}
+                </div>
             </div>
             <div className="space-y-4">
                 {roomsWithStats.map(room => <LocationAccordion key={room.name} name={room.name} plants={room.plants} isCustom={room.isCustom} onDelete={handleDelete} onPlantClick={setSelectedPlant} />)}

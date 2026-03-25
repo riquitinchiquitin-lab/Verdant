@@ -6,6 +6,7 @@ import { API_URL } from '../constants';
 interface AuthContextType extends AuthState {
   login: (token: string, user: User) => Promise<void>;
   logout: () => void;
+  updateCurrentUser: (updates: Partial<User>) => void;
   can: (action: string, subject?: any) => boolean;
 }
 
@@ -17,6 +18,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     token: null,
     loading: true,
   });
+
+  const updateCurrentUser = useCallback((updates: Partial<User>) => {
+    setState(prev => {
+      if (!prev.user) return prev;
+      const updatedUser = { ...prev.user, ...updates };
+      localStorage.setItem('verdant_user', JSON.stringify(updatedUser));
+      return { ...prev, user: updatedUser };
+    });
+  }, []);
 
   useEffect(() => {
     // DEV-ONLY: Automatically sign in as a mock owner to bypass login screen.
@@ -141,7 +151,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [state.user]);
 
   return (
-    <AuthContext.Provider value={{ ...state, login, logout, can }}>
+    <AuthContext.Provider value={{ ...state, login, logout, updateCurrentUser, can }}>
       {children}
     </AuthContext.Provider>
   );

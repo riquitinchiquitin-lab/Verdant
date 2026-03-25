@@ -2,6 +2,7 @@ import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { API_URL, GEMINI_API_KEY } from '../constants';
 import { Plant, LocalizedString, LocalizedArray } from '../types';
 import { fetchTrefleData, fetchOpenPlantBookData, fetchPerenualData, searchGroundingData } from './botanicalServices';
+import { trackUsage } from './usageService';
 
 const TARGET_LANGS = ['en', 'zh', 'ja', 'ko', 'es', 'fr', 'pt', 'de', 'id', 'vi', 'tl'];
 
@@ -71,6 +72,7 @@ export const identifyPlantWithPlantNet = async (imageBlobs: Blob[]): Promise<any
   });
   
   try {
+    trackUsage('plantnet');
     const response = await fetch(targetUrl, { method: 'POST', body: formData });
     if (response.ok) {
         const data = await response.json();
@@ -104,6 +106,7 @@ export const identifyPlantWithGemini = async (base64: string, apiKey?: string): 
   
   try {
     reportSystemHit();
+    trackUsage('gemini');
     console.log(`[GEMINI] Identifying specimen with ${model} (Key: ${maskedKey})...`);
     const res = await callGeminiWithRetry(() => ai.models.generateContent({
       model,
@@ -182,6 +185,7 @@ export const generatePlantDetails = async (
 
   try {
     reportSystemHit();
+    trackUsage('gemini');
     const response = await callGeminiWithRetry(() => ai.models.generateContent({
       model,
       contents: prompt,
@@ -278,7 +282,7 @@ export const createPlant = (data: Partial<Plant>): Plant => {
   const emptyLocalizedArray: LocalizedArray = { en: [] };
 
   return {
-    id: data.id || `p-${Date.now()}`,
+    id: data.id || `p-${crypto.randomUUID()}`,
     species: data.species || 'Unknown Species',
     nickname: data.nickname || { en: data.species || 'New Specimen' },
     commonNames: data.commonNames || emptyLocalizedArray,
@@ -380,6 +384,7 @@ export const analyzePlantHealth = async (
 
   try {
     reportSystemHit();
+    trackUsage('gemini');
     const response = await callGeminiWithRetry(() => ai.models.generateContent({
       model,
       contents: {

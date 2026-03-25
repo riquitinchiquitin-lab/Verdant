@@ -149,7 +149,7 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
 
       const newItem: InventoryItem = {
         ...result,
-        id: `inv-${Date.now()}`,
+        id: `inv-${crypto.randomUUID()}`,
         houseId: user?.houseId,
         category: (result.category || 'accessories').toLowerCase() as InventoryCategory,
         name: result.name,
@@ -195,7 +195,7 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
           });
         } else {
           const newItem: InventoryItem = {
-            id: `inv-${Date.now()}`,
+            id: `inv-${crypto.randomUUID()}`,
             houseId: user?.houseId,
             category: formData.category as InventoryCategory,
             name: nameObj,

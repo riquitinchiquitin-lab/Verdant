@@ -13,7 +13,7 @@ import { Logo } from './ui/Logo';
 import { compressImage, dataURLtoBlob } from '../services/imageUtils';
 import { CameraCapture } from './ui/CameraCapture';
 import { getCompatibleItems } from '../services/compatibilityService';
-import { ROOM_TYPES } from '../constants';
+import { ROOM_TYPES, CURRENCIES, getCurrencyForLanguage } from '../constants';
 
 interface AddPlantModalProps {
   isOpen: boolean;
@@ -31,7 +31,7 @@ interface ProtocolLog {
 }
 
 export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, onSave }) => {
-  const { t, lv } = useLanguage();
+  const { t, lv, language } = useLanguage();
   const { user } = useAuth();
   const { houses, getEffectiveApiKey } = usePlants();
   const { inventory } = useInventory();
@@ -42,6 +42,11 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
   const [identifiedPlant, setIdentifiedPlant] = useState<Partial<Plant> | null>(null);
   const [editNickname, setEditNickname] = useState('');
   const [editRoom, setEditRoom] = useState('');
+  const [selectedHouseId, setSelectedHouseId] = useState<string | null>(user?.houseId || null);
+  const [nursery, setNursery] = useState('');
+  const [dateOfPurchase, setDateOfPurchase] = useState(new Date().toISOString().split('T')[0]);
+  const [cost, setCost] = useState<number | null>(null);
+  const [currency, setCurrency] = useState(getCurrencyForLanguage(language));
   const [compatibleItems, setCompatibleItems] = useState<InventoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
@@ -91,6 +96,12 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
     setLogs([]);
     setSpecimenImages([]);
     setIdentifiedPlant(null);
+    setEditNickname('');
+    setEditRoom('');
+    setNursery('');
+    setDateOfPurchase(new Date().toISOString().split('T')[0]);
+    setCost(null);
+    setCurrency(getCurrencyForLanguage(language));
     setCompatibleItems([]);
     setError(null);
     setIsBusy(false);
@@ -126,7 +137,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
 
       setIdentifiedPlant(createPlant({
         ...details,
-        houseId: user?.houseId,
+        houseId: selectedHouseId,
         createdAt: new Date().toISOString(),
         images: specimenImages 
       }));
@@ -169,17 +180,25 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
       setIsBusy(true);
       try {
         const apiKey = getEffectiveApiKey();
-        const nicknameObj = await translateInput(editNickname, 'en', apiKey);
-        let roomObj = null;
-        if (editRoom.trim()) {
-          roomObj = await translateInput(editRoom, 'en', apiKey);
-        }
+        
+        // Parallelize translations to speed up the saving process
+        const [nicknameObj, roomObj] = await Promise.all([
+          translateInput(editNickname, 'en', apiKey),
+          editRoom.trim() ? translateInput(editRoom, 'en', apiKey) : Promise.resolve(null)
+        ]);
 
         onSave({ 
           ...identifiedPlant, 
-          id: `p-${Date.now()}`,
+          id: `p-${crypto.randomUUID()}`,
           nickname: nicknameObj,
-          room: roomObj
+          room: roomObj,
+          houseId: selectedHouseId,
+          provenance: {
+            nursery,
+            dateOfPurchase,
+            cost,
+            currency
+          }
         } as Plant);
         onClose();
         reset();
@@ -321,6 +340,54 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
                   onChange={(e) => setIdentifiedPlant(prev => ({ ...prev, repottingInstructions: { en: e.target.value } as any }))}
                 />
               </div>
+
+              <div className="pt-4 border-t border-gray-100 dark:border-slate-800 space-y-4">
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 ml-2">{t('lbl_provenance_history')}</h4>
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_nursery_origin')}</label>
+                    <input 
+                        type="text"
+                        value={nursery}
+                        onChange={(e) => setNursery(e.target.value)}
+                        className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white"
+                        placeholder={t('lbl_nursery_origin')}
+                    />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_acquisition_date')}</label>
+                        <input 
+                            type="date" 
+                            value={dateOfPurchase}
+                            onChange={(e) => setDateOfPurchase(e.target.value)}
+                            className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white"
+                        />
+                    </div>
+                    <div className="flex gap-3">
+                        <div className="flex-[3] space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_cost')}</label>
+                            <input 
+                                type="number" 
+                                value={cost || ''}
+                                onChange={(e) => setCost(parseFloat(e.target.value) || null)}
+                                className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white"
+                            />
+                        </div>
+                        <div className="flex-1 space-y-2 min-w-[80px]">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_ccy')}</label>
+                            <select 
+                                className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white appearance-none"
+                                value={currency}
+                                onChange={(e) => setCurrency(e.target.value)}
+                            >
+                                {CURRENCIES.map(c => (
+                                    <option key={c.code} value={c.code}>{c.code}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+              </div>
             </div>
 
             <div className="flex gap-4 pt-4">
@@ -337,7 +404,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
                     setIdentifiedPlant(createPlant({
                       ...details,
                       nickname: identifiedPlant.nickname || details.nickname,
-                      houseId: user?.houseId,
+                      houseId: selectedHouseId,
                       createdAt: new Date().toISOString()
                     }));
                     setScanMode('REVIEW');
@@ -434,6 +501,19 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
                     />
                 </div>
                 <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_house')}</label>
+                    <select 
+                        className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white appearance-none"
+                        value={selectedHouseId || ''}
+                        onChange={(e) => setSelectedHouseId(e.target.value || null)}
+                    >
+                        <option value="">{t('labels_all_global_properties')}</option>
+                        {houses.map(h => (
+                            <option key={h.id} value={h.id}>{lv(h.name)}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_room')}</label>
                     <select 
                         className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white appearance-none"
@@ -441,13 +521,55 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
                         onChange={(e) => setEditRoom(e.target.value)}
                     >
                         <option value="">{t('assign_room_label')}</option>
-                        {houses.find(h => h.id === user?.houseId)?.googleApiKey ? (
-                            // If we have a house key, we might have custom rooms or just standard ones
-                            ROOM_TYPES.map(r => <option key={r} value={r}>{r}</option>)
-                        ) : (
-                            ROOM_TYPES.map(r => <option key={r} value={r}>{r}</option>)
-                        )}
+                        {ROOM_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
+                </div>
+            </div>
+
+            <div className="space-y-4 px-2">
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_nursery_origin')}</label>
+                    <input 
+                        type="text"
+                        value={nursery}
+                        onChange={(e) => setNursery(e.target.value)}
+                        className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white"
+                        placeholder={t('lbl_nursery_origin')}
+                    />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_acquisition_date')}</label>
+                        <input 
+                            type="date" 
+                            value={dateOfPurchase}
+                            onChange={(e) => setDateOfPurchase(e.target.value)}
+                            className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white"
+                        />
+                    </div>
+                    <div className="flex gap-3">
+                        <div className="flex-[3] space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_cost')}</label>
+                            <input 
+                                type="number" 
+                                value={cost || ''}
+                                onChange={(e) => setCost(parseFloat(e.target.value) || null)}
+                                className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white"
+                            />
+                        </div>
+                        <div className="flex-1 space-y-2 min-w-[80px]">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_ccy')}</label>
+                            <select 
+                                className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white appearance-none"
+                                value={currency}
+                                onChange={(e) => setCurrency(e.target.value)}
+                            >
+                                {CURRENCIES.map(c => (
+                                    <option key={c.code} value={c.code}>{c.code}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
 

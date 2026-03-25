@@ -202,46 +202,46 @@ export const SecureAuth: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen w-full flex flex-col bg-slate-50 dark:bg-[#020617] items-center justify-center p-6 font-sans relative overflow-hidden transition-colors duration-500">
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-500/5 blur-[120px] rounded-full"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/5 blur-[120px] rounded-full"></div>
+    <div className="min-h-screen w-full flex flex-col bg-slate-50 dark:bg-[#020617] items-center justify-start md:justify-center p-6 font-sans relative overflow-y-auto transition-colors duration-500">
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/5 blur-[120px] rounded-full pointer-events-none"></div>
 
       {/* Language Selector Overlay - Fixed alignment */}
-      <div className="absolute top-8 right-8 z-20">
+      <div className="absolute top-4 right-4 md:top-8 md:right-8 z-20">
           <LanguageSelector variant="filled" align="right" />
       </div>
 
-      <div className="max-w-md w-full z-10 space-y-10">
-        <div className="bg-white dark:bg-slate-900 border-2 border-emerald-500/30 rounded-[40px] shadow-xl dark:shadow-[0_0_100px_rgba(16,185,129,0.1)] p-12 space-y-12 relative overflow-hidden transition-all duration-700 hover:border-emerald-500/50">
+      <div className="max-w-md w-full z-10 space-y-8 md:space-y-10 py-12 md:py-0">
+        <div className="bg-white dark:bg-slate-900 border-2 border-emerald-500/30 rounded-[32px] md:rounded-[40px] shadow-xl dark:shadow-[0_0_100px_rgba(16,185,129,0.1)] p-8 md:p-12 space-y-8 md:space-y-12 relative overflow-hidden transition-all duration-700 hover:border-emerald-500/50">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-emerald-500 to-transparent"></div>
           
-          <div className="text-center space-y-8">
-            <div className="mx-auto h-24 w-24 drop-shadow-[0_0_15px_rgba(16,185,129,0.4)] hover:scale-110 transition-transform duration-500">
+          <div className="text-center space-y-6 md:space-y-8">
+            <div className="mx-auto h-20 w-20 md:h-24 md:w-24 drop-shadow-[0_0_15px_rgba(16,185,129,0.4)] hover:scale-110 transition-transform duration-500">
               <Logo />
             </div>
             <div className="space-y-3">
-              <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-[0.15em] uppercase leading-none italic">
+              <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-[0.15em] uppercase leading-none italic">
                 Verdant<br/>
-                <span className="text-sm font-black italic tracking-[0.3em] text-slate-400 dark:text-white/40 mt-2 block">Multilingual Plant Management</span>
+                <span className="text-[10px] md:text-sm font-black italic tracking-[0.2em] md:tracking-[0.3em] text-slate-400 dark:text-white/40 mt-2 block">Multilingual Plant Management</span>
               </h2>
             </div>
           </div>
 
           {/* BIBLE VERSE SECTION */}
-          <div className="relative py-4 px-6 text-center animate-in fade-in zoom-in-95 duration-1000 delay-300">
-            <div className="absolute inset-0 bg-emerald-500/5 rounded-[32px] blur-xl"></div>
+          <div className="relative py-3 px-4 md:py-4 md:px-6 text-center animate-in fade-in zoom-in-95 duration-1000 delay-300">
+            <div className="absolute inset-0 bg-emerald-500/5 rounded-[24px] md:rounded-[32px] blur-xl"></div>
             <div className="relative">
-              <span className="text-4xl text-emerald-500/20 font-serif absolute -top-4 -left-2 italic">"</span>
-              <p className="text-lg leading-relaxed text-slate-700 dark:text-slate-100 font-medium italic mb-3 tracking-tight">
+              <span className="text-3xl md:text-4xl text-emerald-500/20 font-serif absolute -top-3 -left-1 md:-top-4 md:-left-2 italic">"</span>
+              <p className="text-base md:text-lg leading-relaxed text-slate-700 dark:text-slate-100 font-medium italic mb-2 md:mb-3 tracking-tight">
                 {t('genesis_quote')}
               </p>
-              <p className="text-[10px] text-emerald-600 dark:text-emerald-500 font-black uppercase tracking-[0.5em]">{t('genesis_ref')}</p>
+              <p className="text-[9px] md:text-[10px] text-emerald-600 dark:text-emerald-500 font-black uppercase tracking-[0.3em] md:tracking-[0.5em]">{t('genesis_ref')}</p>
             </div>
           </div>
 
           <div className="h-px w-full bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent"></div>
 
-          <div className="flex flex-col items-center gap-10 min-h-[100px]">
+          <div className="flex flex-col items-center gap-8 md:gap-10 min-h-[80px] md:min-h-[100px]">
             {configMissing ? (
               <div className="text-center space-y-6">
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed uppercase font-bold tracking-widest px-4">

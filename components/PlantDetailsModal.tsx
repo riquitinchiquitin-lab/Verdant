@@ -181,15 +181,16 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
       setIsPhenophaseOpen(true);
       return;
     }
+    if (type === 'TRANSFER' as any) {
+      setIsTransferOpen(true);
+      return;
+    }
     const date = new Date();
-    const noteKey = type === 'NEW_LEAF' ? 'log_new_leaf' : ('log_' + type.toLowerCase() + '_manual');
-    const noteText = t(noteKey as any);
-    const localizedNote = await translateInput(noteText, language);
+    // Simplified: addLog handles default note translation using the correct API key
     await addLog(plant.id, { 
-      id: `l-${Date.now()}`, 
+      id: `l-${crypto.randomUUID()}`, 
       date: date.toISOString(), 
-      type, 
-      localizedNote
+      type
     });
     setLastLoggedAction(type);
 
@@ -215,9 +216,9 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
   const handleMoistureLog = async (value: number) => {
     const date = new Date();
     const noteText = t('lbl_moisture_level_log', { value: value.toString() });
-    const localizedNote = await translateInput(noteText, language);
+    const localizedNote = await translateInput(noteText, language, getEffectiveApiKey());
     await addLog(plant.id, { 
-      id: `l-${Date.now()}`, 
+      id: `l-${crypto.randomUUID()}`, 
       date: date.toISOString(), 
       type: 'MOISTURE', 
       value,
@@ -233,9 +234,9 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
   const handleFertilizerLog = async (fertilizer: any, amount: number) => {
     const date = new Date();
     const noteText = t('lbl_fertilized_with_log', { amount: amount.toString(), unit: fertilizer.unit, name: lv(fertilizer.name) });
-    const localizedNote = await translateInput(noteText, language);
+    const localizedNote = await translateInput(noteText, language, getEffectiveApiKey());
     await addLog(plant.id, { 
-      id: `l-${Date.now()}`, 
+      id: `l-${crypto.randomUUID()}`, 
       date: date.toISOString(), 
       type: 'FERTILIZED', 
       localizedNote,
@@ -253,9 +254,9 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
   };
 
   const handlePhenophaseLog = async (phase: PhenophaseType, date: string, note: string) => {
-    const localizedNote = await translateInput(note, language);
+    const localizedNote = await translateInput(note, language, getEffectiveApiKey());
     await addLog(plant.id, { 
-      id: `l-${Date.now()}`, 
+      id: `l-${crypto.randomUUID()}`, 
       date: new Date(date).toISOString(), 
       type: 'PHENOPHASE', 
       localizedNote,
@@ -270,15 +271,27 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
   const handleManualLog = (type: LogType, localizedNote: LocalizedString) => {
     const date = new Date();
     addLog(plant.id, { 
-      id: `l-${Date.now()}`, 
+      id: `l-${crypto.randomUUID()}`, 
       date: date.toISOString(), 
       type, 
       localizedNote
     });
     setLastLoggedAction(type);
     
+    const actionTextMap: { [key in LogType]?: string } = {
+      'NOTE': t('log_note'),
+      'WATER': t('log_water'),
+      'FERTILIZED': t('log_fertilized'),
+      'REPOTTED': t('log_repotted'),
+      'PRUNED': t('log_pruned'),
+      'NEW_LEAF': t('log_new_leaf'),
+      'FLOWER': t('log_flower'),
+      'DISEASE_CHECK': t('log_disease_check'),
+    };
+    const actionText = actionTextMap[type] || type;
+    
     const dateString = date.toLocaleDateString(language, { month: 'long', day: 'numeric' });
-    setAlertMessage(t('log_alert_message').replace('{action}', type).replace('{date}', dateString));
+    setAlertMessage(t('log_alert_message').replace('{action}', actionText).replace('{date}', dateString));
     
     setTimeout(() => setLastLoggedAction(null), 2000);
     setTimeout(() => setAlertMessage(null), 4000);
@@ -473,12 +486,6 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                         </div>
                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{t('btn_edit_data')}</span>
                       </button>
-                      <button onClick={() => setIsTransferOpen(true)} className="flex flex-col items-center justify-center gap-3 p-6 bg-white dark:bg-slate-900 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm hover:border-verdant transition-all group">
-                        <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center group-hover:bg-verdant/10 transition-colors">
-                          <QrCode className="w-6 h-6 text-slate-400 group-hover:text-verdant" />
-                        </div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{t('btn_transfer_caps') || 'TRANSFER'}</span>
-                      </button>
                       <button 
                         onClick={handleTogglePriority} 
                         disabled={isTogglingPriority}
@@ -551,7 +558,8 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                         { type: 'REPOTTED', icon: '🪴', label: t('btn_repot_caps') },
                         { type: 'NEW_LEAF', icon: '🌱', label: t('btn_growth') },
                         ...(plant.flowers ? [{ type: 'FLOWER', icon: '🌸', label: t('btn_bloom') }] : []),
-                        { type: 'ROTATED', icon: <PotRotationIcon className="w-8 h-8 group-hover:animate-[spin_3s_linear_infinite]" />, label: t('btn_rotate_caps') }
+                        { type: 'ROTATED', icon: <PotRotationIcon className="w-8 h-8 group-hover:animate-[spin_3s_linear_infinite]" />, label: t('btn_rotate_caps') },
+                        { type: 'TRANSFER', icon: <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>, label: t('btn_transfer') }
                       ].map(action => (
                         <button 
                           key={action.type}
@@ -994,6 +1002,8 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
         isOpen={isNoteOpen}
         onClose={() => setIsNoteOpen(false)}
         onLog={handleManualLog}
+        apiKey={getEffectiveApiKey()}
+        language={language}
       />
       <ConfirmationDialog 
         isOpen={isDeleteConfirmationOpen} 
