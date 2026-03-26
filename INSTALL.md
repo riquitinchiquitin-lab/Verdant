@@ -178,6 +178,7 @@ The Root Owner is the primary administrator who has full control over the system
 
 ### 3. Clone the Repository
 ```bash
+mkdir verdant
 git clone https://github.com/riquitinchiquitin-lab/verdant.git
 cd verdant
 ```
