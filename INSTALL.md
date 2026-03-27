@@ -139,6 +139,7 @@ To expose your local Verdant instance to the public web (e.g., via `yknet.org`):
 3. Create a new tunnel and follow the instructions to install `cloudflared` on your host.
 4. Add a **Public Hostname** (e.g., `verdant.yourdomain.com`) pointing to `http://localhost:3000`.
 5. Copy your **Tunnel Token** to your `.env` file as `CF_UNIFIED_TOKEN`.
+6. Add your domain to the `VITE_ALLOWED_HOSTS` variable in your `.env` file (e.g., `VITE_ALLOWED_HOSTS=verdant.yourdomain.com`).
 
 #### L. Advanced Cloudflare Configuration (WAF & Bot Protection)
 To ensure Google Auth and API uploads work correctly through Cloudflare, you must adjust the following security settings:
@@ -178,7 +179,6 @@ The Root Owner is the primary administrator who has full control over the system
 
 ### 3. Clone the Repository
 ```bash
-mkdir verdant
 git clone https://github.com/riquitinchiquitin-lab/verdant.git
 cd verdant
 ```

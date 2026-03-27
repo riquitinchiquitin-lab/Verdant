@@ -42,6 +42,8 @@ cp .env.example .env
 nano .env
 ```
 
+**Important:** Make sure to set `VITE_ALLOWED_HOSTS` to your domain (e.g., `VITE_ALLOWED_HOSTS=verdant.yknet.org`) to allow access from the public web.
+
 ### 3. Start the Service
 
 Start the systemd service:

@@ -1,9 +1,11 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
   const isProd = mode === 'production';
+  const allowedHosts = env.VITE_ALLOWED_HOSTS ? env.VITE_ALLOWED_HOSTS.split(',') : [];
 
   return {
     plugins: [
@@ -50,7 +52,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: true,
-      allowedHosts: ['verdanttest.yknet.org'],
+      allowedHosts: allowedHosts,
       warmup: {
         clientFiles: [
           './index.tsx',
