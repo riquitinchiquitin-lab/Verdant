@@ -4,6 +4,7 @@ import { Button } from './ui/Button';
 import { useLanguage } from '../context/LanguageContext';
 import { usePlants } from '../context/PlantContext';
 import { compressImage } from '../services/imageUtils';
+import { generateUUID } from '../services/crypto';
 
 interface PlantCardProps {
   plant: Partial<Plant>;
@@ -72,7 +73,7 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
           await updatePlant(plant.id, { images: [base64, ...(plant.images?.slice(1) || [])] });
         } else {
           await addLog(plant.id, { 
-            id: `l-${crypto.randomUUID()}`, 
+            id: `l-${generateUUID()}`, 
             date: new Date().toISOString(), 
             type: 'IMAGE', 
             imageUrl: base64, 
@@ -227,7 +228,7 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
                             className={`w-full rounded-xl h-10 font-black text-[9px] uppercase tracking-widest shadow-sm active:scale-95 transition-all ${lastLoggedAction === 'WATER' ? 'bg-emerald-500 text-white' : status.daysLeft === 0 ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} 
                             onClick={async (e) => { 
                                 e.stopPropagation(); 
-                                await addLog(plant.id!, { id: `l-${crypto.randomUUID()}`, date: new Date().toISOString(), type: 'WATER' }); 
+                                await addLog(plant.id!, { id: `l-${generateUUID()}`, date: new Date().toISOString(), type: 'WATER' }); 
                                 setLastLoggedAction('WATER');
                                 const dateString = new Date().toLocaleDateString(language, { month: 'long', day: 'numeric' });
                                 const message = t('log_alert_message').replace('{action}', t('log_action_watered')).replace('{date}', dateString);

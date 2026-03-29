@@ -16,6 +16,7 @@ import { Logo } from '../components/ui/Logo';
 import { PlantTelemetry } from '../components/PlantTelemetry';
 import { exportPlantsToNiimbotExcel } from '../services/exportService';
 import { generatePlantDetails } from '../services/plantAi';
+import { generateUUID } from '../services/crypto';
 
 export const Dashboard: React.FC = () => {
   const { user, can } = useAuth();
@@ -100,7 +101,7 @@ export const Dashboard: React.FC = () => {
         
         const syncedPlant: Plant = {
           ...details,
-          id: `p-synced-${crypto.randomUUID()}`,
+          id: `p-synced-${generateUUID()}`,
           species: species,
           family: family || details.family,
           houseId: user?.houseId || null, 

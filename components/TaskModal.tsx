@@ -5,6 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { usePlants } from '../context/PlantContext';
 import { useAuth } from '../context/AuthContext';
 import { translateInput } from '../services/translationService';
+import { generateUUID } from '../services/crypto';
 import { RecurrenceSettings, RecurrenceType, Task } from '../types';
 
 interface TaskModalProps {
@@ -38,7 +39,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave })
         const titleObj = await translateInput(title);
 
         const newTask: Task = {
-          id: `t-${crypto.randomUUID()}`,
+          id: `t-${generateUUID()}`,
           title: titleObj,
           date: new Date(date).toISOString(),
           recurrence,

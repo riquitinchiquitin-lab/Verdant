@@ -5,8 +5,9 @@ import { Plant } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { usePlants } from '../context/PlantContext';
 import { useAuth } from '../context/AuthContext';
-import { translateInput, translateArrayInput } from '../services/translationService';
-import { generatePlantDetails } from '../services/plantAi';
+import { translateInput, translateArrayInput, translateObjectInput } from '../services/translationService';
+import { generatePlantDetails, analyzeReceipt } from '../services/plantAi';
+import { CameraCapture } from './ui/CameraCapture';
 import { ROOM_TYPES, CURRENCIES, getCurrencyForLanguage } from '../constants';
 
 interface EditPlantModalProps {
@@ -47,6 +48,8 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
   const [isCustom, setIsCustom] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isScanningReceipt, setIsScanningReceipt] = useState(false);
+  const [isAnalyzingReceipt, setIsAnalyzingReceipt] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshedData, setRefreshedData] = useState<Partial<Plant> | null>(null);
   const [isAddingImage, setIsAddingImage] = useState(false);
@@ -89,7 +92,10 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
   }, [isOpen, plant, lv, lva]);
 
   const handleRefreshData = async () => {
-    if (!plant.species) return;
+    if (!plant.species) {
+        console.warn("[UI] Cannot refresh AI data: Species is missing for this plant.");
+        return;
+    }
     setIsRefreshing(true);
     setError(null);
     console.log(`[UI] Refreshing AI data for ${plant.species}...`);
@@ -114,11 +120,34 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
         setPropagationInstructions(lv(details.propagationInstructions));
         setRepottingInstructions(lv(details.repottingInstructions));
         
+        // If nursery is empty, try to fill it with origin data
+        if (!nursery && details.origin) {
+            setNursery(lv(details.origin));
+        }
+        
     } catch (e: any) {
         console.error(`[UI] AI Data refresh failed for ${plant.species}:`, e);
         setError(e.message || "Refresh failed");
     } finally {
         setIsRefreshing(false);
+    }
+  };
+
+  const handleReceiptCapture = async (base64: string) => {
+    setIsScanningReceipt(false);
+    setIsAnalyzingReceipt(true);
+    try {
+      const data = await analyzeReceipt(base64, getEffectiveApiKey());
+      if (data) {
+        if (data.nursery) setNursery(data.nursery);
+        if (data.dateOfPurchase) setDateOfPurchase(data.dateOfPurchase);
+        if (data.cost) setCost(data.cost);
+        if (data.currency) setCurrency(data.currency);
+      }
+    } catch (err) {
+      console.error("Receipt analysis failed:", err);
+    } finally {
+      setIsAnalyzingReceipt(false);
     }
   };
 
@@ -128,42 +157,34 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
       try {
           const apiKey = getEffectiveApiKey();
 
-          // Only translate if the field has actually changed from its original localized value
-          // This avoids redundant API calls and potential failures for unchanged data
           const needsTranslation = (current: string, original: any) => {
               const originalStr = lv(original);
               return current.trim() !== originalStr.trim();
           };
 
-          const [
-            nicknameObj,
-            categoryObj,
-            growthRateObj,
-            propagationInstructionsObj,
-            repottingInstructionsObj,
-            propagationMethodsObj,
-            roomResult
-          ] = await Promise.all([
-            needsTranslation(nickname, plant.nickname) ? translateInput(nickname, 'en', apiKey) : Promise.resolve(plant.nickname),
-            needsTranslation(category, plant.category) ? translateInput(category, 'en', apiKey) : Promise.resolve(plant.category),
-            needsTranslation(growthRate, plant.growthRate) ? translateInput(growthRate, 'en', apiKey) : Promise.resolve(plant.growthRate),
-            needsTranslation(propagationInstructions, plant.propagationInstructions) ? translateInput(propagationInstructions, 'en', apiKey) : Promise.resolve(plant.propagationInstructions),
-            needsTranslation(repottingInstructions, plant.repottingInstructions) ? translateInput(repottingInstructions, 'en', apiKey) : Promise.resolve(plant.repottingInstructions),
-            (propagationMethods.trim() !== lva(plant.propagationMethods).join(', ').trim()) 
-                ? translateArrayInput(propagationMethods.split(',').map(s => s.trim()).filter(Boolean), 'en', apiKey) 
-                : Promise.resolve(plant.propagationMethods),
-            (isCustom && room.trim() !== '' && room.trim() !== lv(plant.room as any).trim()) 
-                ? translateInput(room, 'en', apiKey) 
-                : Promise.resolve(isCustom ? (room || null) : (room || plant.room || null))
-          ]);
+          // Batch all translations into a single API call to avoid sequential queue delays
+          const toTranslate: Record<string, string> = {};
+          if (needsTranslation(nickname, plant.nickname)) toTranslate.nickname = nickname;
+          if (needsTranslation(category, plant.category)) toTranslate.category = category;
+          if (needsTranslation(growthRate, plant.growthRate)) toTranslate.growthRate = growthRate;
+          if (needsTranslation(propagationInstructions, plant.propagationInstructions)) toTranslate.propagationInstructions = propagationInstructions;
+          if (needsTranslation(repottingInstructions, plant.repottingInstructions)) toTranslate.repottingInstructions = repottingInstructions;
+          
+          const propMethodsStr = propagationMethods.split(',').map(s => s.trim()).filter(Boolean).join(', ');
+          const originalPropMethodsStr = lva(plant.propagationMethods).join(', ');
+          if (propMethodsStr !== originalPropMethodsStr) toTranslate.propagationMethods = propMethodsStr;
+
+          if (isCustom && room.trim() !== '' && room.trim() !== lv(plant.room as any).trim()) toTranslate.room = room;
+
+          const batchResults = await translateObjectInput(toTranslate, 'en', apiKey);
 
           const finalUpdates: Partial<Plant> = { 
               ...(refreshedData || {}),
               species: plant.species,
-              nickname: nicknameObj, 
-              room: roomResult as any,
-              category: categoryObj as any,
-              growthRate: growthRateObj as any,
+              nickname: batchResults.nickname || plant.nickname, 
+              room: batchResults.room ? batchResults.room : (isCustom ? (room || null) : (room || plant.room || null)),
+              category: batchResults.category || plant.category,
+              growthRate: batchResults.growthRate || plant.growthRate,
               houseId: houseId,
               wateringInterval: wateringInterval,
               targetPh,
@@ -174,9 +195,14 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
               lastPotSize,
               rotationFrequency,
               lastRotated,
-              propagationMethods: propagationMethodsObj as any,
-              propagationInstructions: propagationInstructionsObj as any,
-              repottingInstructions: repottingInstructionsObj as any,
+              propagationMethods: batchResults.propagationMethods ? 
+                  Object.keys(batchResults.propagationMethods).reduce((acc, lang) => {
+                      acc[lang] = (batchResults.propagationMethods as any)[lang].split(',').map((s: string) => s.trim()).filter(Boolean);
+                      return acc;
+                  }, {} as any)
+                  : plant.propagationMethods,
+              propagationInstructions: batchResults.propagationInstructions || plant.propagationInstructions,
+              repottingInstructions: batchResults.repottingInstructions || plant.repottingInstructions,
               images,
               provenance: {
                   nursery,
@@ -440,7 +466,18 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
           </div>
 
           <div className="pt-8 border-t border-gray-100 dark:border-slate-800">
-              <h3 className="text-[11px] font-serif font-black text-verdant uppercase tracking-[0.3em] mb-6">{t('lbl_provenance_history')}</h3>
+              <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-[11px] font-serif font-black text-verdant uppercase tracking-[0.3em]">{t('lbl_provenance_history')}</h3>
+                  <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-[9px] font-black uppercase tracking-widest text-emerald-600"
+                      onClick={() => setIsScanningReceipt(true)}
+                      isLoading={isAnalyzingReceipt}
+                  >
+                      {t('btn_scan_receipt')}
+                  </Button>
+              </div>
               <div className="space-y-4">
                   <div>
                       <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_nursery_origin')}</label>
@@ -496,6 +533,15 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
               <Button className="flex-[2] h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-verdant/20" onClick={handleSave} isLoading={isSaving} disabled={isRefreshing}>{t('btn_save_changes')}</Button>
           </div>
       </div>
+
+      {isScanningReceipt && (
+        <div className="fixed inset-0 z-[100] bg-black flex flex-col">
+          <CameraCapture 
+            onCapture={handleReceiptCapture}
+            onCancel={() => setIsScanningReceipt(false)}
+          />
+        </div>
+      )}
     </Modal>
   );
 };

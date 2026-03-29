@@ -1,5 +1,7 @@
 import express from 'express';
-import sqlite3 from 'sqlite3';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const sqlite3 = require('sqlite3').verbose();
 import cors from 'cors';
 import multer from 'multer';
 import crypto from 'crypto';
@@ -11,8 +13,22 @@ import { createServer } from 'http';
 import fetch from 'node-fetch';
 import FormData from 'form-data';
 
+import os from 'os';
+
+console.log('[CORE] Bootstrap sequence initiated');
+
 dotenv.config();
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+
+// --- GLOBAL ERROR HANDLERS ---
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[CORE] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[CORE] Uncaught Exception:', err);
+  process.exit(1);
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,23 +47,27 @@ if (!fs.existsSync(dataDir)) {
 }
 
 const dbPath = path.join(dataDir, 'verdant.db');
-const db = new sqlite3.Database(dbPath, async (err) => {
-  if (err) {
-    console.error('[DB ERROR]', err.message);
+async function startApp() {
+  try {
+    console.log('[CORE] Starting Verdant Botanical Protocol...');
+    await initializeDatabase();
+    await initializeVaultKey();
+    await setupMiddlewareAndStart();
+    console.log('[CORE] System Fully Operational');
+  } catch (e) {
+    console.error('[CORE] Critical Startup Failure:', e);
     process.exit(1);
-  } else {
-    console.log('[DB] Connected to SQLite');
-    try {
-      db.serialize(async () => {
-        await initializeDatabase();
-        await initializeVaultKey();
-        await setupMiddlewareAndStart();
-      });
-    } catch (e) {
-      console.error('[CORE] Initialization Failed:', e);
-      process.exit(1);
-    }
   }
+}
+
+console.log('[DB] Connecting to SQLite at:', dbPath);
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error('[DB ERROR] Failed to connect to SQLite:', err.message);
+    process.exit(1);
+  }
+  console.log('[DB] Connected to SQLite successfully');
+  startApp();
 });
 
 let currentVaultKey: string | null = null;
@@ -105,7 +125,10 @@ async function initializeVaultKey() {
       currentVaultKey = result.rows[0].encrypted_key;
     }
     console.log('[SECURITY] Vault Protocol Synchronized');
-  } catch (e) { console.error('[SECURITY] Vault Key Failure:', e); }
+  } catch (e) { 
+    console.error('[SECURITY] Vault Key Failure:', e);
+    throw e;
+  }
 }
 
 const logSystemEvent = async (event: string, details: string, level: 'INFO' | 'WARN' | 'ERROR' = 'INFO') => {
@@ -357,11 +380,18 @@ app.get('/api/proxy/perenual', checkAuth, async (req, res) => {
 });
 
 app.get('/api/system/usage', checkAuth, async (req, res) => {
+  console.log(`[API] Fetching usage for user: ${(req as any).userId}`);
   const now = new Date();
   const monthId = `${now.getFullYear()}-${now.getMonth() + 1}`;
+  
+  // Calculate CPU Load (1 min average as percentage of total cores)
+  const cpus = os.cpus();
+  const loadAvg = os.loadavg()[0];
+  const cpuUsage = Math.min(100, (loadAvg / cpus.length) * 100).toFixed(1);
+
   try {
     const result = await query('SELECT * FROM api_usage WHERE id = ?', [monthId]);
-    res.json(result.rows[0] || { 
+    const usageData = result.rows[0] || { 
       id: monthId, 
       google_maps_count: 0, 
       gemini_count: 0, 
@@ -370,6 +400,11 @@ app.get('/api/system/usage', checkAuth, async (req, res) => {
       perenual_count: 0,
       serper_count: 0,
       opb_count: 0
+    };
+
+    res.json({
+      ...usageData,
+      system_load: cpuUsage
     });
   } catch (e) {
     res.status(500).json({ error: "USAGE_FETCH_FAULT" });
@@ -676,7 +711,7 @@ app.get('/env-config.js', async (req, res) => {
 
   res.send(`window._ENV_ = ${JSON.stringify({
     GOOGLE_CLIENT_ID: (process.env.GOOGLE_CLIENT_ID || '').trim(),
-    API_KEY: (process.env.GEMINI_API_KEY || '').trim(),
+    API_KEY: (process.env.GEMINI_API_KEY || process.env.API_KEY || '').trim(),
     GOOGLE_MAPS_API_KEY: mapsKey,
     GOOGLE_MAPS_USAGE: mapsUsage,
     GOOGLE_MAPS_LIMIT: MAPS_LIMIT
@@ -692,42 +727,59 @@ async function setupMiddlewareAndStart() {
     const vite = await import('vite').then(m => m.createServer({ server: { middlewareMode: true } }));
     app.use(vite.middlewares);
   } else {
+    if (!fs.existsSync(distPath)) {
+      console.warn('[CORE] Production build (dist/) not found. Static serving may fail.');
+    }
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get('*all', (req, res) => {
       if (req.path.startsWith('/api')) {
         return res.status(404).json({ error: "API_ENDPOINT_NOT_FOUND" });
       }
-      res.sendFile(path.join(distPath, 'index.html'));
+      const indexPath = path.join(distPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(404).send('Production build not found. Please run npm run build.');
+      }
     });
   }
 
-  server.listen(port, '0.0.0.0', () => {
-    console.log(`[CORE] Verdant Active on 0.0.0.0:${port}`);
+  return new Promise<void>((resolve, reject) => {
+    server.listen(port, '0.0.0.0', () => {
+      console.log(`[CORE] Verdant Active on 0.0.0.0:${port}`);
+      resolve();
+    }).on('error', (err) => {
+      console.error('[CORE] Server Listen Error:', err);
+      reject(err);
+    });
   });
 }
 
 async function initializeDatabase() {
-  return new Promise<void>((resolve) => {
-    db.serialize(() => {
-      db.run(`CREATE TABLE IF NOT EXISTS vault_key (id INTEGER PRIMARY KEY CHECK (id = 1), encrypted_key TEXT NOT NULL)`);
-      db.run(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT, role TEXT DEFAULT 'OWNER', houseId TEXT, personalAiKey TEXT, personalAiKeyTestedAt TEXT, deletedAt TEXT, caretakerStart TEXT, caretakerEnd TEXT)`);
-      db.run(`CREATE TABLE IF NOT EXISTS plants (id TEXT PRIMARY KEY, houseId TEXT, species TEXT, nickname TEXT, images TEXT, logs TEXT, lastWatered TEXT, updatedAt TEXT, data TEXT)`);
-      db.run(`CREATE TABLE IF NOT EXISTS houses (id TEXT PRIMARY KEY, name TEXT, googleApiKey TEXT, createdAt TEXT, data TEXT)`);
-      db.run(`CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, houseId TEXT, plantIds TEXT, type TEXT, title TEXT, description TEXT, date TEXT, completed INTEGER, completedAt TEXT, recurrence TEXT, data TEXT)`);
-      db.run(`CREATE TABLE IF NOT EXISTS inventory (id TEXT PRIMARY KEY, houseId TEXT, name TEXT, data TEXT)`);
-      db.run(`CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, event TEXT, details TEXT, level TEXT, created_at TEXT)`);
-      db.run(`CREATE TABLE IF NOT EXISTS api_usage (
-        id TEXT PRIMARY KEY, 
-        google_maps_count INTEGER DEFAULT 0, 
-        gemini_count INTEGER DEFAULT 0,
-        plantnet_count INTEGER DEFAULT 0,
-        trefle_count INTEGER DEFAULT 0,
-        perenual_count INTEGER DEFAULT 0,
-        serper_count INTEGER DEFAULT 0,
-        opb_count INTEGER DEFAULT 0,
-        last_updated TEXT
-      )`);
-      resolve();
-    });
-  });
+  console.log('[DB] Initializing Schema...');
+  const tables = [
+    `CREATE TABLE IF NOT EXISTS vault_key (id INTEGER PRIMARY KEY CHECK (id = 1), encrypted_key TEXT NOT NULL)`,
+    `CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT, role TEXT DEFAULT 'OWNER', houseId TEXT, personalAiKey TEXT, personalAiKeyTestedAt TEXT, deletedAt TEXT, caretakerStart TEXT, caretakerEnd TEXT)`,
+    `CREATE TABLE IF NOT EXISTS plants (id TEXT PRIMARY KEY, houseId TEXT, species TEXT, nickname TEXT, images TEXT, logs TEXT, lastWatered TEXT, updatedAt TEXT, data TEXT)`,
+    `CREATE TABLE IF NOT EXISTS houses (id TEXT PRIMARY KEY, name TEXT, googleApiKey TEXT, createdAt TEXT, data TEXT)`,
+    `CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, houseId TEXT, plantIds TEXT, type TEXT, title TEXT, description TEXT, date TEXT, completed INTEGER, completedAt TEXT, recurrence TEXT, data TEXT)`,
+    `CREATE TABLE IF NOT EXISTS inventory (id TEXT PRIMARY KEY, houseId TEXT, name TEXT, data TEXT)`,
+    `CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, event TEXT, details TEXT, level TEXT, created_at TEXT)`,
+    `CREATE TABLE IF NOT EXISTS api_usage (
+      id TEXT PRIMARY KEY, 
+      google_maps_count INTEGER DEFAULT 0, 
+      gemini_count INTEGER DEFAULT 0,
+      plantnet_count INTEGER DEFAULT 0,
+      trefle_count INTEGER DEFAULT 0,
+      perenual_count INTEGER DEFAULT 0,
+      serper_count INTEGER DEFAULT 0,
+      opb_count INTEGER DEFAULT 0,
+      last_updated TEXT
+    )`
+  ];
+
+  for (const sql of tables) {
+    await query(sql);
+  }
+  console.log('[DB] Schema Synchronized');
 }

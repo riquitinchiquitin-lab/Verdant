@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { GEMINI_API_KEY } from '../constants';
+import { getGeminiApiKey } from '../constants';
 
 const TARGET_LANGS = ['en', 'zh', 'ja', 'ko', 'es', 'fr', 'pt', 'de', 'id', 'vi', 'tl'];
 
@@ -10,8 +10,8 @@ export const identifyInventoryItem = async (
   onLog?: (msg: string, source: string) => void,
   apiKey?: string
 ) => {
-  // Fix: Use provided apiKey or fallback to global GEMINI_API_KEY
-  const key = apiKey || GEMINI_API_KEY;
+  // Fix: Use provided apiKey or fallback to global getGeminiApiKey()
+  const key = apiKey || getGeminiApiKey();
   if (!key) {
     throw new Error("UPLINK_FAULT: Gemini API Key is missing. Please ensure GEMINI_API_KEY is set in your environment variables.");
   }

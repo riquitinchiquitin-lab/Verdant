@@ -11,7 +11,7 @@ export const getGoogleClientId = (): string => {
 };
 
 // Gemini API Key - Also injected at runtime
-const getGeminiApiKey = (): string => {
+export const getGeminiApiKey = (): string => {
   let envKey = '';
   try {
     if (typeof process !== 'undefined' && process.env) {
@@ -24,8 +24,6 @@ const getGeminiApiKey = (): string => {
   if (!key || key === 'undefined' || key === 'null') return '';
   return key;
 };
-
-export const GEMINI_API_KEY = getGeminiApiKey();
 
 export const GOOGLE_MAPS_API_KEY = (window as any)._ENV_?.GOOGLE_MAPS_API_KEY || '';
 

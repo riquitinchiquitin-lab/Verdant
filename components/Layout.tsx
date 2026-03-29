@@ -9,6 +9,7 @@ import { LanguageSelector } from './ui/LanguageSelector';
 import { AddPlantModal } from './AddPlantModal';
 import { QrScannerModal } from './QrScannerModal';
 import { generatePlantDetails } from '../services/plantAi';
+import { generateUUID } from '../services/crypto';
 import { Button } from './ui/Button';
 import { QrCode } from 'lucide-react';
 
@@ -145,7 +146,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         const details = await generatePlantDetails(species, undefined, undefined, getEffectiveApiKey());
         const syncedPlant = {
           ...details,
-          id: `p-synced-${crypto.randomUUID()}`,
+          id: `p-synced-${generateUUID()}`,
           species: species,
           family: family || details.family,
           houseId: user?.houseId || null, 

@@ -1,40 +1,37 @@
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
 
-@layer base {
-  :root {
-    --sat: env(safe-area-inset-top);
-    --sar: env(safe-area-inset-right);
-    --sab: env(safe-area-inset-bottom);
-    --sal: env(safe-area-inset-left);
-    --verdant: #10b981;
-    --verdant-dark: #059669;
-    --verdant-bone: #f8fafc;
-  }
+@theme {
+  --font-serif: "Inter", serif;
+  --font-display: "Inter", sans-serif;
+  --color-verdant: #10b981;
+  --color-verdant-dark: #059669;
+  --color-verdant-bone: #f8fafc;
+}
 
-  @theme {
-    --font-serif: "Cormorant Garamond", serif;
-    --font-display: "Anton", sans-serif;
-  }
+:root {
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+}
 
-  body {
-    @apply bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    padding-top: var(--sat);
-    padding-bottom: var(--sab);
-    padding-left: var(--sal);
-    padding-right: var(--sar);
-    margin: 0;
-    height: 100vh;
-    width: 100vw;
-    overflow: hidden;
-    overscroll-behavior-y: contain;
-    -webkit-tap-highlight-color: transparent;
-    -webkit-user-select: none;
-    user-select: none;
-  }
+body {
+  @apply bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  padding-top: var(--sat);
+  padding-bottom: var(--sab);
+  padding-left: var(--sal);
+  padding-right: var(--sar);
+  margin: 0;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  overscroll-behavior-y: contain;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
 
   #root {
     @apply h-full w-full flex flex-col;
@@ -131,8 +128,3 @@
       inset 1px 1px 2px rgba(255, 255, 255, 0.1),
       inset -1px -1px 2px rgba(0, 0, 0, 0.5);
   }
-}
-
-@layer components {
-  /* Add custom component styles here if needed */
-}

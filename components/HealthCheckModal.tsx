@@ -7,6 +7,7 @@ import { analyzePlantHealth } from '../services/plantAi';
 import { usePlants } from '../context/PlantContext';
 import { CameraCapture } from './ui/CameraCapture';
 import { compressImage } from '../services/imageUtils';
+import { generateUUID } from '../services/crypto';
 
 interface HealthCheckModalProps {
   isOpen: boolean;
@@ -45,7 +46,7 @@ export const HealthCheckModal: React.FC<HealthCheckModalProps> = ({ isOpen, onCl
         setResult(diagnosis);
         // Save to history
         await addLog(plant.id, {
-          id: `h-${crypto.randomUUID()}`,
+          id: `h-${generateUUID()}`,
           date: new Date().toISOString(),
           type: 'DISEASE_CHECK',
           imageUrl: photo,

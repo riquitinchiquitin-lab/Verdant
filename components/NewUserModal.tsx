@@ -4,6 +4,7 @@ import { Button } from './ui/Button';
 import { User, UserRole, House } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { generateUUID } from '../services/crypto';
 
 interface NewUserModalProps {
   isOpen: boolean;
@@ -43,7 +44,7 @@ export const NewUserModal: React.FC<NewUserModalProps> = ({ isOpen, onClose, hou
       if (!name || !email) return;
 
       const newUser: User = {
-          id: `u-${crypto.randomUUID()}`,
+          id: `u-${generateUUID()}`,
           name,
           email,
           role,

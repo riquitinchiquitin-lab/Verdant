@@ -13,6 +13,7 @@ interface ApiUsage {
     trefle_count: number;
     perenual_count: number;
     serper_count: number;
+    system_load?: string;
 }
 
 export const SystemTelemetry: React.FC = () => {
@@ -31,7 +32,13 @@ export const SystemTelemetry: React.FC = () => {
                     'x-user-house-id': user.houseId || ''
                 }
             })
-            .then(res => res.ok ? res.json() : null)
+            .then(res => {
+                const contentType = res.headers.get("content-type");
+                if (res.ok && contentType && contentType.includes("application/json")) {
+                    return res.json();
+                }
+                return null;
+            })
             .then(data => setApiUsage(data))
             .catch(err => console.error('Failed to fetch API usage:', err));
         }
@@ -55,7 +62,7 @@ export const SystemTelemetry: React.FC = () => {
             apiUsage.serper_count : 0;
 
         return {
-            uptime: "99.9%",
+            systemLoad: apiUsage?.system_load ? `${apiUsage.system_load}%` : "0.0%",
             syncStatus: isSynced ? t('connected') : t('status_syncing'),
             dbSize: `${totalSize.toFixed(1)} KB`,
             apiUsage: totalApiUsage
@@ -89,12 +96,16 @@ export const SystemTelemetry: React.FC = () => {
                     <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t('lbl_system_load')}</span>
                 </div>
                 <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">{stats.uptime}</span>
+                    <span className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">{stats.systemLoad}</span>
                 </div>
                 <div className="mt-2 flex gap-1">
-                    {[1,2,3,4,5,6,7,8].map(i => (
-                        <div key={i} className={`h-1 flex-1 rounded-full ${i < 7 ? 'bg-purple-500/40' : 'bg-slate-100 dark:bg-slate-800'}`} />
-                    ))}
+                    {[1,2,3,4,5,6,7,8].map(i => {
+                        const loadValue = parseFloat(apiUsage?.system_load || "0");
+                        const isActive = i <= Math.ceil((loadValue / 100) * 8);
+                        return (
+                            <div key={i} className={`h-1 flex-1 rounded-full ${isActive ? 'bg-purple-500/40' : 'bg-slate-100 dark:bg-slate-800'}`} />
+                        );
+                    })}
                 </div>
             </div>
 

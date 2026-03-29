@@ -11,6 +11,7 @@ import { SystemTelemetry } from '../components/SystemTelemetry';
 import { ConfirmationDialog } from '../components/ui/ConfirmationDialog';
 import { fetchWithAuth } from '../services/api'; // Mandatory import for handshake
 import { generateSecure50CharKey } from '../services/security';
+import { generateUUID } from '../services/crypto';
 import { useDraggableScroll } from '../hooks/useDraggableScroll';
 
 export const AdminView: React.FC = () => {
@@ -216,7 +217,7 @@ export const AdminView: React.FC = () => {
 
     try {
       await addUser({
-        id: `u-${crypto.randomUUID()}`,
+        id: `u-${generateUUID()}`,
         email: newUser.email,
         name: newUser.name,
         role: newUser.role as any,

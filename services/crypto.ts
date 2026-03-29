@@ -98,3 +98,19 @@ export async function decryptPayload(base64Data: string, passphrase: string): Pr
     throw new Error("SEC_AUTH_DECRYPT_FAILED");
   }
 }
+
+/**
+ * Generates a unique ID using crypto.randomUUID with a fallback for non-secure contexts or older browsers.
+ */
+export function generateUUID(): string {
+  if (typeof window !== 'undefined' && window.crypto && (window.crypto as any).randomUUID) {
+    return (window.crypto as any).randomUUID();
+  }
+  
+  // Fallback for older browsers or non-secure contexts
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}

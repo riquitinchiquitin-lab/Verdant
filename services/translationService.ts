@@ -1,7 +1,7 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { LocalizedString } from "../types";
-import { GEMINI_API_KEY } from "../constants";
+import { getGeminiApiKey } from "../constants";
 
 const TARGET_LANGS = [
   'en', 'zh', 'ja', 'ko', 'es', 'fr', 'pt', 'de', 'id', 'vi', 'tl'
@@ -51,8 +51,8 @@ const processQueue = async () => {
 };
 
 const executeTranslation = async (text: string, sourceLang: string, apiKey?: string): Promise<LocalizedString> => {
-  // Fix: Use provided apiKey or fallback to global GEMINI_API_KEY
-  const key = apiKey || GEMINI_API_KEY;
+  // Fix: Use provided apiKey or fallback to global getGeminiApiKey()
+  const key = apiKey || getGeminiApiKey();
   if (!key) {
     throw new Error("UPLINK_FAULT: Gemini API Key is missing. Please ensure GEMINI_API_KEY is set in your environment variables.");
   }
@@ -76,6 +76,7 @@ const executeTranslation = async (text: string, sourceLang: string, apiKey?: str
         model: model,
         contents: prompt,
         config: {
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
           systemInstruction: "You are a translation engine. Return valid JSON only with no extra text.",
           temperature: 0,
           responseMimeType: "application/json",
@@ -136,6 +137,32 @@ export const translateInput = (text: string, sourceLang: string = 'en', apiKey?:
     queue.push({ text, sourceLang, resolve, reject, apiKey });
     processQueue();
   });
+};
+
+/**
+ * Translates an object of strings into all supported languages.
+ */
+export const translateObjectInput = async (obj: Record<string, string>, sourceLang: string = 'en', apiKey?: string): Promise<Record<string, LocalizedString>> => {
+  const keys = Object.keys(obj);
+  if (keys.length === 0) return {};
+  
+  const separator = " ||| ";
+  const values = keys.map(k => obj[k]);
+  const joined = values.join(separator);
+  
+  const translated = await translateInput(joined, sourceLang, apiKey);
+  
+  const result: Record<string, LocalizedString> = {};
+  keys.forEach((key, index) => {
+    const localized: any = {};
+    Object.keys(translated).forEach(lang => {
+      const parts = (translated[lang] || '').split(separator);
+      localized[lang] = parts[index]?.trim() || '';
+    });
+    result[key] = localized;
+  });
+  
+  return result;
 };
 
 /**

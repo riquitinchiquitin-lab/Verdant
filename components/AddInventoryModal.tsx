@@ -10,6 +10,7 @@ import { translateInput } from '../services/translationService';
 import { InventoryItem, InventoryCategory, Plant } from '../types';
 import { identifyInventoryItem } from '../services/inventoryAi';
 import { compressImage } from '../services/imageUtils';
+import { generateUUID } from '../services/crypto';
 import { CameraCapture } from './ui/CameraCapture';
 import { Logo } from './ui/Logo';
 import { getCompatiblePlants } from '../services/compatibilityService';
@@ -149,7 +150,7 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
 
       const newItem: InventoryItem = {
         ...result,
-        id: `inv-${crypto.randomUUID()}`,
+        id: `inv-${generateUUID()}`,
         houseId: user?.houseId,
         category: (result.category || 'accessories').toLowerCase() as InventoryCategory,
         name: result.name,
@@ -195,7 +196,7 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
           });
         } else {
           const newItem: InventoryItem = {
-            id: `inv-${crypto.randomUUID()}`,
+            id: `inv-${generateUUID()}`,
             houseId: user?.houseId,
             category: formData.category as InventoryCategory,
             name: nameObj,

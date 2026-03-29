@@ -22,6 +22,7 @@ import { PotRotationIcon } from './ui/Icons';
 import { useInventory } from '../context/InventoryContext';
 import { PhenophaseType } from '../types';
 import { translateInput } from '../services/translationService';
+import { generateUUID } from '../services/crypto';
 
 interface PlantDetailsModalProps {
   isOpen: boolean;
@@ -188,7 +189,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
     const date = new Date();
     // Simplified: addLog handles default note translation using the correct API key
     await addLog(plant.id, { 
-      id: `l-${crypto.randomUUID()}`, 
+      id: `l-${generateUUID()}`, 
       date: date.toISOString(), 
       type
     });
@@ -218,7 +219,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
     const noteText = t('lbl_moisture_level_log', { value: value.toString() });
     const localizedNote = await translateInput(noteText, language, getEffectiveApiKey());
     await addLog(plant.id, { 
-      id: `l-${crypto.randomUUID()}`, 
+      id: `l-${generateUUID()}`, 
       date: date.toISOString(), 
       type: 'MOISTURE', 
       value,
@@ -236,7 +237,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
     const noteText = t('lbl_fertilized_with_log', { amount: amount.toString(), unit: fertilizer.unit, name: lv(fertilizer.name) });
     const localizedNote = await translateInput(noteText, language, getEffectiveApiKey());
     await addLog(plant.id, { 
-      id: `l-${crypto.randomUUID()}`, 
+      id: `l-${generateUUID()}`, 
       date: date.toISOString(), 
       type: 'FERTILIZED', 
       localizedNote,
@@ -256,7 +257,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
   const handlePhenophaseLog = async (phase: PhenophaseType, date: string, note: string) => {
     const localizedNote = await translateInput(note, language, getEffectiveApiKey());
     await addLog(plant.id, { 
-      id: `l-${crypto.randomUUID()}`, 
+      id: `l-${generateUUID()}`, 
       date: new Date(date).toISOString(), 
       type: 'PHENOPHASE', 
       localizedNote,
@@ -271,7 +272,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
   const handleManualLog = (type: LogType, localizedNote: LocalizedString) => {
     const date = new Date();
     addLog(plant.id, { 
-      id: `l-${crypto.randomUUID()}`, 
+      id: `l-${generateUUID()}`, 
       date: date.toISOString(), 
       type, 
       localizedNote

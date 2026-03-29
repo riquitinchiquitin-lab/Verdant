@@ -1,8 +1,9 @@
 import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
-import { API_URL, GEMINI_API_KEY } from '../constants';
+import { API_URL, getGeminiApiKey } from '../constants';
 import { Plant, LocalizedString, LocalizedArray } from '../types';
 import { fetchTrefleData, fetchOpenPlantBookData, fetchPerenualData, searchGroundingData } from './botanicalServices';
 import { trackUsage } from './usageService';
+import { generateUUID } from './crypto';
 
 const TARGET_LANGS = ['en', 'zh', 'ja', 'ko', 'es', 'fr', 'pt', 'de', 'id', 'vi', 'tl'];
 
@@ -43,7 +44,7 @@ const callGeminiWithRetry = async (fn: () => Promise<any>, maxRetries = 3): Prom
  * Validates an API key connection. 
  */
 export const verifyApiKey = async (apiKey?: string): Promise<boolean> => {
-    const keyToTest = apiKey || GEMINI_API_KEY;
+    const keyToTest = apiKey || getGeminiApiKey();
     if (!keyToTest) return false;
     
     const ai = new GoogleGenAI({ apiKey: keyToTest });
@@ -95,7 +96,7 @@ export const identifyPlantWithPlantNet = async (imageBlobs: Blob[]): Promise<any
  * 2. Visual Identification Fallback (Gemini)
  */
 export const identifyPlantWithGemini = async (base64: string, apiKey?: string): Promise<any> => {
-  const key = apiKey || GEMINI_API_KEY;
+  const key = apiKey || getGeminiApiKey();
   if (!key) {
     throw new Error("UPLINK_FAULT: Gemini API Key is missing. Please ensure GEMINI_API_KEY is set in your environment variables.");
   }
@@ -115,6 +116,9 @@ export const identifyPlantWithGemini = async (base64: string, apiKey?: string): 
           { inlineData: { mimeType: 'image/jpeg', data: base64.split(',')[1] } },
           { text: "Identify this plant species. Return ONLY the scientific name." }
         ]
+      },
+      config: {
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
       }
     }));
     const bestMatch = res.text?.trim() || "Unknown";
@@ -140,7 +144,7 @@ export const generatePlantDetails = async (
   onLog?: (msg: string, source: string) => void,
   apiKey?: string
 ): Promise<Partial<Plant>> => {
-  const key = apiKey || GEMINI_API_KEY;
+  const key = apiKey || getGeminiApiKey();
   if (!key) {
     throw new Error("UPLINK_FAULT: Gemini API Key is missing. Please ensure GEMINI_API_KEY is set in your environment variables.");
   }
@@ -157,6 +161,12 @@ export const generatePlantDetails = async (
 
   onLog?.("msg_harmonizing_data", "GEMINI");
   
+  // Limit grounding data to prevent prompt bloat
+  const limitedGrounding = grounding ? {
+    organic_results: grounding.organic?.slice(0, 3).map((r: any) => ({ title: r.title, snippet: r.snippet })),
+    answerBox: grounding.answerBox
+  } : null;
+
   const translationSchema = {
     type: Type.OBJECT,
     properties: TARGET_LANGS.reduce((a:any, l) => ({...a, [l]: {type: Type.STRING}}), {}),
@@ -169,7 +179,7 @@ export const generatePlantDetails = async (
     - Trefle: ${JSON.stringify(trefle)}
     - OPB: ${JSON.stringify(opb)}
     - Perenual: ${JSON.stringify(perenual)}
-    - Web Grounding: ${JSON.stringify(grounding)}
+    - Web Grounding: ${JSON.stringify(limitedGrounding)}
     
     REQUIREMENTS:
     1. Extract: species, scientificAuthor, rank, family, genus, category, growthRate, maxHeight (cm), avgHeight (cm), flowers (bool), edible (bool), vegetable (bool).
@@ -190,6 +200,7 @@ export const generatePlantDetails = async (
       model,
       contents: prompt,
       config: {
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -282,7 +293,7 @@ export const createPlant = (data: Partial<Plant>): Plant => {
   const emptyLocalizedArray: LocalizedArray = { en: [] };
 
   return {
-    id: data.id || `p-${crypto.randomUUID()}`,
+    id: data.id || `p-${generateUUID()}`,
     species: data.species || 'Unknown Species',
     nickname: data.nickname || { en: data.species || 'New Specimen' },
     commonNames: data.commonNames || emptyLocalizedArray,
@@ -362,7 +373,7 @@ export const analyzePlantHealth = async (
   userObservations?: string,
   apiKey?: string
 ): Promise<{ diagnosis: LocalizedString; recoveryPlan: LocalizedArray } | null> => {
-  const key = apiKey || GEMINI_API_KEY;
+  const key = apiKey || getGeminiApiKey();
   if (!key) return null;
   const ai = new GoogleGenAI({ apiKey: key });
   const model = 'gemini-3-flash-preview';
@@ -394,6 +405,7 @@ export const analyzePlantHealth = async (
         ]
       },
       config: {
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -421,6 +433,62 @@ export const analyzePlantHealth = async (
     return JSON.parse(cleanJson(text));
   } catch (error) {
     console.error("Diagnostic Failure:", error);
+    return null;
+  }
+};
+
+/**
+ * 6. Analyze Receipt for Provenance Data
+ */
+export const analyzeReceipt = async (base64: string, apiKey?: string): Promise<any> => {
+  const key = apiKey || getGeminiApiKey();
+  if (!key) {
+    console.error("[AI] Receipt scan failed: API Key missing");
+    return null;
+  }
+
+  console.log("[AI] Analyzing receipt image...");
+  const ai = new GoogleGenAI({ apiKey: key });
+  const model = 'gemini-3-flash-preview';
+
+  const prompt = `Analyze this receipt or invoice image and extract the following plant provenance details:
+  1. Nursery/Store Name
+  2. Date of Purchase (ISO format YYYY-MM-DD)
+  3. Total Cost (numeric)
+  4. Currency (3-letter code, e.g., USD, GBP, EUR)
+
+  Return the data in JSON format. If a field cannot be found, omit it or set to null.`;
+
+  try {
+    reportSystemHit();
+    const response = await callGeminiWithRetry(() => ai.models.generateContent({
+      model,
+      contents: {
+        parts: [
+          { inlineData: { mimeType: 'image/jpeg', data: base64.split(',')[1] } },
+          { text: prompt }
+        ]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            nursery: { type: Type.STRING },
+            dateOfPurchase: { type: Type.STRING },
+            cost: { type: Type.NUMBER },
+            currency: { type: Type.STRING }
+          }
+        }
+      }
+    }));
+
+    const text = response.text;
+    console.log("[AI] Receipt analysis raw response:", text);
+    if (!text) return null;
+    return JSON.parse(cleanJson(text));
+  } catch (error) {
+    console.error("[AI] Receipt Analysis Failure:", error);
     return null;
   }
 };

@@ -5,6 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { Plant, Log } from '../types';
 import { Button } from '../components/ui/Button';
+import { generateUUID } from '../services/crypto';
 import { PotRotationIcon } from '../components/ui/Icons';
 import { useDraggableScroll } from '../hooks/useDraggableScroll';
 
@@ -98,7 +99,7 @@ export const CareSchedule: React.FC = () => {
   };
 
   const handleWater = async (plant: Plant) => {
-    await addLog(plant.id, { id: `l-${crypto.randomUUID()}`, date: new Date().toISOString(), type: 'WATER', localizedNote: { en: t('log_water_manual') } });
+    await addLog(plant.id, { id: `l-${generateUUID()}`, date: new Date().toISOString(), type: 'WATER', localizedNote: { en: t('log_water_manual') } });
     updatePlant(plant.id, { lastWatered: new Date().toISOString() });
     setLastLoggedAction(plant.id + '-water');
     setTimeout(() => setLastLoggedAction(null), 2000);
@@ -106,7 +107,7 @@ export const CareSchedule: React.FC = () => {
 
   const handleRotate = async (plant: Plant) => {
     await addLog(plant.id, { 
-      id: `l-${crypto.randomUUID()}`, 
+      id: `l-${generateUUID()}`, 
       date: new Date().toISOString(), 
       type: 'ROTATED', 
       localizedNote: { 

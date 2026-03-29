@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Plant, Log, Task, House } from '../types';
-import { ROOM_TYPES, GEMINI_API_KEY } from '../constants';
+import { ROOM_TYPES, getGeminiApiKey } from '../constants';
 import { fetchWithAuth } from '../services/api';
 import { useAuth } from './AuthContext';
 import { useLanguage } from './LanguageContext';
 import { translateInput } from '../services/translationService';
 import { sendNotification } from '../services/notifications';
+import { generateUUID } from '../services/crypto';
 
 interface PlantContextType {
   plants: Plant[];
@@ -194,7 +195,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     if (rotationInterval) {
       newTasks.push({
-        id: `t-rotate-${plant.id}-${crypto.randomUUID()}`,
+        id: `t-rotate-${plant.id}-${generateUUID()}`,
         plantIds: [plant.id],
         type: 'GENERAL',
         title: { en: `Rotate ${lv(plant.nickname)}`, fr: `Pivoter ${lv(plant.nickname)}` },
@@ -213,7 +214,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const nutritionAdvice = lv(plant.nutritionAdvice).toLowerCase();
     if (nutritionAdvice.includes('fertilize') || nutritionAdvice.includes('month')) {
       newTasks.push({
-        id: `t-fert-${plant.id}-${crypto.randomUUID()}`,
+        id: `t-fert-${plant.id}-${generateUUID()}`,
         plantIds: [plant.id],
         type: 'FERTILIZE',
         title: { en: `Fertilize ${lv(plant.nickname)}`, fr: `Fertiliser ${lv(plant.nickname)}` },
@@ -228,7 +229,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     // 3. Repotting Task
     if (plant.repottingFrequency && plant.lastPotSize) {
       newTasks.push({
-        id: `t-repot-${plant.id}-${crypto.randomUUID()}`,
+        id: `t-repot-${plant.id}-${generateUUID()}`,
         plantIds: [plant.id],
         type: 'REPOT',
         title: { en: `Repot ${lv(plant.nickname)}`, fr: `Rempoter ${lv(plant.nickname)}` },
@@ -247,7 +248,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     /*
     if (plant.wateringInterval) {
       newTasks.push({
-        id: `t-water-${plant.id}-${crypto.randomUUID()}`,
+        id: `t-water-${plant.id}-${generateUUID()}`,
         plantIds: [plant.id],
         type: 'WATER',
         title: { en: `Water ${lv(plant.nickname)}`, fr: `Arroser ${lv(plant.nickname)}` },
@@ -340,7 +341,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     
     // 2. Create the internal object with a temporary ID prefix
     const newH: House = { 
-      id: `h-temp-${crypto.randomUUID()}`, 
+      id: `h-temp-${generateUUID()}`, 
       name: localizedName, 
       googleApiKey,
       createdAt: new Date().toISOString() 
@@ -423,7 +424,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (isCompleting && task.type === 'WATER' && task.plantIds.length > 0) {
       for (const plantId of task.plantIds) {
         await addLog(plantId, {
-          id: `l-auto-${crypto.randomUUID()}`,
+          id: `l-auto-${generateUUID()}`,
           date: new Date().toISOString(),
           type: 'WATER',
           localizedNote: { en: 'Automated task completed', fr: 'Tâche automatisée terminée' }
@@ -437,7 +438,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const getEffectiveApiKey = useCallback(() => {
-    if (!user) return GEMINI_API_KEY;
+    if (!user) return getGeminiApiKey();
     
     // If user has a specific house assigned, use that house's key
     if (user.houseId) {
@@ -447,7 +448,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
     
     // Fallback to global key
-    return GEMINI_API_KEY;
+    return getGeminiApiKey();
   }, [user, houses]);
 
   const addLog = async (plantId: string, log: Log) => {
