@@ -19,7 +19,7 @@ export const AdminView: React.FC = () => {
   const { t, lv, language } = useLanguage();
   const { showNotification, fetchSystemLogs } = useSystem();
   const { houses, plants, updateHouse, deleteHouse, addHouse, updatePlant, deleteAllLogs, deleteLogsByDay } = usePlants();
-  const { users, addUser, updateUser, deleteUser } = usePersonnel();
+  const { users, addUser, updateUser, deleteUser, removeUserPermanently } = usePersonnel();
   const [activeTab, setActiveTab] = useState<'HOUSES' | 'PERSONNEL' | 'PLANTS' | 'DATABASE' | 'SECURITY' | 'LOGS'>('HOUSES');
   const [isRestoring, setIsRestoring] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -81,8 +81,17 @@ export const AdminView: React.FC = () => {
   const isDirector = user?.role === 'CO_CEO';
   const isLeadHand = user?.role === 'LEAD_HAND';
 
-  const visibleHouses = useMemo(() => (isOwner || isDirector || isLeadHand ? houses : []), [houses, isOwner, isDirector, isLeadHand]);
-  const visiblePersonnel = useMemo(() => (isOwner || isDirector || isLeadHand ? users : []), [users, isOwner, isDirector, isLeadHand]);
+  const visibleHouses = useMemo(() => {
+    if (isOwner || isDirector) return houses;
+    if (isLeadHand) return houses.filter(h => h.id === user?.houseId);
+    return [];
+  }, [houses, isOwner, isDirector, isLeadHand, user]);
+
+  const visiblePersonnel = useMemo(() => {
+    if (isOwner || isDirector) return users;
+    if (isLeadHand) return users.filter(u => u.houseId === user?.houseId && (u.role === 'GARDENER' || u.role === 'SEASONAL'));
+    return users.filter(u => u.id === user?.id);
+  }, [users, isOwner, isDirector, isLeadHand, user]);
 
   const availableTabs = useMemo(() => {
     const tabs: ('HOUSES' | 'PERSONNEL' | 'PLANTS' | 'DATABASE' | 'SECURITY' | 'LOGS')[] = ['HOUSES', 'PERSONNEL'];
@@ -240,6 +249,26 @@ export const AdminView: React.FC = () => {
     } catch (e) {
       showNotification(t('msg_update_failed'), "ERROR");
     }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    const target = users.find(u => u.id === userId);
+    if (!target) return;
+
+    setConfirmation({
+      isOpen: true,
+      title: t('lbl_delete_personnel'),
+      message: t('msg_confirm_delete_personnel', { name: typeof target.name === 'object' ? lv(target.name as any) : target.name || target.email }),
+      onConfirm: async () => {
+        try {
+          await removeUserPermanently(userId);
+          setConfirmation(prev => ({ ...prev, isOpen: false }));
+          showNotification(t('msg_personnel_deleted'), "SUCCESS");
+        } catch (e) {
+          showNotification(t('msg_deletion_failed'), "ERROR");
+        }
+      }
+    });
   };
 
   const handleUpdateHouse = async () => {
@@ -586,6 +615,16 @@ export const AdminView: React.FC = () => {
                             />
                         </div>
                         <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('lbl_email')}</label>
+                            <input 
+                                type="email" 
+                                value={editingUser.email || ''} 
+                                onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
+                                disabled={!(isOwner || isDirector)}
+                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 ring-verdant/20 disabled:opacity-50"
+                            />
+                        </div>
+                        <div className="space-y-1">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('lbl_role')}</label>
                             <select 
                                 value={editingUser.role}
@@ -616,6 +655,21 @@ export const AdminView: React.FC = () => {
                         <Button variant="secondary" onClick={() => setEditingUser(null)} className="flex-1 rounded-2xl uppercase font-black">{t('btn_cancel')}</Button>
                         <Button variant="primary" onClick={handleUpdateUser} className="flex-1 rounded-2xl uppercase font-black">{t('btn_save')}</Button>
                     </div>
+                    {!(isLeadHand) && editingUser.id !== user?.id && (
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                            <Button 
+                                variant="danger" 
+                                onClick={() => {
+                                    const id = editingUser.id;
+                                    setEditingUser(null);
+                                    handleDeleteUser(id);
+                                }} 
+                                className="w-full rounded-2xl uppercase font-black"
+                            >
+                                {t('btn_delete')}
+                            </Button>
+                        </div>
+                    )}
                 </div>
             </div>
         )}
@@ -706,12 +760,22 @@ export const AdminView: React.FC = () => {
                                     <td className="px-6 py-4"><span className="text-[10px] font-black bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full">{t(`role_${p.role.toLowerCase()}` as any)}</span></td>
                                     <td className="px-6 py-4 text-slate-500">{houses.find(prop => prop.id === p.houseId) ? lv(houses.find(prop => prop.id === p.houseId)!.name) : t('lbl_global')}</td>
                                     <td className="px-6 py-4 text-right">
-                                        <button 
-                                            onClick={() => setEditingUser(p)}
-                                            className="text-verdant font-black text-[10px] uppercase tracking-widest hover:underline border border-verdant/20 px-3 py-1 rounded-lg"
-                                        >
-                                            {t('manage')}
-                                        </button>
+                                        <div className="flex justify-end gap-2">
+                                            <button 
+                                                onClick={() => setEditingUser(p)}
+                                                className="text-verdant font-black text-[10px] uppercase tracking-widest hover:underline border border-verdant/20 px-3 py-1 rounded-lg"
+                                            >
+                                                {t('manage')}
+                                            </button>
+                                            {!(isLeadHand) && p.id !== user?.id && (
+                                                <button 
+                                                    onClick={() => handleDeleteUser(p.id)}
+                                                    className="text-red-500 font-black text-[10px] uppercase tracking-widest hover:underline border border-red-500/20 px-3 py-1 rounded-lg"
+                                                >
+                                                    {t('btn_delete')}
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

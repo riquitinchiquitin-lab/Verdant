@@ -105,6 +105,9 @@
     msg_house_added:
     msg_personnel_updated:
     msg_personnel_added:
+    msg_personnel_deleted:
+    msg_confirm_delete_personnel:
+    lbl_delete_personnel:
     msg_authority_updated:
     msg_property_updated:
     msg_property_established:

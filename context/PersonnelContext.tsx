@@ -101,12 +101,19 @@ export const PersonnelProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
 
     if (token) {
-      fetchWithAuth('/api/users', token, { method: 'POST', body: JSON.stringify(updatedUser) })
-        .then(() => refreshPersonnelData());
+      try {
+        await fetchWithAuth('/api/users', token, { method: 'POST', body: JSON.stringify(updatedUser) });
+        await refreshPersonnelData();
+      } catch (err) {
+        console.error("User update failed:", err);
+        throw err;
+      }
     }
   };
 
   const deleteUser = async (userId: string) => {
+    const target = users.find(u => u.id === userId);
+    if (!target) return;
     await updateUser(userId, { deletedAt: new Date().toISOString() });
   };
 

@@ -665,6 +665,22 @@ app.delete('/api/inventory', checkAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
 });
 
+app.delete('/api/users/:id', checkAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const role = (req as any).userRole;
+    
+    // Only OWNER and CO_CEO can permanently delete users
+    if (!['OWNER', 'CO_CEO'].includes(role)) {
+      return res.status(403).json({ error: "FORBIDDEN" });
+    }
+
+    await query('DELETE FROM users WHERE id = ?', [id]);
+    await logSystemEvent('USER_DELETED', `User ${id} permanently deleted by ${(req as any).userId || 'ADMIN'}`, 'WARN');
+    res.json({ status: "ok" });
+  } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
+});
+
 // USERS
 app.get('/api/users', checkAuth, async (req, res) => {
   try {
