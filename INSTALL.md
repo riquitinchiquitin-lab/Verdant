@@ -11,19 +11,15 @@ Ensure you have the following installed on your system:
 - **Git**
 
 #### Ubuntu / Debian / Mint:
-**Option A: Standard Repositories (Quickest)**
-```bash
-sudo apt update
-sudo apt install -y docker.io docker-compose git
-```
 
-**Option B: Official Docker Repository (Recommended for Latest Version)**
+**Official Docker Repository (Recommended for Latest Version)**
 ```bash
 # Add Docker's official GPG key:
 sudo apt update
+sudo apt update && sudo apt install -y gnupg
 sudo apt install ca-certificates curl gnupg
 sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gnupg --dearmor -o /etc/apt/keyrings/docker.gpg
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 sudo chmod a+r /etc/apt/keyrings/docker.gpg
 
 # Add the repository to Apt sources:
@@ -34,32 +30,11 @@ echo \
 sudo apt update
 
 # Install Docker Engine and Docker Compose Plugin:
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin git
-```
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-#### Fedora / RHEL / CentOS:
-```bash
-sudo dnf install -y dnf-plugins-core
-sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
-sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin git
-sudo systemctl start docker
-```
+# Install Git:
+sudo apt update && sudo apt install git -y
 
-#### Arch Linux:
-```bash
-sudo pacman -S docker docker-compose git
-sudo systemctl start docker
-```
-
-#### Fedora / RHEL / CentOS:
-```bash
-sudo dnf install -y nodejs npm sqlite3 git
-```
-
-#### Arch Linux:
-```bash
-sudo pacman -S nodejs npm sqlite3 git
-```
 
 ### 2. Obtaining API Keys
 Verdant requires several API keys to function at full capacity. For a complete list of all environment variables and their descriptions, please refer to the [.env.example](.env.example) file.
@@ -182,18 +157,6 @@ The Root Owner is the primary administrator who has full control over the system
 git clone https://github.com/riquitinchiquitin-lab/verdant.git
 cd verdant
 ```
-
-### 3. Build & Initialize
-#### Using Docker (Recommended):
-```bash
-docker-compose build
-```
-
-#### Manual Setup (Alternative):
-```bash
-npm install
-```
-
 ### 4. Environment Configuration
 Create a `.env` file in the root directory and add your API keys. You can find a template with all available options in [.env.example](.env.example):
 ```bash
@@ -201,26 +164,21 @@ cp .env.example .env
 # Edit .env with your preferred editor
 nano .env
 ```
-### 5. Build & Start
+
+### 5. Build & Initialize
+#### Using Docker (Recommended):
+```bash
+docker compose build
+```
+### 6. Build & Start
 #### Using Docker (Recommended):
 ```bash
 # Start the entire stack in the background
-docker-compose up -d
+docker compose up -d
+```
 
 # View logs
-docker-compose logs -f
-```
-
-#### Manual Setup (Alternative):
-**Development Mode:**
-```bash
-npm run dev
-```
-
-**Production Mode:**
-```bash
-npm run build
-npm start
+docker compose logs -f
 ```
 
 ## 🚀 Getting Started
