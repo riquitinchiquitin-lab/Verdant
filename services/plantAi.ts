@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { API_URL, getGeminiApiKey } from '../constants';
 import { Plant, LocalizedString, LocalizedArray } from '../types';
 import { fetchTrefleData, fetchOpenPlantBookData, fetchPerenualData, searchGroundingData } from './botanicalServices';
@@ -116,9 +116,6 @@ export const identifyPlantWithGemini = async (base64: string, apiKey?: string): 
           { inlineData: { mimeType: 'image/jpeg', data: base64.split(',')[1] } },
           { text: "Identify this plant species. Return ONLY the scientific name." }
         ]
-      },
-      config: {
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
       }
     }));
     const bestMatch = res.text?.trim() || "Unknown";
@@ -200,7 +197,6 @@ export const generatePlantDetails = async (
       model,
       contents: prompt,
       config: {
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -405,7 +401,6 @@ export const analyzePlantHealth = async (
         ]
       },
       config: {
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,

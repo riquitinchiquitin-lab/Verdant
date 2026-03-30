@@ -12,9 +12,9 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#020617">
     <meta name="apple-mobile-web-app-title" content="Verdant">
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-    <link rel="icon" type="image/svg+xml" href="/logo.svg">
-    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+    <link rel="icon" type="image/svg+xml" href="./logo.svg">
+    <link rel="manifest" href="./manifest.json">
     
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -32,7 +32,7 @@
 </head>
   <body class="bg-white text-slate-900 antialiased dark:bg-[#020617] dark:text-slate-100 transition-colors duration-300 no-scrollbar">
     <div id="root"></div>
-    <script src="/env-config.js"></script>
+    <script src="./env-config.js"></script>
     <script>
       (function() {
         const key = window._ENV_?.GOOGLE_MAPS_API_KEY;
@@ -46,11 +46,11 @@
       })();
     </script>
     <!-- Vite Entry Point -->
-    <script type="module" src="/index.tsx"></script>
+    <script type="module" src="./index.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').then(registration => {
+          navigator.serviceWorker.register('./sw.js').then(registration => {
             console.log('SW registered: ', registration);
           }).catch(registrationError => {
             console.log('SW registration failed: ', registrationError);

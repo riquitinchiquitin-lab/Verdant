@@ -1,9 +1,9 @@
 const CACHE_NAME = 'verdant-cache-v6';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/logo.svg',
-  '/manifest.json'
+  './',
+  './index.html',
+  './logo.svg',
+  './manifest.json'
 ];
 
 self.addEventListener('install', (event) => {

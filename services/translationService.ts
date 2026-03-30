@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { LocalizedString } from "../types";
 import { getGeminiApiKey } from "../constants";
 
@@ -76,7 +76,6 @@ const executeTranslation = async (text: string, sourceLang: string, apiKey?: str
         model: model,
         contents: prompt,
         config: {
-          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
           systemInstruction: "You are a translation engine. Return valid JSON only with no extra text.",
           temperature: 0,
           responseMimeType: "application/json",
