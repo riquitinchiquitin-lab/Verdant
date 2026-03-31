@@ -721,8 +721,9 @@ app.get('/api/users', checkAuth, async (req, res) => {
 app.post('/api/users', checkAuth, async (req, res) => {
   try {
     const u = req.body;
+    const email = u.email?.trim().toLowerCase();
     await query('INSERT OR REPLACE INTO users (id, email, name, role, houseId, personalAiKey, personalAiKeyTestedAt, deletedAt, caretakerStart, caretakerEnd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [u.id, u.email, typeof u.name === 'object' ? JSON.stringify(u.name) : u.name, u.role, u.houseId, u.personalAiKey, u.personalAiKeyTestedAt, u.deletedAt, u.caretakerStart, u.caretakerEnd]);
+      [u.id, email, typeof u.name === 'object' ? JSON.stringify(u.name) : u.name, u.role, u.houseId, u.personalAiKey, u.personalAiKeyTestedAt, u.deletedAt, u.caretakerStart, u.caretakerEnd]);
     await logSystemEvent('USER_UPDATED', `User ${u.id} updated by ${(req as any).userId || 'ADMIN'}`, 'INFO');
     res.json({ status: "ok" });
   } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }

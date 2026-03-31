@@ -227,7 +227,7 @@ export const AdminView: React.FC = () => {
     try {
       await addUser({
         id: `u-${generateUUID()}`,
-        email: newUser.email,
+        email: newUser.email.trim().toLowerCase(),
         name: newUser.name,
         role: newUser.role as any,
         houseId: newUser.houseId || null,
@@ -245,7 +245,8 @@ export const AdminView: React.FC = () => {
   const handleUpdateUser = async () => {
     if (!editingUser) return;
     try {
-      await updateUser(editingUser.id, editingUser);
+      const userToUpdate = { ...editingUser, email: editingUser.email?.trim().toLowerCase() };
+      await updateUser(editingUser.id, userToUpdate);
       setEditingUser(null);
       showNotification(t('msg_authority_updated'), "SUCCESS");
     } catch (e) {
