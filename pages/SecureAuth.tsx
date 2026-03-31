@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { usePersonnel } from '../context/PersonnelContext';
 import { useSystem } from '../context/SystemContext';
-import { getGoogleClientId } from '../constants';
+import { API_URL, getGoogleClientId } from '../constants';
 import { Logo } from '../components/ui/Logo';
 import { Button } from '../components/ui/Button';
 import { LanguageSelector } from '../components/ui/LanguageSelector';
@@ -137,7 +137,7 @@ export const SecureAuth: React.FC = () => {
     }
   }, []);
 
-  const handleCredentialResponse = useCallback((response: any) => {
+  const handleCredentialResponse = useCallback(async (response: any) => {
     setLoading(true);
     setAuthError(null);
     
@@ -164,13 +164,36 @@ export const SecureAuth: React.FC = () => {
         return;
       }
 
-      const existingRecord = usersRef.current.find(u => u.email.toLowerCase() === email && !u.deletedAt);
-      
-      if (!existingRecord) {
+      // NEW: Verify user via server endpoint instead of local list
+      const verifyRes = await fetch(`${API_URL}/api/auth/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      if (!verifyRes.ok) {
           setAuthError(t('msg_access_denied'));
           showNotification("ACCESS REJECTED", "ERROR");
           setLoading(false);
           return;
+      }
+
+      const existingRecord = await verifyRes.json();
+
+      if (existingRecord.role === 'SEASONAL') {
+        const now = new Date();
+        const start = existingRecord.caretakerStart ? new Date(existingRecord.caretakerStart) : null;
+        const end = existingRecord.caretakerEnd ? new Date(existingRecord.caretakerEnd) : null;
+        
+        if (start) start.setHours(0,0,0,0);
+        if (end) end.setHours(23,59,59,999);
+
+        if ((start && now < start) || (end && now > end)) {
+          setAuthError(t('msg_access_expired'));
+          showNotification("ACCESS EXPIRED", "ERROR");
+          setLoading(false);
+          return;
+        }
       }
 
       login(response.credential, {
@@ -180,7 +203,9 @@ export const SecureAuth: React.FC = () => {
         role: existingRecord.role, 
         houseId: existingRecord.houseId,
         personalAiKey: existingRecord.personalAiKey,
-        personalAiKeyTestedAt: existingRecord.personalAiKeyTestedAt
+        personalAiKeyTestedAt: existingRecord.personalAiKeyTestedAt,
+        caretakerStart: existingRecord.caretakerStart,
+        caretakerEnd: existingRecord.caretakerEnd
       });
 
       showNotification(`WELCOME ${payload.name?.toUpperCase() || 'USER'}`, "SUCCESS");

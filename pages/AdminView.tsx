@@ -230,7 +230,9 @@ export const AdminView: React.FC = () => {
         email: newUser.email,
         name: newUser.name,
         role: newUser.role as any,
-        houseId: newUser.houseId || null
+        houseId: newUser.houseId || null,
+        caretakerStart: newUser.caretakerStart,
+        caretakerEnd: newUser.caretakerEnd
       } as User);
       setIsAddingUser(false);
       setNewUser({ role: 'GARDENER' });
@@ -591,6 +593,28 @@ export const AdminView: React.FC = () => {
                                 {houses.map(p => <option key={p.id} value={p.id}>{lv(p.name)}</option>)}
                             </select>
                         </div>
+                        {newUser.role === 'SEASONAL' && (
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('access_start')}</label>
+                                    <input 
+                                        type="date" 
+                                        value={newUser.caretakerStart || ''}
+                                        onChange={(e) => setNewUser({...newUser, caretakerStart: e.target.value})}
+                                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 ring-verdant/20"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('access_expiry')}</label>
+                                    <input 
+                                        type="date" 
+                                        value={newUser.caretakerEnd || ''}
+                                        onChange={(e) => setNewUser({...newUser, caretakerEnd: e.target.value})}
+                                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 ring-verdant/20"
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
                     <div className="flex gap-4 pt-4">
                         <Button variant="secondary" onClick={() => setIsAddingUser(false)} className="flex-1 rounded-2xl uppercase font-black">{t('btn_cancel')}</Button>
@@ -650,6 +674,28 @@ export const AdminView: React.FC = () => {
                                 {houses.map(p => <option key={p.id} value={p.id}>{lv(p.name)}</option>)}
                             </select>
                         </div>
+                        {editingUser.role === 'SEASONAL' && (
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('access_start')}</label>
+                                    <input 
+                                        type="date" 
+                                        value={editingUser.caretakerStart || ''}
+                                        onChange={(e) => setEditingUser({...editingUser, caretakerStart: e.target.value})}
+                                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 ring-verdant/20"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('access_expiry')}</label>
+                                    <input 
+                                        type="date" 
+                                        value={editingUser.caretakerEnd || ''}
+                                        onChange={(e) => setEditingUser({...editingUser, caretakerEnd: e.target.value})}
+                                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 ring-verdant/20"
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
                     <div className="flex gap-4 pt-4">
                         <Button variant="secondary" onClick={() => setEditingUser(null)} className="flex-1 rounded-2xl uppercase font-black">{t('btn_cancel')}</Button>

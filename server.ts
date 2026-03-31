@@ -164,6 +164,24 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: "ok", uptime: process.uptime() });
 });
 
+// PUBLIC AUTH VERIFICATION
+app.post('/api/auth/verify', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "EMAIL_REQUIRED" });
+    const result = await query('SELECT * FROM users WHERE LOWER(email) = ? AND deletedAt IS NULL', [email.toLowerCase()]);
+    if (result.rows.length === 0) return res.status(404).json({ error: "USER_NOT_FOUND" });
+    const user = result.rows[0];
+    // Parse name if it's JSON
+    if (user.name && (user.name.startsWith('{') || user.name.startsWith('['))) {
+      try { user.name = JSON.parse(user.name); } catch(e) {}
+    }
+    res.json(user);
+  } catch (e) {
+    res.status(500).json({ error: "AUTH_FAULT" });
+  }
+});
+
 const checkAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (!req.headers.authorization) return res.status(401).json({ error: "UNAUTHORIZED" });
   (req as any).userRole = req.headers['x-user-role'];
@@ -703,8 +721,8 @@ app.get('/api/users', checkAuth, async (req, res) => {
 app.post('/api/users', checkAuth, async (req, res) => {
   try {
     const u = req.body;
-    await query('INSERT OR REPLACE INTO users (id, email, name, role, houseId, personalAiKey, personalAiKeyTestedAt, deletedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [u.id, u.email, typeof u.name === 'object' ? JSON.stringify(u.name) : u.name, u.role, u.houseId, u.personalAiKey, u.personalAiKeyTestedAt, u.deletedAt]);
+    await query('INSERT OR REPLACE INTO users (id, email, name, role, houseId, personalAiKey, personalAiKeyTestedAt, deletedAt, caretakerStart, caretakerEnd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [u.id, u.email, typeof u.name === 'object' ? JSON.stringify(u.name) : u.name, u.role, u.houseId, u.personalAiKey, u.personalAiKeyTestedAt, u.deletedAt, u.caretakerStart, u.caretakerEnd]);
     await logSystemEvent('USER_UPDATED', `User ${u.id} updated by ${(req as any).userId || 'ADMIN'}`, 'INFO');
     res.json({ status: "ok" });
   } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
@@ -741,12 +759,15 @@ async function setupMiddlewareAndStart() {
 
   if (!isProd) {
     const vite = await import('vite').then(m => m.createServer({ server: { middlewareMode: true } }));
+    // Explicitly serve public folder BEFORE Vite middleware in dev
+    app.use(express.static(path.join(__dirname, 'public')));
     app.use(vite.middlewares);
   } else {
     if (!fs.existsSync(distPath)) {
       console.warn('[CORE] Production build (dist/) not found. Static serving may fail.');
     }
     app.use(express.static(distPath));
+    app.use(express.static(path.join(__dirname, 'public'))); // Fallback to public folder
     app.get('*all', (req, res) => {
       if (req.path.startsWith('/api')) {
         return res.status(404).json({ error: "API_ENDPOINT_NOT_FOUND" });
@@ -797,5 +818,10 @@ async function initializeDatabase() {
   for (const sql of tables) {
     await query(sql);
   }
+
+  // Migrations
+  try { await query(`ALTER TABLE users ADD COLUMN caretakerStart TEXT`); } catch(e) {}
+  try { await query(`ALTER TABLE users ADD COLUMN caretakerEnd TEXT`); } catch(e) {}
+
   console.log('[DB] Schema Synchronized');
 }
