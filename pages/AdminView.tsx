@@ -286,13 +286,17 @@ export const AdminView: React.FC = () => {
   };
 
   const handleAddHouse = async () => {
+    console.log("[AdminView] handleAddHouse triggered with name:", newHouseName);
     if (!newHouseName) return showNotification(t('msg_missing_name'), "ERROR");
     try {
+      console.log("[AdminView] Calling addHouse context function...");
       await addHouse(newHouseName);
+      console.log("[AdminView] addHouse successful.");
       setIsAddingHouse(false);
       setNewHouseName('');
       showNotification(t('msg_house_established'), "SUCCESS");
     } catch (e) {
+      console.error("[AdminView] handleAddHouse Error:", e);
       showNotification(t('msg_establishment_failed'), "ERROR");
     }
   };

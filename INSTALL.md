@@ -46,15 +46,22 @@ Verdant requires several API keys to function at full capacity. For a complete l
 4. Create a new API key in a new or existing project.
 5. Copy the key to your `.env` file as `GEMINI_API_KEY`.
 
-#### B. Google Maps API Key (Required for Property Visualization)
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
-2. Select your project.
-3. Navigate to **APIs & Services > Library**.
-4. Search for and enable **Maps JavaScript API**.
-5. Navigate to **APIs & Services > Credentials**.
-6. Click **Create Credentials > API key**.
-7. Copy the key to your `.env` file as `GOOGLE_MAPS_API_KEY`.
-8. (Optional) Restrict the key to your App URL for security.
+#### B. Google Custom Search API (Search Grounding)
+1. **Enable the Custom Search API**:
+   - Even if you have a key, the specific "Service" must be enabled for your project.
+   - Go to the [Google Cloud Library](https://console.cloud.google.com/apis/library).
+   - Search for **"Custom Search API"**.
+   - Click it and select **Enable**.
+
+2. **Check API Key Restrictions**:
+   - The most common cause for errors is that the key has been "locked down" to only work with specific APIs (like Maps or YouTube), and Custom Search isn't on that list.
+   - Go to **APIs & Services > Credentials**.
+   - Click on the name of your API key (AIzaSy...).
+   - Scroll down to **API restrictions**.
+   - **Option B: "Restrict key"**: click the dropdown and ensure **Custom Search API** is checked.
+   - Select **Application restrictions**: **Websites**.
+   - Add your app website: `https://verdant.yourdomain.com`
+   - Click **Save**. *Note: It can take up to 5 minutes for these changes to propagate.*
 
 #### C. Google Client ID (Required for Authentication)
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
@@ -67,7 +74,7 @@ Verdant requires several API keys to function at full capacity. For a complete l
 8. Add your App URL + `/auth/callback` to **Authorized redirect URIs**.
 9. Copy the **Client ID** to your `.env` file as `GOOGLE_CLIENT_ID`.
 
-#### C. PlantNet API Key (Optional for Plant Identification)
+#### D. PlantNet API Key (Optional for Plant Identification)
 1. Register at [PlantNet API](https://my.plantnet.org/).
 2. Navigate to your dashboard to find your API key.
 3. Copy the key to your `.env` file as `PLANTNET_API_KEY`.

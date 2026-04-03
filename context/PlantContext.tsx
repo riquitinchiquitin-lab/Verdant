@@ -336,38 +336,59 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const addHouse = async (name: string, googleApiKey?: string) => {
+    console.log("[PlantContext] addHouse called with name:", name);
     // 1. Localize the house name via AI
-    const localizedName = await translateInput(name);
-    
-    // 2. Create the internal object with a temporary ID prefix
-    const newH: House = { 
-      id: `h-temp-${generateUUID()}`, 
-      name: localizedName, 
-      googleApiKey,
-      createdAt: new Date().toISOString() 
-    };
-    
-    // 3. Update local state for immediate UI feedback
-    setHouses(prev => [...prev, newH]);
-    
-    // 4. Force synchronization with Proxmox node
-    if (token) {
-        try {
-            const response = await fetchWithAuth('/api/houses', token, { 
-                method: 'POST', 
-                body: JSON.stringify(newH) 
-            });
-            if (!response.ok) throw new Error("Server rejected house creation protocol.");
-            
-            // Wait a brief moment for the DB to settle before refreshing
-            // This helps avoid race conditions where the server returns old data
-            setTimeout(() => refreshAllData(), 500);
-        } catch (e) {
-            console.error("House Creation Error:", e);
-            // Rollback local state if server fails
-            setHouses(prev => prev.filter(h => h.id !== newH.id));
-            throw e;
+    try {
+        console.log("[PlantContext] Translating house name...");
+        const localizedName = await translateInput(name);
+        console.log("[PlantContext] Translated name:", localizedName);
+        
+        // 2. Create the internal object with a temporary ID prefix
+        const newH: House = { 
+          id: `h-temp-${generateUUID()}`, 
+          name: localizedName, 
+          googleApiKey,
+          createdAt: new Date().toISOString() 
+        };
+        
+        console.log("[PlantContext] New house object created:", newH);
+
+        // 3. Update local state for immediate UI feedback
+        setHouses(prev => [...prev, newH]);
+        
+        // 4. Force synchronization with Proxmox node
+        if (token) {
+            console.log("[PlantContext] Token present, sending POST to /api/houses...");
+            try {
+                const response = await fetchWithAuth('/api/houses', token, { 
+                    method: 'POST', 
+                    body: JSON.stringify(newH) 
+                });
+                console.log("[PlantContext] API Response Status:", response.status);
+                if (!response.ok) {
+                    const errText = await response.text();
+                    console.error("[PlantContext] Server rejected house creation:", errText);
+                    throw new Error(`Server rejected house creation protocol: ${errText}`);
+                }
+                
+                console.log("[PlantContext] House creation successful on server.");
+                // Wait a brief moment for the DB to settle before refreshing
+                setTimeout(() => {
+                    console.log("[PlantContext] Refreshing all data...");
+                    refreshAllData();
+                }, 500);
+            } catch (e) {
+                console.error("[PlantContext] House Creation Sync Error:", e);
+                // Rollback local state if server fails
+                setHouses(prev => prev.filter(h => h.id !== newH.id));
+                throw e;
+            }
+        } else {
+            console.warn("[PlantContext] No token available for sync.");
         }
+    } catch (e) {
+        console.error("[PlantContext] addHouse Error:", e);
+        throw e;
     }
   };
 

@@ -60,15 +60,7 @@ async function startApp() {
   }
 }
 
-console.log('[DB] Connecting to SQLite at:', dbPath);
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('[DB ERROR] Failed to connect to SQLite:', err.message);
-    process.exit(1);
-  }
-  console.log('[DB] Connected to SQLite successfully');
-  startApp();
-});
+// --- DATABASE CONNECTION & STARTUP ---
 
 let currentVaultKey: string | null = null;
 
@@ -595,12 +587,34 @@ app.get('/api/houses', checkAuth, async (req, res) => {
 
 app.post('/api/houses', checkAuth, async (req, res) => {
   try {
+    const role = (req as any).userRole;
+    const email = (req as any).userEmail;
+    console.log(`[API] POST /api/houses - User: ${email}, Role: ${role}`);
+
+    // SECURITY: Only OWNER and CO_CEO can create/update houses globally
+    if (!['OWNER', 'CO_CEO'].includes(role)) {
+      console.warn(`[API] Unauthorized house creation attempt by ${email} (Role: ${role})`);
+      return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    }
+
     const h = req.body;
+    console.log(`[API] House Data:`, h);
+
+    if (!h.id || !h.name) {
+      console.warn(`[API] Invalid house data provided:`, h);
+      return res.status(400).json({ error: "INVALID_HOUSE_DATA" });
+    }
+
     await query('INSERT OR REPLACE INTO houses (id, name, googleApiKey, createdAt, data) VALUES (?, ?, ?, ?, ?)',
       [h.id, JSON.stringify(h.name), h.googleApiKey, h.createdAt, JSON.stringify(h)]);
-    await logSystemEvent('HOUSE_UPDATED', `House ${h.id} updated by ${(req as any).userId || 'ADMIN'}`, 'INFO');
+    
+    console.log(`[API] House ${h.id} successfully saved to DB.`);
+    await logSystemEvent('HOUSE_UPDATED', `House ${h.id} updated by ${email}`, 'INFO');
     res.json({ status: "ok" });
-  } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
+  } catch (e) { 
+    console.error(`[API] House Creation Error:`, e);
+    res.status(500).json({ error: "DB_FAULT" }); 
+  }
 });
 
 // EXPLICIT DELETE ROUTE
@@ -826,3 +840,14 @@ async function initializeDatabase() {
 
   console.log('[DB] Schema Synchronized');
 }
+
+// --- DATABASE CONNECTION & STARTUP ---
+console.log('[DB] Connecting to SQLite at:', dbPath);
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error('[DB ERROR] Failed to connect to SQLite:', err.message);
+    process.exit(1);
+  }
+  console.log('[DB] Connected to SQLite successfully');
+  startApp();
+});
