@@ -37,6 +37,7 @@ export const PersonnelProvider: React.FC<{ children: ReactNode }> = ({ children 
         const remoteUsers = await res.json();
         if (Array.isArray(remoteUsers)) {
           setUsers(remoteUsers);
+          setIsLoading(false); // First sync complete, data is verified
         }
       }
     } catch (e) {
@@ -44,15 +45,13 @@ export const PersonnelProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   }, [token, user]);
 
+  // Initial Hydration - DISABLED for mobile data integrity (Always verify with server)
   useEffect(() => {
     const hydrate = async () => {
-      const stored = localStorage.getItem('verdant_personnel_v8');
-      if (stored) {
-        try { setUsers(JSON.parse(stored)); } catch (e) { console.error(e); }
-      }
+      // We no longer hydrate from localStorage as requested for mobile devices (Android/iOS)
       setIsPersistenceReady(true);
-      setIsLoading(false);
-
+      // isLoading remains true until first successful refreshPersonnelData
+      
       if (token) await refreshPersonnelData();
     };
     hydrate();

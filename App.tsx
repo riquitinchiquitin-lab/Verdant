@@ -2,10 +2,10 @@
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { PlantProvider } from './context/PlantContext';
-import { InventoryProvider } from './context/InventoryContext';
+import { PlantProvider, usePlants } from './context/PlantContext';
+import { InventoryProvider, useInventory } from './context/InventoryContext';
 import { LanguageProvider } from './context/LanguageContext';
-import { PersonnelProvider } from './context/PersonnelContext';
+import { PersonnelProvider, usePersonnel } from './context/PersonnelContext';
 import { SystemProvider } from './context/SystemContext';
 import { Layout } from './components/Layout';
 import { SecureAuth } from './pages/SecureAuth';
@@ -22,9 +22,21 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; requireManager?: boo
   children, 
   requireManager = false 
 }) => {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { isLoading: plantsLoading } = usePlants();
+  const { isLoading: inventoryLoading } = useInventory();
+  const { isLoading: personnelLoading } = usePersonnel();
 
-  if (loading) return <div className="flex h-screen items-center justify-center text-gray-500">Loading...</div>;
+  if (authLoading || plantsLoading || inventoryLoading || personnelLoading) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center bg-white dark:bg-slate-900">
+        <div className="w-16 h-16 border-4 border-verdant border-t-transparent rounded-full animate-spin mb-4"></div>
+        <div className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 animate-pulse">
+          Verifying with Server...
+        </div>
+      </div>
+    );
+  }
   
   if (!user) {
     return <Navigate to="/login" replace />;

@@ -34,6 +34,7 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({ children 
         if (Array.isArray(remoteData)) {
           setInventory(remoteData);
           setIsSynced(true);
+          setIsLoading(false); // First sync complete, data is verified
         }
       }
     } catch (e) {
@@ -41,16 +42,13 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   }, [token]);
 
-  // Initial Hydration
+  // Initial Hydration - DISABLED for mobile data integrity (Always verify with server)
   useEffect(() => {
     const hydrate = async () => {
-      const stored = localStorage.getItem('verdant_inventory_v8');
-      if (stored) {
-        try { setInventory(JSON.parse(stored)); } catch (e) { console.error(e); }
-      }
+      // We no longer hydrate from localStorage as requested for mobile devices (Android/iOS)
       setIsPersistenceReady(true);
-      setIsLoading(false);
-
+      // isLoading remains true until first successful refreshInventoryData
+      
       if (token) await refreshInventoryData();
     };
     hydrate();

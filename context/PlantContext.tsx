@@ -111,24 +111,25 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         if (Array.isArray(remoteTasks)) setTasks(remoteTasks);
       }
       setIsSynced(true);
+      setIsLoading(false); // First sync complete, data is verified
     } catch (e) { 
       console.warn("Sync Heartbeat Failed: Proxmox Node Offline."); 
       setIsSynced(false);
+      // If we've never loaded, we might want to allow a fallback here, 
+      // but the requirement is to verify with server.
     }
   }, [token]);
 
+  // Initial Hydration - DISABLED for mobile data integrity (Always verify with server)
   useEffect(() => {
     const hydrate = async () => {
       try {
-        const p = localStorage.getItem('verdant_plants_v8');
-        const h = localStorage.getItem('verdant_houses_v8');
-        const t = localStorage.getItem('verdant_tasks_v8');
-        if (p) setPlants(JSON.parse(p));
-        if (h) setHouses(JSON.parse(h));
-        if (t) setTasks(JSON.parse(t));
+        // We no longer hydrate from localStorage to ensure server-side truth on startup
+        // as requested for mobile devices (Android/iOS)
+        console.log("[PlantContext] Initializing... Waiting for server sync.");
       } finally { 
         setIsPersistenceReady(true); 
-        setIsLoading(false); 
+        // isLoading remains true until first successful refreshAllData
       }
     };
     hydrate();
