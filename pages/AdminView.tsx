@@ -193,11 +193,28 @@ export const AdminView: React.FC = () => {
       }
       
       console.log("[ADMIN] Backup data received, creating blob...");
-      const blob = await response.blob();
+      
+      let blob: Blob;
+      let fileName: string;
+
+      if (response.vault) {
+        // If the response contains a vault property, it's encrypted
+        // We save ONLY the ciphertext string to the .enc file
+        blob = new Blob([response.vault], { type: 'application/octet-stream' });
+        fileName = `verdant_backup_${new Date().toISOString().split('T')[0]}.enc`;
+      } else {
+        // Otherwise, it's a standard JSON response
+        // We need to call .json() to get the data, but fetchWithAuth might have already consumed it
+        // if it was encrypted (but in this branch it wasn't).
+        const data = await response.json();
+        blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        fileName = `verdant_backup_${new Date().toISOString().split('T')[0]}.json`;
+      }
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `verdant_backup_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

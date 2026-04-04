@@ -101,6 +101,7 @@ export const fetchWithAuth = async (endpoint: string, token: string, options: Re
             return {
               ...response,
               json: async () => decrypted,
+              vault: data.vault, // Preserve the encrypted payload for backups
               ok: true
             };
         } catch (e) {
