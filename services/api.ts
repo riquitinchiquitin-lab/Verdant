@@ -98,12 +98,19 @@ export const fetchWithAuth = async (endpoint: string, token: string, options: Re
       if (data.vault) {
         try {
             const decrypted = await decryptPayload(data.vault, masterKey!);
+            
+            // Create a proxy-like object that satisfies the Response interface enough for our needs
             return {
-              ...response,
+              ok: response.ok,
+              status: response.status,
+              statusText: response.statusText,
+              headers: response.headers,
+              url: response.url,
               json: async () => decrypted,
+              text: async () => JSON.stringify(decrypted),
+              blob: async () => new Blob([JSON.stringify(decrypted)], { type: 'application/json' }),
               vault: data.vault, // Preserve the encrypted payload for backups
-              ok: true
-            };
+            } as any;
         } catch (e) {
             localStorage.removeItem('verdant_master_key');
             throw e;

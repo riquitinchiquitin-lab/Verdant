@@ -3,7 +3,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { LocalizedString } from "../types";
 import { getGeminiApiKey } from "../constants";
 
-const TARGET_LANGS = [
+export const TARGET_LANGS = [
   'en', 'zh', 'ja', 'ko', 'es', 'fr', 'pt', 'de', 'id', 'vi', 'tl'
 ];
 

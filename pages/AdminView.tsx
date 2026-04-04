@@ -42,6 +42,7 @@ export const AdminView: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [isAddingHouse, setIsAddingHouse] = useState(false);
+  const [isSavingHouse, setIsSavingHouse] = useState(false);
   const [newHouseName, setNewHouseName] = useState('');
   const [newUser, setNewUser] = useState<Partial<User>>({ role: 'GARDENER' });
   const [hasMasterKey, setHasMasterKey] = useState(false);
@@ -58,6 +59,7 @@ export const AdminView: React.FC = () => {
   });
 
   useEffect(() => {
+    console.log("[Verdant] AdminView Protocol v1.0.1 Loaded");
     setHasMasterKey(!!localStorage.getItem('verdant_master_key'));
   }, []);
 
@@ -305,6 +307,7 @@ export const AdminView: React.FC = () => {
   const handleAddHouse = async () => {
     console.log("[AdminView] handleAddHouse triggered with name:", newHouseName);
     if (!newHouseName) return showNotification(t('msg_missing_name'), "ERROR");
+    setIsSavingHouse(true);
     try {
       console.log("[AdminView] Calling addHouse context function...");
       await addHouse(newHouseName);
@@ -315,6 +318,8 @@ export const AdminView: React.FC = () => {
     } catch (e) {
       console.error("[AdminView] handleAddHouse Error:", e);
       showNotification(t('msg_establishment_failed'), "ERROR");
+    } finally {
+      setIsSavingHouse(false);
     }
   };
 
@@ -530,7 +535,7 @@ export const AdminView: React.FC = () => {
                     </div>
                     <div className="flex gap-4 pt-4">
                         <Button variant="secondary" onClick={() => setIsAddingHouse(false)} className="flex-1 rounded-2xl uppercase font-black">{t('btn_cancel')}</Button>
-                        <Button variant="primary" onClick={handleAddHouse} className="flex-1 rounded-2xl uppercase font-black">{t('btn_save')}</Button>
+                        <Button variant="primary" onClick={handleAddHouse} isLoading={isSavingHouse} className="flex-1 rounded-2xl uppercase font-black">{t('btn_save')}</Button>
                     </div>
                 </div>
             </div>

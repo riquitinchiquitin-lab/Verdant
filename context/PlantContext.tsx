@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { Plant, Log, Task, House } from '../types';
+import { Plant, Log, Task, House, LocalizedString } from '../types';
 import { ROOM_TYPES, getGeminiApiKey } from '../constants';
 import { fetchWithAuth } from '../services/api';
 import { useAuth } from './AuthContext';
 import { useLanguage } from './LanguageContext';
-import { translateInput } from '../services/translationService';
+import { translateInput, TARGET_LANGS } from '../services/translationService';
 import { sendNotification } from '../services/notifications';
 import { generateUUID } from '../services/crypto';
 
@@ -340,11 +340,21 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const addHouse = async (name: string, googleApiKey?: string) => {
     console.log("[PlantContext] addHouse called with name:", name);
-    // 1. Localize the house name via AI
     try {
-        console.log("[PlantContext] Translating house name...");
-        const localizedName = await translateInput(name);
-        console.log("[PlantContext] Translated name:", localizedName);
+        // 1. Localize the house name via AI
+        let localizedName: LocalizedString;
+        try {
+            console.log("[PlantContext] Translating house name...");
+            localizedName = await translateInput(name);
+            console.log("[PlantContext] Translated name:", localizedName);
+        } catch (e) {
+            console.warn("[PlantContext] Translation failed, using original name:", e);
+            // Fallback: use the original name for all languages
+            localizedName = { en: name } as any;
+            TARGET_LANGS.forEach(lang => {
+                if (lang !== 'en') localizedName[lang] = name;
+            });
+        }
         
         // 2. Create the internal object with a temporary ID prefix
         const newH: House = { 
@@ -353,7 +363,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           googleApiKey,
           createdAt: new Date().toISOString() 
         };
-        
+            
         console.log("[PlantContext] New house object created:", newH);
 
         // 3. Update local state for immediate UI feedback
