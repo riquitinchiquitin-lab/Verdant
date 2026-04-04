@@ -44,6 +44,9 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
   const [identifiedPlant, setIdentifiedPlant] = useState<Partial<Plant> | null>(null);
   const [editNickname, setEditNickname] = useState('');
   const [editRoom, setEditRoom] = useState('');
+  const [editWateringInterval, setEditWateringInterval] = useState<number | null>(null);
+  const [editRepottingFrequency, setEditRepottingFrequency] = useState<number | null>(null);
+  const [editLastPotSize, setEditLastPotSize] = useState('');
   const [selectedHouseId, setSelectedHouseId] = useState<string | null>(user?.houseId || null);
   const [nursery, setNursery] = useState('');
   const [dateOfPurchase, setDateOfPurchase] = useState(new Date().toISOString().split('T')[0]);
@@ -178,6 +181,9 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
       
       setEditNickname(lv(details.nickname));
       setEditRoom('');
+      setEditWateringInterval(details.wateringInterval || null);
+      setEditRepottingFrequency(details.repottingFrequency || null);
+      setEditLastPotSize(details.lastPotSize ? details.lastPotSize.toString().replace(/cm$/i, '').trim() : '');
       
       // If nursery is empty, try to fill it with origin data
       if (!nursery && details.origin) {
@@ -237,6 +243,9 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
           id: `p-${generateUUID()}`,
           nickname: nicknameObj,
           room: roomObj,
+          wateringInterval: editWateringInterval,
+          repottingFrequency: editRepottingFrequency,
+          lastPotSize: editLastPotSize,
           houseId: selectedHouseId,
           provenance: {
             nursery,
@@ -579,6 +588,36 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
                         <option value="">{t('assign_room_label')}</option>
                         {ROOM_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
+                </div>
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_hydration_interval_days')}</label>
+                    <input 
+                        type="number" 
+                        value={editWateringInterval || ''}
+                        onChange={(e) => setEditWateringInterval(parseInt(e.target.value) || null)}
+                        className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white"
+                        placeholder={t('placeholder_days')}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_repot_frequency')}</label>
+                    <input 
+                        type="number" 
+                        value={editRepottingFrequency || ''}
+                        onChange={(e) => setEditRepottingFrequency(parseInt(e.target.value) || null)}
+                        className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white"
+                        placeholder={t('lbl_months')}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_last_pot_size')}</label>
+                    <input 
+                        type="number" 
+                        value={editLastPotSize}
+                        onChange={(e) => setEditLastPotSize(e.target.value)}
+                        className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white"
+                        placeholder={t('placeholder_pot_size')}
+                    />
                 </div>
             </div>
 

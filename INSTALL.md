@@ -66,6 +66,9 @@ nano .env
 ### A. Core AI & Search (Required)
 - **Google Gemini API**: Powers AI-driven care advice. Obtain at [Google AI Studio](https://aistudio.google.com/).
   - Set `GEMINI_API_KEY`.
+  - **Required Configuration**:
+    1. **Enable Custom Search API**: Even with a key, the service must be enabled. Go to the [Google Cloud Library](https://console.cloud.google.com/apis/library), search for "Custom Search API", and click **Enable**.
+    2. **Check API Key Restrictions**: If your key is restricted, ensure "Custom Search API" is allowed. Go to **APIs & Services > Credentials**, click your API key, and under **API restrictions**, ensure **Custom Search API** is checked in the dropdown. Save and allow 5 minutes for propagation.
 - **Serper.dev**: Enables search grounding for real-time data. [Serper.dev](https://serper.dev/).
   - Set `SERPER_API_KEY`.
 
@@ -80,13 +83,33 @@ nano .env
 - **Root Owner**: Specify the primary administrator's email.
   - Set `VITE_ROOT_OWNER_EMAIL`.
 
-### C. Botanical Data (Optional)
+### C. Botanical Data (Required)
 - **PlantNet**: Specimen identification. [my.plantnet.org](https://my.plantnet.org/).
 - **Trefle**: Botanical metadata. [trefle.io](https://trefle.io/).
 - **Open Plantbook**: Technical care specifications. [open.plantbook.io](https://open.plantbook.io/).
 - **Perenual**: Supplemental care data. [perenual.com](https://perenual.com/).
 
-### D. Security Keys
+### D. Cloudflare Setup (Required)
+Verdant is designed to run behind a Cloudflare Tunnel for secure, encrypted access without opening firewall ports. This is **mandatory** for the app to function correctly with the AI engine.
+
+1. **Create a Cloudflare Tunnel**:
+   - Go to the [Cloudflare Zero Trust Dashboard](https://one.dash.cloudflare.com/).
+   - Navigate to **Networks > Tunnels** and create a new tunnel.
+   - Choose **Cloudflared** as the connector.
+   - Copy the **Tunnel Token** provided in the installation command.
+   - Set `CF_UNIFIED_TOKEN` in your `.env` file.
+2. **Configure Public Hostname**:
+   - In the tunnel settings, add a **Public Hostname**.
+   - Set the **Domain** (e.g., `verdant.example.com`).
+   - Set the **Service Type** to `HTTP` and **URL** to `verdant-app:3000` (this matches the service name in `docker-compose.yml`).
+3. **WAF & Security Settings (Critical)**:
+   - **Bot Fight Mode**: Navigate to **Security > Bots** and ensure **Bot Fight Mode** is **OFF**. This is required to allow the AI engine to upload and process specimen images.
+   - **WAF Skip Rules**: Navigate to **Security > WAF > Custom Rules**. Create a rule to **Skip** all security features for the following paths:
+     - `/api/identify/*`
+     - `/uploads/*`
+   - **SSL/TLS**: Set your encryption mode to **Full (Strict)** in **Websites > [Your Domain] > SSL/TLS**.
+
+### E. Security Keys
 - **MASTER_KEY**: A unique 50-character string for encryption.
   ```bash
   openssl rand -base64 38 | tr -d '\n' | cut -c1-50
@@ -118,11 +141,6 @@ docker compose logs -f
 ---
 
 ## ⚙️ Advanced Configuration
-
-### Cloudflare Tunnel & WAF
-If exposing Verdant via Cloudflare, ensure the following:
-- **Bot Fight Mode**: Must be **OFF** to allow API uploads.
-- **WAF Rules**: Create a "Skip" rule for `/api/identify` and `/uploads` paths to prevent false positives during image processing.
 
 ### Custom Domain
 Set `VITE_ALLOWED_HOSTS` to your domain (e.g., `verdant.example.com`) to ensure correct CORS and redirect behavior.

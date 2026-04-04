@@ -667,6 +667,61 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                     </div>
                                 </div>
                             </section>
+
+                            <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-8">
+                                <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-verdant">{t('lbl_upcoming_care_schedule')}</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Watering Schedule */}
+                                    {plant.wateringInterval && (
+                                        <div className="space-y-3">
+                                            <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest px-2">{t('lbl_watering_schedule')}</p>
+                                            {[1, 2, 3].map(i => {
+                                                const lastDate = plant.lastWatered ? new Date(plant.lastWatered) : new Date();
+                                                const nextDate = new Date(lastDate.getTime() + i * (plant.wateringInterval || 7) * 86400000);
+                                                const daysAway = Math.ceil((nextDate.getTime() - Date.now()) / 86400000);
+                                                return (
+                                                    <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-800/50 rounded-2xl border border-gray-100 dark:border-slate-800">
+                                                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500 text-sm">💧</div>
+                                                        <div className="flex-1">
+                                                            <p className="text-xs font-bold text-gray-900 dark:text-white">
+                                                                {nextDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-[9px] font-black text-blue-500 uppercase tracking-widest">
+                                                            {daysAway > 0 ? t('care_due_in', { days: daysAway.toString() }) : t('due_today')}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+
+                                    {/* Rotation Schedule */}
+                                    {plant.rotationFrequency && (
+                                        <div className="space-y-3">
+                                            <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest px-2">{t('lbl_rotation_schedule')}</p>
+                                            {[1, 2, 3].map(i => {
+                                                const lastDate = plant.lastRotated ? new Date(plant.lastRotated) : new Date();
+                                                const nextDate = new Date(lastDate.getTime() + i * (plant.rotationFrequency || 30) * 86400000);
+                                                const daysAway = Math.ceil((nextDate.getTime() - Date.now()) / 86400000);
+                                                return (
+                                                    <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-800/50 rounded-2xl border border-gray-100 dark:border-slate-800">
+                                                        <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 text-sm">🔄</div>
+                                                        <div className="flex-1">
+                                                            <p className="text-xs font-bold text-gray-900 dark:text-white">
+                                                                {nextDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-[9px] font-black text-amber-500 uppercase tracking-widest">
+                                                            {daysAway > 0 ? t('care_due_in', { days: daysAway.toString() }) : t('due_today')}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
                         </div>
                     )}
 
@@ -682,7 +737,11 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                             value={plant.repottingFrequency ? `${t('lbl_every')} ${plant.repottingFrequency} ${t('lbl_months')}` : `${t('lbl_every')} ${getSuggestedRepotFrequency(plant)} ${t('lbl_months')}`} 
                                             subValue={!plant.repottingFrequency ? '(Suggested based on species)' : undefined}
                                         />
-                                        <PassportItem icon="🪴" label={t('lbl_last_pot_size')} value={plant.lastPotSize || t('lbl_na')} />
+                                        <PassportItem 
+                                            icon="🪴" 
+                                            label={t('lbl_last_pot_size')} 
+                                            value={plant.lastPotSize ? (/^\d+(\.\d+)?$/.test(plant.lastPotSize.toString().trim()) ? `${plant.lastPotSize.toString().trim()}cm` : plant.lastPotSize) : t('lbl_na')} 
+                                        />
                                         <PassportItem 
                                             icon="🔄" 
                                             label={t('lbl_rotation_frequency')} 
@@ -807,14 +866,14 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                                 </div>
                                                 <div className="flex-1 space-y-2">
                                                     <div className="flex justify-between items-center">
-                                                        <p className="text-[10px] font-serif font-black uppercase tracking-widest text-verdant">
+                                                        <p className="text-[11px] font-serif font-black uppercase tracking-widest text-verdant">
                                                             {log.type === 'PHENOPHASE' && log.metadata?.phase 
                                                                 ? t(`PHASE_${log.metadata.phase}`) 
                                                                 : t('lbl_record_type', { type: t(`log_${log.type.toLowerCase()}`) })}
                                                         </p>
-                                                        <span className="text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{new Date(log.date).toLocaleDateString(language)}</span>
+                                                        <span className="text-[11px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{new Date(log.date).toLocaleDateString(language)}</span>
                                                     </div>
-                                                    <p className="text-gray-900 dark:text-slate-100 font-serif italic leading-relaxed">"{lv(log.localizedNote) || log.note || '...'}"</p>
+                                                    <p className="text-sm md:text-base text-gray-900 dark:text-slate-100 font-serif italic leading-relaxed">"{lv(log.localizedNote) || log.note || '...'}"</p>
                                                     {log.imageUrl && (
                                                         <div 
                                                             className="mt-4 w-32 h-32 rounded-2xl overflow-hidden border border-gray-100 dark:border-slate-800 shadow-sm cursor-pointer hover:scale-105 transition-transform"

@@ -108,15 +108,30 @@ const encrypt = (data: any) => {
 
 async function initializeVaultKey() {
   try {
+    // 1. Check if a Master Key is provided in the environment
+    const envKey = process.env.MASTER_KEY;
+    
     const result = await query('SELECT encrypted_key FROM vault_key WHERE id = 1');
+    
     if (result.rows.length === 0) {
-      const newVaultKey = crypto.randomBytes(32).toString('hex');
-      await query('INSERT INTO vault_key (id, encrypted_key) VALUES (1, ?)', [newVaultKey]);
-      currentVaultKey = newVaultKey;
+      // Use env key if available, otherwise generate random
+      const vaultKeyToUse = envKey || crypto.randomBytes(32).toString('hex');
+      await query('INSERT INTO vault_key (id, encrypted_key) VALUES (1, ?)', [vaultKeyToUse]);
+      currentVaultKey = vaultKeyToUse;
+      console.log(`[SECURITY] Vault Protocol Initialized (${envKey ? 'Environment' : 'Generated'} Key)`);
     } else {
-      currentVaultKey = result.rows[0].encrypted_key;
+      // If we have an env key, we should update the DB to match it if they differ
+      // This ensures the .env file remains the source of truth for the user
+      const dbKey = result.rows[0].encrypted_key;
+      if (envKey && envKey !== dbKey) {
+        await query('UPDATE vault_key SET encrypted_key = ? WHERE id = 1', [envKey]);
+        currentVaultKey = envKey;
+        console.log('[SECURITY] Vault Protocol Re-synchronized with Environment Key');
+      } else {
+        currentVaultKey = dbKey;
+        console.log('[SECURITY] Vault Protocol Synchronized from Database');
+      }
     }
-    console.log('[SECURITY] Vault Protocol Synchronized');
   } catch (e) { 
     console.error('[SECURITY] Vault Key Failure:', e);
     throw e;

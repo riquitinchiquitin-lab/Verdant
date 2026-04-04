@@ -34,22 +34,22 @@ const TaskItem: React.FC<{
             
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                    <h3 className={`font-black text-gray-900 dark:text-white uppercase tracking-tight text-[10px] md:text-xs ${task.completed ? 'line-through text-gray-400' : ''}`}>
+                    <h3 className={`font-black text-gray-900 dark:text-white uppercase tracking-tight text-base md:text-lg ${task.completed ? 'line-through text-gray-400' : ''}`}>
                         {lv(task.title)}
                     </h3>
                     {task.recurrence?.type && task.recurrence.type !== 'NONE' && (
-                        <span className="text-[6px] md:text-[7px] bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-1 py-0.5 rounded-md font-black uppercase tracking-widest">
+                        <span className="text-[8px] md:text-[9px] bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-md font-black uppercase tracking-widest">
                             {task.recurrence.type}
                         </span>
                     )}
                 </div>
                 {task.description && (
-                    <p className="text-[9px] md:text-[10px] text-gray-500 dark:text-slate-400 font-medium leading-tight mt-0.5 line-clamp-2">
+                    <p className="text-sm md:text-base text-gray-500 dark:text-slate-400 font-medium leading-tight mt-1 line-clamp-2">
                         {lv(task.description as any)}
                     </p>
                 )}
-                <div className="flex items-center gap-2 mt-1">
-                    <p className={`text-[7px] md:text-[8px] font-black uppercase tracking-widest ${isOverdue ? 'text-red-500' : 'text-gray-400 dark:text-slate-500'}`}>
+                <div className="flex items-center gap-2 mt-1.5">
+                    <p className={`text-xs md:text-sm font-black uppercase tracking-widest ${isOverdue ? 'text-red-500' : 'text-gray-400 dark:text-slate-500'}`}>
                         {taskDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                     </p>
                     {taskPlants.length > 0 && (
@@ -160,7 +160,7 @@ export const TasksView: React.FC = () => {
 
         <div className="space-y-10">
             <section className="space-y-4">
-                <h2 className="text-[10px] font-black text-red-500 uppercase tracking-[0.4em] px-2">{t('tasks_due_now')}</h2>
+                <h2 className="text-sm md:text-base font-black text-red-500 uppercase tracking-[0.4em] px-2">{t('tasks_due_now')}</h2>
                 <div className="flex flex-col gap-3">
                     {dueToday.map(task => <TaskItem key={task.id} task={task} onToggle={toggleTaskCompletion} onDelete={deleteTask} plants={plants} today={today} can={can} />)}
                     {dueToday.length === 0 && <p className="text-gray-300 italic text-[10px] uppercase font-black tracking-widest px-2">{t('tasks_no_urgent')}</p>}
@@ -168,7 +168,7 @@ export const TasksView: React.FC = () => {
             </section>
 
             <section className="space-y-4">
-                <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em] px-2">{t('tasks_upcoming')}</h2>
+                <h2 className="text-sm md:text-base font-black text-blue-500 uppercase tracking-[0.4em] px-2">{t('tasks_upcoming')}</h2>
                 <div className="flex flex-col gap-3">
                     {upcoming.map(task => <TaskItem key={task.id} task={task} onToggle={toggleTaskCompletion} onDelete={deleteTask} plants={plants} today={today} can={can} />)}
                 </div>
@@ -176,7 +176,7 @@ export const TasksView: React.FC = () => {
 
             {completed.length > 0 && (
                 <section className="space-y-4 opacity-60">
-                    <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] px-2">{t('completed')}</h2>
+                    <h2 className="text-sm md:text-base font-black text-gray-400 uppercase tracking-[0.4em] px-2">{t('completed')}</h2>
                     <div className="flex flex-col gap-3">
                         {completed.map(task => <TaskItem key={task.id} task={task} onToggle={toggleTaskCompletion} onDelete={deleteTask} plants={plants} today={today} can={can} />)}
                     </div>

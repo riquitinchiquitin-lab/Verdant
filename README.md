@@ -33,7 +33,7 @@ Verdant is a high-precision botanical management system designed for professiona
 - **System Telemetry**: Monitor system health and botanical data distribution through integrated telemetry dashboards.
 
 ### 6. Security & Reliability
-- **Military-Grade Encryption**: All data payloads are secured using AES-256-GCM encryption.
+- **Military-Grade Encryption**: All data payloads are secured using AES-256-GCM encryption. See the **[Security Protocol (SECURITY.md)](./SECURITY.md)** for more details.
 - **Vault Protocol**: Secure management of API keys and sensitive system configurations.
 - **Backup & Restore**: Comprehensive system-wide backup and restoration capabilities to ensure data integrity.
 

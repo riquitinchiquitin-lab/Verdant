@@ -75,7 +75,7 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
         setTargetVpd(plant.targetVpd || null);
         setTargetDli(plant.targetDli || null);
         setRepottingFrequency(plant.repottingFrequency || null);
-        setLastPotSize(plant.lastPotSize || '');
+        setLastPotSize(plant.lastPotSize ? plant.lastPotSize.toString().replace(/cm$/i, '').trim() : '');
         setRotationFrequency(plant.rotationFrequency || null);
         setLastRotated(plant.lastRotated || null);
         setPropagationMethods(lva(plant.propagationMethods as any)?.join(', ') || '');
@@ -427,7 +427,7 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
                       </div>
                       <div>
                           <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_last_pot_size')}</label>
-                          <input type="text" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={lastPotSize} onChange={e => setLastPotSize(e.target.value)} placeholder={t('placeholder_pot_size')} />
+                          <input type="number" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={lastPotSize} onChange={e => setLastPotSize(e.target.value)} placeholder={t('placeholder_pot_size')} />
                       </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">

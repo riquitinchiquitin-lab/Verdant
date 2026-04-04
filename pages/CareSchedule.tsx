@@ -60,19 +60,16 @@ const getRotationDaysDue = (plant: Plant): number | null => {
     return Math.ceil((lastDate.getTime() + intervalMs - Date.now()) / 86400000);
 };
 
-const CareItem: React.FC<{
-  plant: Plant;
-  onWater: (plant: Plant) => void;
-  onRotate: (plant: Plant) => void;
+const CareActionItem: React.FC<{
+  action: { plant: Plant; type: 'WATER' | 'ROTATE'; daysDue: number };
+  onAction: (plant: Plant, type: 'WATER' | 'ROTATE') => void;
   lastLoggedAction: string | null;
   t: any;
   lv: any;
-}> = ({ plant, onWater, onRotate, lastLoggedAction, t, lv }) => {
-    const daysDue = getDaysDue(plant);
-    const rotationDaysDue = getRotationDaysDue(plant);
-    
-    const isWaterOverdue = daysDue !== null && daysDue <= 0;
-    const isRotationOverdue = rotationDaysDue !== null && rotationDaysDue <= 0;
+}> = ({ action, onAction, lastLoggedAction, t, lv }) => {
+    const { plant, type, daysDue } = action;
+    const isOverdue = daysDue <= 0;
+    const actionKey = `${plant.id}-${type.toLowerCase()}`;
     
     return (
         <div className={`group flex items-center gap-3 p-2 md:p-3 rounded-2xl border transition-all duration-300 bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 hover:border-verdant/50 hover:shadow-lg`}>
@@ -88,46 +85,33 @@ const CareItem: React.FC<{
             {/* Info */}
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                    <h3 className="font-black text-gray-900 dark:text-white uppercase tracking-tight text-[10px] md:text-xs truncate">
+                    <h3 className="font-black text-gray-900 dark:text-white uppercase tracking-tight text-base md:text-lg truncate">
                         {lv(plant.nickname)}
                     </h3>
-                    {(isWaterOverdue || isRotationOverdue) && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping shrink-0" />}
+                    {isOverdue && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping shrink-0" />}
                 </div>
-                <p className="text-[8px] md:text-[10px] text-gray-400 dark:text-slate-500 truncate font-sans font-normal normal-case">
-                    {plant.species}
+                <p className="text-xs md:text-sm text-gray-400 dark:text-slate-500 truncate font-sans font-normal normal-case">
+                    {type === 'WATER' ? t('lbl_watering_schedule') : t('lbl_rotation_schedule')}
                 </p>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    {daysDue !== null && daysDue <= 3 && (
-                        <span className={`px-1.5 md:px-2 py-0.5 rounded-full text-[6px] md:text-[8px] font-black uppercase tracking-widest border shadow-sm ${isWaterOverdue ? 'bg-red-500 text-white border-red-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200/50'}`}>
-                            💧 {isWaterOverdue ? (daysDue === 0 ? t('due_today') : t('care_days_overdue', { days: Math.abs(daysDue).toString() })) : t('care_due_in', { days: daysDue.toString() })}
-                        </span>
-                    )}
-                    {rotationDaysDue !== null && rotationDaysDue <= 3 && (
-                        <span className={`px-1.5 md:px-2 py-0.5 rounded-full text-[6px] md:text-[8px] font-black uppercase tracking-widest border shadow-sm ${isRotationOverdue ? 'bg-amber-500 text-white border-amber-400' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200/50'}`}>
-                            🔄 {isRotationOverdue ? (rotationDaysDue === 0 ? t('due_today') : t('care_days_overdue', { days: Math.abs(rotationDaysDue).toString() })) : t('care_due_in', { days: rotationDaysDue.toString() })}
-                        </span>
-                    )}
+                <div className="flex items-center gap-2 mt-1.5">
+                    <span className={`px-2 md:px-2.5 py-0.5 rounded-full text-xs md:text-sm font-black uppercase tracking-widest border shadow-sm ${isOverdue ? 'bg-red-500 text-white border-red-400' : type === 'WATER' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200/50' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200/50'}`}>
+                        {type === 'WATER' ? '💧' : '🔄'} {isOverdue ? (daysDue === 0 ? t('due_today') : t('care_days_overdue', { days: Math.abs(daysDue).toString() })) : t('care_due_in', { days: daysDue.toString() })}
+                    </span>
                 </div>
             </div>
 
             {/* Actions */}
             <div className="flex gap-1.5 md:gap-2">
-                {daysDue !== null && daysDue <= 3 && (
-                    <button 
-                        onClick={() => onWater(plant)}
-                        className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all shadow-sm border-b-2 active:scale-95 ${lastLoggedAction === plant.id + '-water' ? 'bg-emerald-500 border-emerald-700 text-white' : isWaterOverdue ? 'bg-red-600 hover:bg-red-700 border-red-800 text-white' : 'bg-blue-600 hover:bg-blue-700 border-blue-800 text-white'}`}
-                    >
+                <button 
+                    onClick={() => onAction(plant, type)}
+                    className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all shadow-sm border-b-2 active:scale-95 ${lastLoggedAction === actionKey ? 'bg-emerald-500 border-emerald-700 text-white' : isOverdue ? (type === 'WATER' ? 'bg-red-600 hover:bg-red-700 border-red-800' : 'bg-amber-600 hover:bg-amber-700 border-amber-800') : (type === 'WATER' ? 'bg-blue-600 hover:bg-blue-700 border-blue-800' : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-800')} text-white`}
+                >
+                    {type === 'WATER' ? (
                         <span className="text-xs md:text-sm">💧</span>
-                    </button>
-                )}
-                {rotationDaysDue !== null && rotationDaysDue <= 3 && (
-                    <button 
-                        onClick={() => onRotate(plant)}
-                        className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all shadow-sm border-b-2 active:scale-95 group ${lastLoggedAction === plant.id + '-rotate' ? 'bg-emerald-500 border-emerald-700 text-white' : isRotationOverdue ? 'bg-amber-600 hover:bg-amber-700 border-amber-800 text-white' : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-800 text-white'}`}
-                    >
-                        <PotRotationIcon className="w-5 h-5 md:w-6 md:h-6 group-hover:animate-[spin_3s_linear_infinite]" />
-                    </button>
-                )}
+                    ) : (
+                        <PotRotationIcon className="w-5 h-5 md:w-6 md:h-6" />
+                    )}
+                </button>
             </div>
         </div>
     );
@@ -171,73 +155,57 @@ export const CareSchedule: React.FC = () => {
     }
   };
 
-  const handleWater = async (plant: Plant) => {
-    await addLog(plant.id, { id: `l-${generateUUID()}`, date: new Date().toISOString(), type: 'WATER', localizedNote: { en: t('log_water_manual') } });
-    updatePlant(plant.id, { lastWatered: new Date().toISOString() });
-    setLastLoggedAction(plant.id + '-water');
+  const handleAction = async (plant: Plant, type: 'WATER' | 'ROTATE') => {
+    if (type === 'WATER') {
+      await addLog(plant.id, { id: `l-${generateUUID()}`, date: new Date().toISOString(), type: 'WATER', localizedNote: { en: t('log_water_manual') } });
+      updatePlant(plant.id, { lastWatered: new Date().toISOString() });
+      setLastLoggedAction(plant.id + '-water');
+    } else {
+      await addLog(plant.id, { 
+        id: `l-${generateUUID()}`, 
+        date: new Date().toISOString(), 
+        type: 'ROTATED', 
+        localizedNote: { 
+          en: t('log_rotated_manual'),
+          [language]: t('log_rotated_manual')
+        } 
+      });
+      updatePlant(plant.id, { lastRotated: new Date().toISOString() });
+      setLastLoggedAction(plant.id + '-rotate');
+    }
     setTimeout(() => setLastLoggedAction(null), 2000);
   };
 
-  const handleRotate = async (plant: Plant) => {
-    await addLog(plant.id, { 
-      id: `l-${generateUUID()}`, 
-      date: new Date().toISOString(), 
-      type: 'ROTATED', 
-      localizedNote: { 
-        en: t('log_rotated_manual'),
-        [language]: t('log_rotated_manual')
-      } 
-    });
-    updatePlant(plant.id, { lastRotated: new Date().toISOString() });
-    setLastLoggedAction(plant.id + '-rotate');
-    setTimeout(() => setLastLoggedAction(null), 2000);
-  };
-
-  const filteredPlants = useMemo(() => {
-    return plants.filter(p => {
-        const daysDue = getDaysDue(p);
-        const rotationDaysDue = getRotationDaysDue(p);
-        
-        // Show if water is due in next 3 days OR rotation is due in next 3 days
-        const isWaterVisible = daysDue !== null && daysDue <= 3;
-        const isRotationVisible = rotationDaysDue !== null && rotationDaysDue <= 3;
-        
-        if (!isWaterVisible && !isRotationVisible) return false;
-
+  const careActions = useMemo(() => {
+    const actions: { plant: Plant; type: 'WATER' | 'ROTATE'; daysDue: number }[] = [];
+    
+    plants.forEach(p => {
         // Filtering based on user role and house assignment
-        if (user?.houseId) return p.houseId === user.houseId;
-        if (isAdmin) return true; // Global admins with no house see everything
-        if (isManager && !p.houseId) return true; // Managers see unattributed plants
-        return false;
+        const isVisible = user?.houseId ? p.houseId === user.houseId : (isAdmin || (isManager && !p.houseId));
+        if (!isVisible) return;
+
+        const wDays = getDaysDue(p);
+        const rDays = getRotationDaysDue(p);
+        
+        if (wDays !== null && wDays <= 3) {
+            actions.push({ plant: p, type: 'WATER', daysDue: wDays });
+        }
+        if (rDays !== null && rDays <= 3) {
+            actions.push({ plant: p, type: 'ROTATE', daysDue: rDays });
+        }
     });
+
+    return actions.sort((a, b) => a.daysDue - b.daysDue);
   }, [plants, user?.houseId, isAdmin, isManager]);
 
-  const sortedPlants = useMemo(() => 
-    [...filteredPlants].sort((a, b) => {
-        const aDue = Math.min(getDaysDue(a) ?? 999, getRotationDaysDue(a) ?? 999);
-        const bDue = Math.min(getDaysDue(b) ?? 999, getRotationDaysDue(b) ?? 999);
-        return aDue - bDue;
-    }), 
-  [filteredPlants]);
-
   const { dueNow, upcoming } = useMemo(() => {
-    const now: Plant[] = [];
-    const future: Plant[] = [];
-    
-    sortedPlants.forEach(p => {
-        const d = getDaysDue(p);
-        const r = getRotationDaysDue(p);
-        const isUrgent = (d !== null && d <= 0) || (r !== null && r <= 0);
-        if (isUrgent) now.push(p);
-        else future.push(p);
-    });
-    
+    const now = careActions.filter(a => a.daysDue <= 0);
+    const future = careActions.filter(a => a.daysDue > 0);
     return { dueNow: now, upcoming: future };
-  }, [sortedPlants]);
+  }, [careActions]);
 
   return (
     <div className="p-4 md:p-10 max-w-3xl mx-auto pb-32 transition-all">
-        
         
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 md:mb-10 gap-4 md:gap-6">
             <div>
@@ -257,18 +225,17 @@ export const CareSchedule: React.FC = () => {
         </div>
 
         <div className="space-y-10">
-            {sortedPlants.length > 0 ? (
+            {careActions.length > 0 ? (
                 <>
                     {dueNow.length > 0 && (
                         <section className="space-y-4">
-                            <h2 className="text-[10px] font-black text-red-500 uppercase tracking-[0.4em] px-2">{t('tasks_due_now')}</h2>
+                            <h2 className="text-sm md:text-base font-black text-red-500 uppercase tracking-[0.4em] px-2">{t('tasks_due_now')}</h2>
                             <div className="flex flex-col gap-3">
-                                {dueNow.map(plant => (
-                                    <CareItem 
-                                        key={plant.id} 
-                                        plant={plant} 
-                                        onWater={handleWater} 
-                                        onRotate={handleRotate} 
+                                {dueNow.map((action, idx) => (
+                                    <CareActionItem 
+                                        key={`${action.plant.id}-${action.type}-${idx}`} 
+                                        action={action} 
+                                        onAction={handleAction} 
                                         lastLoggedAction={lastLoggedAction}
                                         t={t}
                                         lv={lv}
@@ -280,14 +247,13 @@ export const CareSchedule: React.FC = () => {
 
                     {upcoming.length > 0 && (
                         <section className="space-y-4">
-                            <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em] px-2">{t('tasks_upcoming')}</h2>
+                            <h2 className="text-sm md:text-base font-black text-blue-500 uppercase tracking-[0.4em] px-2">{t('tasks_upcoming')}</h2>
                             <div className="flex flex-col gap-3">
-                                {upcoming.map(plant => (
-                                    <CareItem 
-                                        key={plant.id} 
-                                        plant={plant} 
-                                        onWater={handleWater} 
-                                        onRotate={handleRotate} 
+                                {upcoming.map((action, idx) => (
+                                    <CareActionItem 
+                                        key={`${action.plant.id}-${action.type}-${idx}`} 
+                                        action={action} 
+                                        onAction={handleAction} 
                                         lastLoggedAction={lastLoggedAction}
                                         t={t}
                                         lv={lv}

@@ -228,15 +228,17 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
 
     // 3. Repotting Task
-    if (plant.repottingFrequency && plant.lastPotSize) {
+    if (plant.repottingFrequency && plant.lastPotSize && !isNaN(parseInt(plant.lastPotSize))) {
+      const currentSize = plant.lastPotSize.toLowerCase().endsWith('cm') ? plant.lastPotSize : `${plant.lastPotSize}cm`;
+      const nextSize = `${parseInt(plant.lastPotSize) + 2}cm`;
       newTasks.push({
         id: `t-repot-${plant.id}-${generateUUID()}`,
         plantIds: [plant.id],
         type: 'REPOT',
         title: { en: `Repot ${lv(plant.nickname)}`, fr: `Rempoter ${lv(plant.nickname)}` },
         description: { 
-          en: `Recommended pot size: ${parseInt(plant.lastPotSize) + 2}cm (Current: ${plant.lastPotSize}cm)`,
-          fr: `Taille de pot recommandée: ${parseInt(plant.lastPotSize) + 2}cm (Actuel: ${plant.lastPotSize}cm)`
+          en: `Recommended pot size: ${nextSize} (Current: ${currentSize})`,
+          fr: `Taille de pot recommandée: ${nextSize} (Actuel: ${currentSize})`
         },
         date: new Date(now.getTime() + (plant.repottingFrequency * 30 * 24 * 60 * 60 * 1000)).toISOString(),
         completed: false,

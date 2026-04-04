@@ -32,6 +32,9 @@
     lbl_target_vpd:
     lbl_target_dli:
     lbl_environmental_guards:
+    lbl_upcoming_care_schedule:
+    lbl_watering_schedule:
+    lbl_rotation_schedule:
     lbl_watering_delta:
     lbl_last_observed_action:
     lbl_biological_milestones:
