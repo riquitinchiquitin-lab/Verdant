@@ -7,6 +7,7 @@ import { useSystem, SystemLog } from '../context/SystemContext';
 import { useInventory } from '../context/InventoryContext';
 import { House, User, Plant } from '../types';
 import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 import { SystemTelemetry } from '../components/SystemTelemetry';
 import { ConfirmationDialog } from '../components/ui/ConfirmationDialog';
 import { fetchWithAuth } from '../services/api'; // Mandatory import for handshake
@@ -42,6 +43,9 @@ export const AdminView: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [isAddingHouse, setIsAddingHouse] = useState(false);
+  const [isBackupKeyModalOpen, setIsBackupKeyModalOpen] = useState(false);
+  const [backupKeyInput, setBackupKeyInput] = useState('');
+  const [pendingBackupFile, setPendingBackupFile] = useState<File | null>(null);
   const [isSavingHouse, setIsSavingHouse] = useState(false);
   const [newHouseName, setNewHouseName] = useState('');
   const [newUser, setNewUser] = useState<Partial<User>>({ role: 'GARDENER' });
@@ -114,12 +118,24 @@ export const AdminView: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    let backupKey: string | null = null;
     if (file.name.endsWith('.enc')) {
-      backupKey = prompt(t('msg_enter_backup_key'));
-      if (!backupKey) return;
+      setPendingBackupFile(file);
+      setBackupKeyInput('');
+      setIsBackupKeyModalOpen(true);
+    } else {
+      processRestore(file, null);
     }
+  };
 
+  const handleBackupKeySubmit = () => {
+    if (!pendingBackupFile) return;
+    if (!backupKeyInput) return showNotification(t('msg_enter_backup_key'), "ERROR");
+    processRestore(pendingBackupFile, backupKeyInput);
+    setIsBackupKeyModalOpen(false);
+    setPendingBackupFile(null);
+  };
+
+  const processRestore = async (file: File, backupKey: string | null) => {
     setIsRestoring(true);
     const reader = new FileReader();
     reader.onload = async (event) => {
@@ -190,8 +206,9 @@ export const AdminView: React.FC = () => {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        console.error("[ADMIN] Backup request failed with status:", response.status);
-        throw new Error("BACKUP_FAILED");
+        const errorData = await response.json().catch(() => ({}));
+        console.error("[ADMIN] Backup request failed with status:", response.status, "Error Data:", errorData);
+        throw new Error(`BACKUP_FAILED: ${response.status} ${JSON.stringify(errorData)}`);
       }
       
       console.log("[ADMIN] Backup data received, creating blob...");
@@ -1041,6 +1058,50 @@ export const AdminView: React.FC = () => {
           title={confirmation.title}
           message={confirmation.message}
         />
+
+        <Modal
+            isOpen={isBackupKeyModalOpen}
+            onClose={() => {
+                setIsBackupKeyModalOpen(false);
+                setPendingBackupFile(null);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+            }}
+            title={t('db_restore_title')}
+        >
+            <div className="space-y-6">
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('msg_enter_backup_key')}</label>
+                    <input
+                        type="password"
+                        value={backupKeyInput}
+                        onChange={(e) => setBackupKeyInput(e.target.value)}
+                        placeholder="••••••••••••••••••••••••••••••••"
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl px-4 py-3 font-mono text-sm outline-none focus:ring-2 ring-verdant/20"
+                        autoFocus
+                    />
+                </div>
+                <div className="flex gap-3">
+                    <Button 
+                        variant="ghost" 
+                        onClick={() => {
+                            setIsBackupKeyModalOpen(false);
+                            setPendingBackupFile(null);
+                            if (fileInputRef.current) fileInputRef.current.value = '';
+                        }} 
+                        className="flex-1 rounded-xl uppercase font-black"
+                    >
+                        {t('btn_cancel')}
+                    </Button>
+                    <Button 
+                        variant="primary" 
+                        onClick={handleBackupKeySubmit} 
+                        className="flex-1 rounded-xl uppercase font-black"
+                    >
+                        {t('btn_confirm')}
+                    </Button>
+                </div>
+            </div>
+        </Modal>
     </div>
   );
 };

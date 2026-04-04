@@ -27,6 +27,7 @@ export const fetchWithAuth = async (endpoint: string, token: string, options: Re
     ...(userRole ? { 'x-user-role': userRole } : {}),
     ...(userHouseId ? { 'x-user-house-id': userHouseId } : {}),
     ...(userId ? { 'x-user-id': userId } : {}),
+    ...(storedUser ? { 'x-user-email': JSON.parse(storedUser).email } : {}),
     ...((options.headers as Record<string, string>) || {}),
   };
 
