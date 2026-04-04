@@ -60,6 +60,79 @@ const getRotationDaysDue = (plant: Plant): number | null => {
     return Math.ceil((lastDate.getTime() + intervalMs - Date.now()) / 86400000);
 };
 
+const CareItem: React.FC<{
+  plant: Plant;
+  onWater: (plant: Plant) => void;
+  onRotate: (plant: Plant) => void;
+  lastLoggedAction: string | null;
+  t: any;
+  lv: any;
+}> = ({ plant, onWater, onRotate, lastLoggedAction, t, lv }) => {
+    const daysDue = getDaysDue(plant);
+    const rotationDaysDue = getRotationDaysDue(plant);
+    
+    const isWaterOverdue = daysDue !== null && daysDue <= 0;
+    const isRotationOverdue = rotationDaysDue !== null && rotationDaysDue <= 0;
+    
+    return (
+        <div className={`group flex items-center gap-3 p-2 md:p-3 rounded-2xl border transition-all duration-300 bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 hover:border-verdant/50 hover:shadow-lg`}>
+            {/* Plant Image */}
+            <div className="w-12 h-12 md:w-16 md:h-16 rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 shrink-0 shadow-inner">
+                {plant.images?.[0] ? (
+                    <img src={plant.images[0]} alt={lv(plant.nickname)} className="w-full h-full object-cover" />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-300 dark:text-slate-700 font-black text-xs md:text-sm">?</div>
+                )}
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                    <h3 className="font-black text-gray-900 dark:text-white uppercase tracking-tight text-[10px] md:text-xs truncate">
+                        {lv(plant.nickname)}
+                    </h3>
+                    {(isWaterOverdue || isRotationOverdue) && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping shrink-0" />}
+                </div>
+                <p className="text-[8px] md:text-[10px] text-gray-400 dark:text-slate-500 truncate font-sans font-normal normal-case">
+                    {plant.species}
+                </p>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {daysDue !== null && daysDue <= 3 && (
+                        <span className={`px-1.5 md:px-2 py-0.5 rounded-full text-[6px] md:text-[8px] font-black uppercase tracking-widest border shadow-sm ${isWaterOverdue ? 'bg-red-500 text-white border-red-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200/50'}`}>
+                            💧 {isWaterOverdue ? (daysDue === 0 ? t('due_today') : t('care_days_overdue', { days: Math.abs(daysDue).toString() })) : t('care_due_in', { days: daysDue.toString() })}
+                        </span>
+                    )}
+                    {rotationDaysDue !== null && rotationDaysDue <= 3 && (
+                        <span className={`px-1.5 md:px-2 py-0.5 rounded-full text-[6px] md:text-[8px] font-black uppercase tracking-widest border shadow-sm ${isRotationOverdue ? 'bg-amber-500 text-white border-amber-400' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200/50'}`}>
+                            🔄 {isRotationOverdue ? (rotationDaysDue === 0 ? t('due_today') : t('care_days_overdue', { days: Math.abs(rotationDaysDue).toString() })) : t('care_due_in', { days: rotationDaysDue.toString() })}
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-1.5 md:gap-2">
+                {daysDue !== null && daysDue <= 3 && (
+                    <button 
+                        onClick={() => onWater(plant)}
+                        className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all shadow-sm border-b-2 active:scale-95 ${lastLoggedAction === plant.id + '-water' ? 'bg-emerald-500 border-emerald-700 text-white' : isWaterOverdue ? 'bg-red-600 hover:bg-red-700 border-red-800 text-white' : 'bg-blue-600 hover:bg-blue-700 border-blue-800 text-white'}`}
+                    >
+                        <span className="text-xs md:text-sm">💧</span>
+                    </button>
+                )}
+                {rotationDaysDue !== null && rotationDaysDue <= 3 && (
+                    <button 
+                        onClick={() => onRotate(plant)}
+                        className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all shadow-sm border-b-2 active:scale-95 group ${lastLoggedAction === plant.id + '-rotate' ? 'bg-emerald-500 border-emerald-700 text-white' : isRotationOverdue ? 'bg-amber-600 hover:bg-amber-700 border-amber-800 text-white' : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-800 text-white'}`}
+                    >
+                        <PotRotationIcon className="w-5 h-5 md:w-6 md:h-6 group-hover:animate-[spin_3s_linear_infinite]" />
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+};
+
 export const CareSchedule: React.FC = () => {
   const { plants, addLog, updatePlant, houses } = usePlants();
   const { user } = useAuth();
@@ -147,8 +220,23 @@ export const CareSchedule: React.FC = () => {
     }), 
   [filteredPlants]);
 
+  const { dueNow, upcoming } = useMemo(() => {
+    const now: Plant[] = [];
+    const future: Plant[] = [];
+    
+    sortedPlants.forEach(p => {
+        const d = getDaysDue(p);
+        const r = getRotationDaysDue(p);
+        const isUrgent = (d !== null && d <= 0) || (r !== null && r <= 0);
+        if (isUrgent) now.push(p);
+        else future.push(p);
+    });
+    
+    return { dueNow: now, upcoming: future };
+  }, [sortedPlants]);
+
   return (
-    <div className="p-4 md:p-10 max-w-7xl mx-auto pb-32 transition-all">
+    <div className="p-4 md:p-10 max-w-3xl mx-auto pb-32 transition-all">
         
         
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 md:mb-10 gap-4 md:gap-6">
@@ -168,70 +256,48 @@ export const CareSchedule: React.FC = () => {
             )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
-            {sortedPlants.length > 0 ? sortedPlants.map(plant => {
-                const daysDue = getDaysDue(plant);
-                const rotationDaysDue = getRotationDaysDue(plant);
-                
-                const isWaterOverdue = daysDue !== null && daysDue <= 0;
-                const isRotationOverdue = rotationDaysDue !== null && rotationDaysDue <= 0;
-                
-                const isUrgentThirsty = shouldHighlightThirsty && isWaterOverdue;
-                
-                return (
-                    <div key={plant.id} className={`bg-white dark:bg-slate-900 rounded-[24px] md:rounded-[32px] border-2 ${isUrgentThirsty ? 'border-red-500 ring-4 ring-red-500/10 animate-pulse' : 'border-gray-100 dark:border-slate-800'} p-3 md:p-5 shadow-sm flex flex-col items-center gap-3 md:gap-6 hover:border-verdant/40 transition-all duration-500 group`}>
-                        <div className="flex items-center gap-3 md:gap-5 w-full">
-                            <div className="w-14 h-14 md:w-20 md:h-20 rounded-xl md:rounded-[24px] bg-gray-100 dark:bg-slate-800 flex-shrink-0 overflow-hidden shadow-inner ring-2 md:ring-4 ring-white dark:ring-slate-800 transition-transform group-hover:scale-105 duration-500">
-                                {plant.images?.[0] ? (
-                                    <img src={plant.images[0]} alt={lv(plant.nickname)} className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-gray-300 dark:text-slate-700 font-black text-sm md:text-xl">?</div>
-                                )}
+        <div className="space-y-10">
+            {sortedPlants.length > 0 ? (
+                <>
+                    {dueNow.length > 0 && (
+                        <section className="space-y-4">
+                            <h2 className="text-[10px] font-black text-red-500 uppercase tracking-[0.4em] px-2">{t('tasks_due_now')}</h2>
+                            <div className="flex flex-col gap-3">
+                                {dueNow.map(plant => (
+                                    <CareItem 
+                                        key={plant.id} 
+                                        plant={plant} 
+                                        onWater={handleWater} 
+                                        onRotate={handleRotate} 
+                                        lastLoggedAction={lastLoggedAction}
+                                        t={t}
+                                        lv={lv}
+                                    />
+                                ))}
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 mb-0.5 md:mb-1">
-                                    <h3 className="text-sm md:text-xl font-black text-gray-900 dark:text-white truncate uppercase tracking-tight leading-none">{lv(plant.nickname)}</h3>
-                                    {(isWaterOverdue || isRotationOverdue) && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping shrink-0" />}
-                                </div>
-                                <p className="text-[9px] md:text-xs text-gray-400 dark:text-slate-500 truncate font-sans font-normal normal-case leading-none mb-2 md:mb-3">{plant.species}</p>
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                    {daysDue !== null && daysDue <= 3 && (
-                                        <span className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-widest border shadow-sm transition-colors duration-500 ${isWaterOverdue ? 'bg-red-500 text-white border-red-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200/50'}`}>
-                                            💧 {isWaterOverdue ? (daysDue === 0 ? t('due_today') : t('care_days_overdue', { days: Math.abs(daysDue).toString() })) : t('care_due_in', { days: daysDue.toString() })}
-                                        </span>
-                                    )}
-                                    {rotationDaysDue !== null && rotationDaysDue <= 3 && (
-                                        <span className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-widest border shadow-sm transition-colors duration-500 ${isRotationOverdue ? 'bg-amber-500 text-white border-amber-400' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200/50'}`}>
-                                            🔄 {isRotationOverdue ? (rotationDaysDue === 0 ? t('due_today') : t('care_days_overdue', { days: Math.abs(rotationDaysDue).toString() })) : t('care_due_in', { days: rotationDaysDue.toString() })}
-                                        </span>
-                                    )}
-                                </div>
+                        </section>
+                    )}
+
+                    {upcoming.length > 0 && (
+                        <section className="space-y-4">
+                            <h2 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em] px-2">{t('tasks_upcoming')}</h2>
+                            <div className="flex flex-col gap-3">
+                                {upcoming.map(plant => (
+                                    <CareItem 
+                                        key={plant.id} 
+                                        plant={plant} 
+                                        onWater={handleWater} 
+                                        onRotate={handleRotate} 
+                                        lastLoggedAction={lastLoggedAction}
+                                        t={t}
+                                        lv={lv}
+                                    />
+                                ))}
                             </div>
-                        </div>
-                        
-                        <div className="flex w-full gap-2">
-                            {daysDue !== null && daysDue <= 3 && (
-                                <Button 
-                                    size="md" 
-                                    className={`flex-1 rounded-xl md:rounded-2xl h-10 md:h-14 font-black uppercase tracking-widest text-[9px] md:text-[10px] shadow-xl border-b-2 md:border-b-4 transition-all active:scale-95 ${lastLoggedAction === plant.id + '-water' ? 'bg-emerald-500 border-emerald-700 text-white' : isWaterOverdue ? 'bg-red-600 hover:bg-red-700 border-red-800 text-white' : 'bg-blue-600 hover:bg-blue-700 border-blue-800 text-white'}`} 
-                                    onClick={() => handleWater(plant)}
-                                >
-                                    <span className="text-lg md:text-xl">💧</span>
-                                </Button>
-                            )}
-                            {rotationDaysDue !== null && rotationDaysDue <= 3 && (
-                                <Button 
-                                    size="md" 
-                                    className={`flex-1 rounded-xl md:rounded-2xl h-10 md:h-14 font-black uppercase tracking-widest text-[9px] md:text-[10px] shadow-xl border-b-2 md:border-b-4 transition-all active:scale-95 group ${lastLoggedAction === plant.id + '-rotate' ? 'bg-emerald-500 border-emerald-700 text-white' : isRotationOverdue ? 'bg-amber-600 hover:bg-amber-700 border-amber-800 text-white' : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-800 text-white'}`} 
-                                    onClick={() => handleRotate(plant)}
-                                >
-                                    <PotRotationIcon className="w-8 h-8 md:w-10 md:h-10 group-hover:animate-[spin_3s_linear_infinite]" />
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                );
-            }) : (
+                        </section>
+                    )}
+                </>
+            ) : (
                 <div className="py-32 text-center bg-white dark:bg-slate-900/30 rounded-[64px] border-4 border-dashed border-gray-100 dark:border-slate-800 shadow-inner flex flex-col items-center justify-center animate-in fade-in duration-1000">
                     <div className="w-24 h-24 bg-gray-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-8 shadow-sm">
                         <svg className="w-12 h-12 text-gray-200 dark:text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>

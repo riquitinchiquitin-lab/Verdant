@@ -89,39 +89,7 @@ const QuotaBar: React.FC = () => {
   );
 };
 
-const ThemeToggle: React.FC = () => {
-  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
-
-  const toggleTheme = () => {
-    const newDark = !isDark;
-    setIsDark(newDark);
-    if (newDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('verdant-theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('verdant-theme', 'light');
-    }
-  };
-
-  return (
-    <button 
-      onClick={toggleTheme}
-      className="p-3 text-slate-500 dark:text-slate-400 hover:text-amber-500 dark:hover:text-amber-400 transition-all active:scale-90 border border-gray-100 dark:border-slate-800 rounded-xl"
-      title="Toggle Appearance"
-    >
-      {isDark ? (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
-        </svg>
-      ) : (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-        </svg>
-      )}
-    </button>
-  );
-};
+import { ThemeToggle } from './ThemeToggle';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { logout, user, can } = useAuth();
@@ -214,7 +182,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex transition-colors duration-500 overflow-hidden">
+    <div className="min-h-screen bg-white dark:bg-slate-950 flex transition-colors duration-500 overflow-hidden">
       <NotificationToast />
       {alertMessage && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[200] bg-emerald-500 text-emerald-900 text-sm font-bold px-4 py-2 rounded-lg shadow-lg animate-in fade-in slide-in-from-bottom-4">
@@ -228,7 +196,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         />
       )}
 
-      <aside className={`fixed lg:static inset-y-0 left-0 w-72 bg-white dark:bg-slate-900 border-r border-gray-100 dark:border-slate-800 z-50 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform duration-300 flex flex-col no-print`}>
+      <aside className={`fixed lg:static inset-y-0 left-0 w-72 bg-white dark:bg-slate-950 border-r border-gray-100 dark:border-slate-800 z-50 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform duration-300 flex flex-col no-print`}>
         <AddPlantModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSave={addPlant} />
         <QrScannerModal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} onScanSuccess={handleScanSuccess} />
 
@@ -302,7 +270,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     </div>
                     <div className="min-w-0">
                         <p className="text-[10px] font-black text-gray-900 dark:text-white truncate uppercase tracking-tighter">{lv(user.name) || 'Anonymous'}</p>
-                        <p className="text-[8px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('role_' + user.role.toLowerCase())}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-[8px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('role_' + user.role.toLowerCase())}</p>
+                          <span className="text-[7px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-tighter">v1.0</span>
+                        </div>
                     </div>
                 </div>
             )}
@@ -310,8 +281,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col relative h-screen overflow-hidden bg-gray-50 dark:bg-slate-950 print:h-auto print:overflow-visible">
-        <header className="h-16 md:h-20 bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between px-4 md:px-8 shrink-0 z-30 no-print gap-4">
+      <main className="flex-1 flex flex-col relative h-screen overflow-hidden bg-white dark:bg-slate-950 print:h-auto print:overflow-visible">
+        <header className="h-16 md:h-20 bg-white dark:bg-slate-950 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between px-4 md:px-8 shrink-0 z-30 no-print gap-4">
           <button 
             onClick={() => setIsSidebarOpen(true)}
             className="lg:hidden p-2 text-gray-600 dark:text-slate-400 border border-gray-100 dark:border-slate-800 rounded-lg"

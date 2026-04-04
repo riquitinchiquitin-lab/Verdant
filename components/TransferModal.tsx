@@ -56,7 +56,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, p
                     <p className="text-[9px] text-gray-400 uppercase font-black tracking-[0.2em]">{t('code') || "GARDEN ID"}</p>
                     <span className="text-[8px] bg-verdant/10 text-verdant px-2 py-0.5 rounded-full font-black uppercase tracking-tighter italic">Sync Token</span>
                 </div>
-                <p className="font-mono text-[10px] select-all font-bold text-gray-700 dark:text-slate-300 break-all leading-relaxed bg-white/40 dark:bg-black/20 p-3 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm">
+                <p className="font-mono text-[10px] select-all font-bold text-gray-700 dark:text-slate-300 break-all leading-relaxed bg-white/40 dark:bg-slate-900/20 p-3 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm">
                     {hFormatHash}
                 </p>
             </div>

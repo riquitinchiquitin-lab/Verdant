@@ -23,7 +23,7 @@ export const fetchWithAuth = async (endpoint: string, token: string, options: Re
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${token}`,
-    'X-Verdant-Version': '3.1.0',
+    'X-Verdant-Version': '1.0.0',
     ...(userRole ? { 'x-user-role': userRole } : {}),
     ...(userHouseId ? { 'x-user-house-id': userHouseId } : {}),
     ...(userId ? { 'x-user-id': userId } : {}),

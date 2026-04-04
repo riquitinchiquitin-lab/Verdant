@@ -358,7 +358,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
     <div className={`fixed inset-0 z-50 flex items-center justify-center transition-opacity duration-500 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
       <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={onClose} />
       
-      <div className="relative w-full h-full lg:w-[90vw] lg:h-[90vh] lg:max-h-[96vh] bg-verdant-bone dark:bg-slate-950 lg:rounded-[48px] shadow-2xl lg:m-4 animate-in zoom-in-95 duration-500 border border-gray-100 dark:border-white/10 overflow-hidden flex flex-col">
+      <div className="relative w-full h-full lg:w-[90vw] lg:h-[90vh] lg:max-h-[96vh] bg-white dark:bg-slate-950 lg:rounded-[48px] shadow-2xl lg:m-4 animate-in zoom-in-95 duration-500 border border-gray-100 dark:border-white/10 overflow-hidden flex flex-col">
         {/* CLOSE BUTTON - TOP RIGHT */}
         <button 
             onClick={onClose}
@@ -604,7 +604,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                     </div>
 
                                     {plant.soilComposition && plant.soilComposition.length > 0 && (
-                                        <div className="bg-white dark:bg-slate-900 rounded-[40px] p-8 border border-gray-100 dark:border-slate-800 shadow-sm space-y-6">
+                                    <section className="bg-white dark:bg-slate-900 rounded-[40px] p-8 border border-gray-100 dark:border-slate-800 shadow-sm space-y-6">
                                             <h3 className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{t('lbl_soil_recipe')}</h3>
                                             <div className="space-y-4">
                                                 {plant.soilComposition.map((item, idx) => (
@@ -619,7 +619,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                                     </div>
                                                 ))}
                                             </div>
-                                        </div>
+                                        </section>
                                     )}
 
                                     <Button 

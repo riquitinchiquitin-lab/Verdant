@@ -30,7 +30,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; requireManager?: boo
   // 1. First, wait for Auth to determine if we have a session
   if (authLoading) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-white dark:bg-slate-900">
+      <div className="flex h-screen flex-col items-center justify-center bg-white dark:bg-slate-950">
         <div className="w-16 h-16 border-4 border-verdant border-t-transparent rounded-full animate-spin mb-4"></div>
         <div className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 animate-pulse">
           Authenticating...
@@ -47,7 +47,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; requireManager?: boo
   // 3. If logged in, wait for data contexts to finish their initial server sync
   if (plantsLoading || inventoryLoading || personnelLoading) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-white dark:bg-slate-900">
+      <div className="flex h-screen flex-col items-center justify-center bg-white dark:bg-slate-950">
         <div className="w-16 h-16 border-4 border-verdant border-t-transparent rounded-full animate-spin mb-4"></div>
         <div className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 animate-pulse">
           Verifying with Server...

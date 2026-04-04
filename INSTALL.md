@@ -1,207 +1,158 @@
-## 🚀 Installation & Setup
+# 🌿 Verdant: Installation & Setup Guide
 
-Follow these instructions to get Verdant running on your Linux system.
+Welcome to **Verdant**, the precision care platform for modern plant collectors. This guide provides comprehensive instructions for deploying and configuring your instance.
 
-### 1. Prerequisites
-Ensure you have the following installed on your system:
-- **Docker** & **Docker Compose** (Recommended)
-- **Node.js** (v18.0.0 or higher - for manual setup)
-- **npm** (v9.0.0 or higher - for manual setup)
-- **SQLite3** (for manual setup)
-- **Git**
+---
 
-#### Ubuntu / Debian / Mint:
+## 📖 Table of Contents
 
-**Official Docker Repository (Recommended for Latest Version)**
+1. [Prerequisites](#-prerequisites)
+2. [Repository Setup](#-1-repository-setup)
+3. [Configuration & API Keys](#-2-configuration--api-keys)
+4. [Deployment](#-3-deployment)
+5. [Initial Onboarding](#-4-initial-onboarding)
+6. [Advanced Configuration](#-advanced-configuration)
+7. [Monitoring & Limits](#-monitoring--limits)
+8. [Troubleshooting](#-troubleshooting)
+9. [License](#-license)
+
+---
+
+## 📋 Prerequisites
+
+Ensure your system meets the following requirements:
+
+- **Docker & Docker Compose** (Required for deployment)
+- **Git** (for version control)
+
+### System Preparation (Ubuntu/Debian)
+
 ```bash
-# Add Docker's official GPG key:
-sudo apt update
-sudo apt update && sudo apt install -y gnupg
-sudo apt install ca-certificates curl gnupg
+# Update system and install dependencies
+sudo apt update && sudo apt install -y ca-certificates curl gnupg git
+
+# Install Docker Engine (Official Repository)
 sudo install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 sudo chmod a+r /etc/apt/keyrings/docker.gpg
 
-# Add the repository to Apt sources:
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt update
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-# Install Docker Engine and Docker Compose Plugin:
-sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
 
-# Install Git:
-sudo apt update && sudo apt install git -y
+---
 
+## 🛠️ 1. Repository Setup
 
-### 2. Obtaining API Keys
-Verdant requires several API keys to function at full capacity. For a complete list of all environment variables and their descriptions, please refer to the [.env.example](.env.example) file.
+Clone the repository and navigate to the project root:
 
-#### A. Google Gemini API Key (Required for AI Care Advice)
-1. Go to [Google AI Studio](https://aistudio.google.com/).
-2. Sign in with your Google account.
-3. Click on **"Get API key"** in the sidebar.
-4. Create a new API key in a new or existing project.
-5. Copy the key to your `.env` file as `GEMINI_API_KEY`.
-
-#### B. Google Custom Search API (Search Grounding)
-1. **Enable the Custom Search API**:
-   - Even if you have a key, the specific "Service" must be enabled for your project.
-   - Go to the [Google Cloud Library](https://console.cloud.google.com/apis/library).
-   - Search for **"Custom Search API"**.
-   - Click it and select **Enable**.
-
-2. **Check API Key Restrictions**:
-   - The most common cause for errors is that the key has been "locked down" to only work with specific APIs (like Maps or YouTube), and Custom Search isn't on that list.
-   - Go to **APIs & Services > Credentials**.
-   - Click on the name of your API key (AIzaSy...).
-   - Scroll down to **API restrictions**.
-   - **Option B: "Restrict key"**: click the dropdown and ensure **Custom Search API** is checked.
-   - Select **Application restrictions**: **Websites**.
-   - Add your app website: `https://verdant.yourdomain.com`
-   - Click **Save**. *Note: It can take up to 5 minutes for these changes to propagate.*
-
-#### C. Google Client ID (Required for Authentication)
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
-2. Create a new project.
-3. Navigate to **APIs & Services > Credentials**.
-4. Click **Create Credentials > OAuth client ID**.
-5. If prompted, configure the "OAuth consent screen".
-6. Select **Web application** as the application type.
-7. Add your App URL to **Authorized JavaScript origins**.
-8. Add your App URL + `/auth/callback` to **Authorized redirect URIs**.
-9. Copy the **Client ID** to your `.env` file as `GOOGLE_CLIENT_ID`.
-
-#### D. PlantNet API Key (Optional for Plant Identification)
-1. Register at [PlantNet API](https://my.plantnet.org/).
-2. Navigate to your dashboard to find your API key.
-3. Copy the key to your `.env` file as `PLANTNET_API_KEY`.
-
-#### E. Trefle API Token (Botanical Data)
-1. Sign up at [Trefle.io](https://trefle.io/).
-2. Verify your email address.
-3. Access your token from the user dashboard.
-4. Copy the token to your `.env` file as `TREFLE_TOKEN`.
-
-#### F. Open Plantbook (OPB) API Key (Botanical Data)
-1. Register at [Open Plantbook](https://open.plantbook.io/).
-2. Create a new application in your dashboard.
-3. Retrieve your **Client ID** and **Client Secret**.
-4. Copy them to your `.env` file as `OPB_CLIENT_ID` and `OPB_CLIENT_SECRET`.
-
-#### G. Perenual API Key (Plant Care Data)
-1. Register at [Perenual](https://perenual.com/docs/api).
-2. Choose a plan (Free tier available).
-3. Retrieve your API key from your profile.
-4. Copy the key to your `.env` file as `PERENUAL_API_KEY`.
-
-#### H. Serper.dev API Key (Search Grounding)
-1. Sign up at [Serper.dev](https://serper.dev/).
-2. You will receive free credits upon registration.
-3. Copy the API key from the dashboard to your `.env` file as `SERPER_API_KEY`.
-
-#### I. API Usage Monitoring & Limits
-Verdant includes a built-in API usage tracking system to help you stay within free tier limits (e.g., Google Maps $200 monthly credit). 
-- **Google Maps Safety Limit**: The system automatically disables the Maps API if usage exceeds 10,000 sessions per month to prevent unexpected charges.
-- **Monitoring**: You can monitor real-time usage for all integrated APIs (Gemini, PlantNet, Trefle, etc.) via the **System Telemetry** dashboard in the Admin panel.
-
-#### J. System Security Keys
-- **MASTER_KEY**: This must be a random 50-character string. You can generate one using:
-  ```bash
-  openssl rand -base64 38 | tr -d '\n' | cut -c1-50
-  ```
-- **DB_PASSWORD**: Set a strong, unique password for your PostgreSQL database.
-
-#### K. Cloudflare Tunnel & Domain Name (For Public Access)
-To expose your local Verdant instance to the public web (e.g., via `yknet.org`):
-1. Create a [Cloudflare account](https://dash.cloudflare.com/).
-2. Navigate to **Zero Trust > Networks > Tunnels**.
-3. Create a new tunnel and follow the instructions to install `cloudflared` on your host.
-4. Add a **Public Hostname** (e.g., `verdant.yourdomain.com`) pointing to `http://localhost:3000`.
-5. Copy your **Tunnel Token** to your `.env` file as `CF_UNIFIED_TOKEN`.
-6. Add your domain to the `VITE_ALLOWED_HOSTS` variable in your `.env` file (e.g., `VITE_ALLOWED_HOSTS=verdant.yourdomain.com`).
-
-#### L. Advanced Cloudflare Configuration (WAF & Bot Protection)
-To ensure Google Auth and API uploads work correctly through Cloudflare, you must adjust the following security settings:
-
-**1. Deactivate Bot Fight Mode:**
-- Go to **Security > Bots**.
-- Ensure **Bot Fight Mode** is set to **Off**.
-
-**2. Create WAF Custom Rules (Skip Rules):**
-- Go to **Security > WAF > Custom rules**.
-- Click **Create rule**.
-- **Rule 1: Allow Verdant Production API**
-  - **Field**: Custom filter expression.
-  - **Expression**: 
-    ```
-    (http.request.uri.path contains "/api/identify" and http.request.uri.path contains "/uploads") and (http.host contains "verdant.yourdomain.com") or (http.request.uri.path wildcard r"/cdn-cgi/challenge-platform/") or (http.request.uri.path wildcard r"/api/identify") or (http.host contains "verdant-api.yourdomain.com")
-    ```
-  - **Action**: Choose **Skip**.
-  - **WAF components to skip**: Check **all boxes** (All remaining custom rules, All rate limiting rules, All managed rules, All Super Bot Fight Mode Rules, etc.).
-- **Rule 2: Allow Verdant Test API**
-  - **Field**: Custom filter expression.
-  - **Expression**: 
-    ```
-    (http.host contains "verdant.yourdomain.com") or (http.request.uri.path wildcard r"/cdn-cgi/challenge-platform/") or (http.request.uri.path wildcard r"/api/identify") or (http.host contains "verdant-api.yourdomain.com")
-    ```
-  - **Action**: Choose **Skip**.
-  - **WAF components to skip**: Check **all boxes**.
-
-#### M. Root Owner Setup (Required for Initial Access)
-The Root Owner is the primary administrator who has full control over the system and is the only one who can invite other users initially.
-1. Decide which Google account will be the Root Owner.
-2. Copy the email address of that account to your `.env` file as `VITE_ROOT_OWNER_EMAIL`.
-   ```env
-   VITE_ROOT_OWNER_EMAIL=your_username@gmail.com
-   ```
-3. The first time you sign in with this email, the system will automatically recognize you as the **Founder/Owner**.
-
-### 3. Clone the Repository
 ```bash
 git clone https://github.com/riquitinchiquitin-lab/verdant.git
 cd verdant
 ```
-### 4. Environment Configuration
-Create a `.env` file in the root directory and add your API keys. You can find a template with all available options in [.env.example](.env.example):
+
+---
+
+## 🔑 2. Configuration & API Keys
+
+Verdant relies on several external services. Copy the example environment file and populate it with your credentials:
+
 ```bash
 cp .env.example .env
-# Edit .env with your preferred editor
 nano .env
 ```
 
-### 5. Build & Initialize
-#### Using Docker (Recommended):
-```bash
-docker compose build
-```
-### 6. Build & Start
-#### Using Docker (Recommended):
-```bash
-# Start the entire stack in the background
-docker compose up -d
-```
+### A. Core AI & Search (Required)
+- **Google Gemini API**: Powers AI-driven care advice. Obtain at [Google AI Studio](https://aistudio.google.com/).
+  - Set `GEMINI_API_KEY`.
+- **Serper.dev**: Enables search grounding for real-time data. [Serper.dev](https://serper.dev/).
+  - Set `SERPER_API_KEY`.
 
-# View logs
+### B. Authentication (Required)
+- **Google OAuth**: Required for secure user login.
+  1. Create a project in the [Google Cloud Console](https://console.cloud.google.com/).
+  2. Configure the **OAuth Consent Screen**.
+  3. Create **OAuth 2.0 Client IDs** (Web Application).
+  4. Add your App URL to **Authorized JavaScript origins**.
+  5. Add `[Your App URL]/auth/callback` to **Authorized redirect URIs**.
+  - Set `GOOGLE_CLIENT_ID`.
+- **Root Owner**: Specify the primary administrator's email.
+  - Set `VITE_ROOT_OWNER_EMAIL`.
+
+### C. Botanical Data (Optional)
+- **PlantNet**: Specimen identification. [my.plantnet.org](https://my.plantnet.org/).
+- **Trefle**: Botanical metadata. [trefle.io](https://trefle.io/).
+- **Open Plantbook**: Technical care specifications. [open.plantbook.io](https://open.plantbook.io/).
+- **Perenual**: Supplemental care data. [perenual.com](https://perenual.com/).
+
+### D. Security Keys
+- **MASTER_KEY**: A unique 50-character string for encryption.
+  ```bash
+  openssl rand -base64 38 | tr -d '\n' | cut -c1-50
+  ```
+
+---
+
+## 🚀 3. Deployment
+
+### Docker Deployment (Production)
+
+```bash
+# Build and start services in detached mode
+docker compose up -d --build
+
+# Monitor logs
 docker compose logs -f
 ```
 
-## 🚀 Getting Started
-1. **Initial Authentication**: Sign in using the Google account specified in `VITE_ROOT_OWNER_EMAIL`. You will be granted the **Owner** role automatically.
-2. **Setup Property**: Create your first house or property via the **Admin > Houses** tab.
-3. **Invite Personnel**: Go to **Admin > Personnel** to invite gardeners or other staff by adding their Google email addresses.
-4. **Add Specimens**: Use the "Add Plant" interface or QR sync to populate your jungle.
-5. **Follow Protocol**: Complete automated tasks to maintain optimal specimen health.
+---
+
+## 🏁 4. Initial Onboarding
+
+1. **First Login**: Sign in with the email specified in `VITE_ROOT_OWNER_EMAIL`. You will be automatically initialized as the **System Owner**.
+2. **Define Properties**: Navigate to **Admin > Houses** to create your first property.
+3. **Invite Team**: Use **Admin > Personnel** to invite staff via their Google emails.
+4. **Add Specimens**: Start populating your collection using the "Add Plant" interface.
+
+---
+
+## ⚙️ Advanced Configuration
+
+### Cloudflare Tunnel & WAF
+If exposing Verdant via Cloudflare, ensure the following:
+- **Bot Fight Mode**: Must be **OFF** to allow API uploads.
+- **WAF Rules**: Create a "Skip" rule for `/api/identify` and `/uploads` paths to prevent false positives during image processing.
+
+### Custom Domain
+Set `VITE_ALLOWED_HOSTS` to your domain (e.g., `verdant.example.com`) to ensure correct CORS and redirect behavior.
+
+---
+
+## 🛡️ Monitoring & Limits
+
+Verdant includes built-in telemetry to track API usage:
+- **Google Maps Safety**: Automatically capped at 10,000 sessions/month.
+- **Real-time Tracking**: Monitor all API calls via the **System Telemetry** dashboard in the Admin panel.
+
+---
+
+## ❓ Troubleshooting
+
+- **Login Fails**: Ensure your `GOOGLE_CLIENT_ID` is correct and the redirect URI matches exactly.
+- **AI Advice Not Loading**: Check your `GEMINI_API_KEY` status and quota in Google AI Studio.
+- **Images Not Uploading**: Check Cloudflare Bot Fight Mode or ensure the container has write access to the `uploads/` volume.
+
+---
 
 ## 📄 License
-This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license.
 
-- **Attribution**: You must give appropriate credit (Creator: Yan Boily), provide a link to the license, and indicate if changes were made.
-- **Non-Commercial**: You may not use the material for commercial purposes.
+This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)**.
 
-For more details, please refer to the [LICENSE.md](./LICENSE.md) file.
+- **Attribution**: Credit must be given to the creator (**Yan Boily**).
+- **Non-Commercial**: Commercial use is strictly prohibited.
+
+See [LICENSE.md](./LICENSE.md) for full details.
 
 ---
 *Verdant: Precision Care for the Modern Collector.*

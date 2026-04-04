@@ -29,6 +29,7 @@ interface ProtocolLog {
     source: string;
     message: string;
     type: 'SYSTEM' | 'DEBUG' | 'NETWORK' | 'GEMINI' | 'WARNING';
+    key?: string;
 }
 
 export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, onSave }) => {
@@ -62,7 +63,16 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
 
   const progressState = useMemo(() => {
     if (logs.length === 0) return { percent: 0, status: t('status_initializing'), time: 42 };
-    const lastMsg = logs[logs.length - 1].message.toLowerCase();
+    const lastLog = logs[logs.length - 1];
+    const lastKey = lastLog.key;
+    const lastMsg = lastLog.message.toLowerCase();
+    
+    // Saving process logs
+    if (lastKey === 'SAVING_START') return { percent: 10, status: t('status_saving_specimen'), time: 15 };
+    if (lastKey === 'TRANSLATING') return { percent: 50, status: t('lbl_translating'), time: 10 };
+    if (lastKey === 'FINALIZING') return { percent: 90, status: t('status_finalizing_translations'), time: 2 };
+
+    // Identification process logs
     if (lastMsg.includes("multi-specimen")) return { percent: 10, status: t('status_initializing_protocol'), time: 40 };
     if (lastMsg.includes("uplinking to pl@ntnet")) return { percent: 25, status: t('status_visual_pattern_matching'), time: 35 };
     if (lastMsg.includes("gemini vision")) return { percent: 40, status: t('status_neural_specimen_identification'), time: 25 };
@@ -85,12 +95,13 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
     }
   }, [scanMode, countdown]);
 
-  const addLog = (message: string, source: string = 'SYSTEM', type: 'SYSTEM' | 'DEBUG' | 'NETWORK' | 'GEMINI' | 'WARNING' = 'SYSTEM') => {
+  const addLog = (message: string, source: string = 'SYSTEM', type: 'SYSTEM' | 'DEBUG' | 'NETWORK' | 'GEMINI' | 'WARNING' = 'SYSTEM', key?: string) => {
     setLogs(prev => [...prev, {
         timestamp: new Date().toLocaleTimeString([], { hour12: false, fractionalSecondDigits: 1 } as any),
         source: source.toUpperCase(),
         message,
-        type
+        type,
+        key
     }]);
   };
 
@@ -205,16 +216,22 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
 
   const handleSave = async () => {
     if (identifiedPlant) {
+      setScanMode('PROCESSING');
       setIsBusy(true);
+      setLogs([]);
+      addLog(t('status_saving_specimen'), "SYSTEM", "SYSTEM", "SAVING_START");
       try {
         const apiKey = getEffectiveApiKey();
         
+        addLog(t('lbl_translating'), "NETWORK", "NETWORK", "TRANSLATING");
         // Parallelize translations to speed up the saving process
         const [nicknameObj, roomObj] = await Promise.all([
           translateInput(editNickname, 'en', apiKey),
           editRoom.trim() ? translateInput(editRoom, 'en', apiKey) : Promise.resolve(null)
         ]);
 
+        addLog(t('status_finalizing_translations'), "SYSTEM", "SYSTEM", "FINALIZING");
+        
         onSave({ 
           ...identifiedPlant, 
           id: `p-${generateUUID()}`,
@@ -256,15 +273,15 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
             </div>
             <div className="grid grid-cols-1 gap-4">
                 <button onClick={() => setScanMode('CAMERA')} className="group relative flex items-center p-8 bg-emerald-50/50 border-2 border-dashed border-emerald-200/50 rounded-[40px] hover:border-emerald-500 hover:bg-emerald-50 transition-all duration-500 text-left">
-                  <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-3xl shadow-xl flex items-center justify-center text-emerald-600 shrink-0 group-hover:scale-110 transition-all"><svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><circle cx="12" cy="13" r="3" /></svg></div>
+                  <div className="w-16 h-16 bg-white dark:bg-slate-900 rounded-3xl shadow-xl flex items-center justify-center text-emerald-600 shrink-0 group-hover:scale-110 transition-all"><svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><circle cx="12" cy="13" r="3" /></svg></div>
                   <div className="ml-6"><span className="block text-[11px] font-black uppercase tracking-[0.2em] text-emerald-700 mb-1">{t('live_identity_lens')}</span><h4 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">{t('use_camera')}</h4></div>
                 </button>
                 <button onClick={() => fileInputRef.current?.click()} className="group relative flex items-center p-8 bg-blue-50/50 border-2 border-dashed border-blue-200/50 rounded-[40px] hover:border-blue-500 hover:bg-blue-50 transition-all duration-500 text-left">
-                  <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-3xl shadow-xl flex items-center justify-center text-blue-600 shrink-0 group-hover:scale-110 transition-all"><svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
+                  <div className="w-16 h-16 bg-white dark:bg-slate-900 rounded-3xl shadow-xl flex items-center justify-center text-blue-600 shrink-0 group-hover:scale-110 transition-all"><svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
                   <div className="ml-6"><span className="block text-[11px] font-black uppercase tracking-[0.2em] text-blue-700 mb-1">{t('archive_search')}</span><h4 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">{t('choose_picture')}</h4></div>
                 </button>
                 <button onClick={() => setScanMode('MANUAL')} className="group relative flex items-center p-8 bg-amber-50/50 border-2 border-dashed border-amber-200/50 rounded-[40px] hover:border-amber-500 hover:bg-amber-50 transition-all duration-500 text-left">
-                  <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-3xl shadow-xl flex items-center justify-center text-amber-600 shrink-0 group-hover:scale-110 transition-all"><svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></div>
+                  <div className="w-16 h-16 bg-white dark:bg-slate-900 rounded-3xl shadow-xl flex items-center justify-center text-amber-600 shrink-0 group-hover:scale-110 transition-all"><svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></div>
                   <div className="ml-6"><span className="block text-[11px] font-black uppercase tracking-[0.2em] text-amber-700 mb-1">{t('direct_protocol')}</span><h4 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">{t('manual_entry')}</h4></div>
                 </button>
             </div>
@@ -291,7 +308,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
             
             <div className="grid grid-cols-2 gap-4">
               {specimenImages.map((img, idx) => (
-                <div key={idx} className="relative aspect-square rounded-[32px] overflow-hidden border-4 border-white dark:border-slate-800 shadow-lg group">
+                <div key={idx} className="relative aspect-square rounded-[32px] overflow-hidden border-4 border-white dark:border-black shadow-lg group">
                   <img src={img} className="w-full h-full object-cover" alt={`Specimen ${idx}`} />
                   <button 
                     onClick={() => setSpecimenImages(prev => prev.filter((_, i) => i !== idx))}

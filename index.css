@@ -1,12 +1,16 @@
 @import "tailwindcss";
+@variant dark (&:where(.dark, .dark *));
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
 
 @theme {
   --font-serif: "Inter", serif;
   --font-display: "Inter", sans-serif;
-  --color-verdant: #10b981;
-  --color-verdant-dark: #059669;
-  --color-verdant-bone: #f8fafc;
+  --color-verdant: #5E8F47;
+  --color-verdant-hover: #4d753a;
+  --color-verdant-light: #7AA765;
+  --color-verdant-dark: #3d5d2e;
+  --color-verdant-sage: #A3B18A;
+  --color-verdant-bone: #F5F7F2;
 }
 
 :root {
@@ -95,21 +99,21 @@ body {
   }
 
   .dark .clay-button {
-    background: #0f172a;
+    background: #020617;
     box-shadow: 
-      4px 4px 8px rgba(0, 0, 0, 0.3),
+      4px 4px 8px rgba(0, 0, 0, 0.6),
       -4px -4px 8px rgba(255, 255, 255, 0.05),
-      inset 2px 2px 4px rgba(0, 0, 0, 0.2),
+      inset 2px 2px 4px rgba(0, 0, 0, 0.4),
       inset -2px -2px 4px rgba(255, 255, 255, 0.02);
   }
 
   .dark .clay-icon {
-    background: #1e293b;
+    background: #020617;
     box-shadow: 
-      8px 8px 16px rgba(0, 0, 0, 0.4),
+      8px 8px 16px rgba(0, 0, 0, 0.8),
       -4px -4px 12px rgba(255, 255, 255, 0.05),
-      inset 2px 2px 4px rgba(255, 255, 255, 0.1),
-      inset -2px -2px 4px rgba(0, 0, 0, 0.4);
+      inset 2px 2px 4px rgba(255, 255, 255, 0.05),
+      inset -2px -2px 4px rgba(0, 0, 0, 0.6);
   }
 
   .clay-icon:hover {

@@ -42,11 +42,11 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
       onClick={onClose}
     >
       <div 
-        className={`bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full ${sizeClasses[size]} transform transition-all border border-transparent dark:border-slate-800 flex flex-col max-h-[90vh] overflow-hidden`}
+        className={`bg-white dark:bg-slate-950 rounded-2xl shadow-2xl w-full ${sizeClasses[size]} transform transition-all border border-transparent dark:border-slate-800 flex flex-col max-h-[90vh] overflow-hidden`}
         ref={overlayRef}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-20">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-950 sticky top-0 z-20">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">{title}</h3>
           <button 
             onClick={onClose}

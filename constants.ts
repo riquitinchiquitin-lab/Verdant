@@ -28,7 +28,7 @@ export const getGeminiApiKey = (): string => {
 export const GOOGLE_MAPS_API_KEY = (window as any)._ENV_?.GOOGLE_MAPS_API_KEY || '';
 
 // Current App Version
-export const APP_VERSION = '5.1.2-SECURE';
+export const APP_VERSION = '1.0';
 
 // API Configuration - SECRETS REMOVED (Now handled by Backend Proxy)
 export const OPB_CLIENT_ID = 'verdant_app';

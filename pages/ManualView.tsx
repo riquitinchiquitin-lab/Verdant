@@ -73,8 +73,8 @@ export const ManualView: React.FC = () => {
                     {t('doc_intro_body')}
                 </p>
                 <div className="mt-12 flex flex-wrap gap-8">
-                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 px-4 py-2 bg-slate-50 dark:bg-black/40 rounded-full border border-slate-100 dark:border-white/5">{t('manual_aes')}</span>
-                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 px-4 py-2 bg-slate-50 dark:bg-black/40 rounded-full border border-slate-100 dark:border-white/5">{t('manual_proxmox')}</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 px-4 py-2 bg-slate-50 dark:bg-slate-900/40 rounded-full border border-slate-100 dark:border-white/5">{t('manual_aes')}</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 px-4 py-2 bg-slate-50 dark:bg-slate-900/40 rounded-full border border-slate-100 dark:border-white/5">{t('manual_proxmox')}</span>
                     <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-600 dark:text-emerald-500 px-4 py-2 bg-emerald-50 dark:bg-emerald-500/5 rounded-full border border-emerald-100 dark:border-emerald-500/20">{t('manual_ai_uplink')}</span>
                 </div>
             </div>

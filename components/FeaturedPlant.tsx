@@ -16,7 +16,7 @@ export const FeaturedPlant: React.FC<FeaturedPlantProps> = ({ plant, onClick }) 
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative w-full h-[400px] md:h-[500px] bg-white dark:bg-slate-900 rounded-[48px] overflow-hidden group cursor-pointer border border-gray-100 dark:border-white/5 shadow-xl dark:shadow-2xl"
+      className="relative w-full h-[400px] md:h-[500px] bg-white dark:bg-slate-950 rounded-[48px] overflow-hidden group cursor-pointer border border-gray-100 dark:border-white/5 shadow-xl dark:shadow-2xl"
       onClick={onClick}
     >
       {/* Background Image */}
@@ -34,7 +34,7 @@ export const FeaturedPlant: React.FC<FeaturedPlantProps> = ({ plant, onClick }) 
       )}
 
       {/* Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-white via-white/40 dark:from-slate-950 dark:via-slate-950/20 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-white via-white/40 dark:from-black dark:via-black/20 to-transparent" />
       
       {/* Hardware Accents */}
       <div className="absolute top-10 left-10 z-20 space-y-1">

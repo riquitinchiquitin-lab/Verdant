@@ -186,7 +186,7 @@ export const LabelsView: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-4 md:px-6 py-3 md:py-6 hidden sm:table-cell">
-                      <code className="text-[8px] md:text-[9px] font-mono text-verdant bg-verdant/5 dark:bg-black/20 px-1.5 md:px-2 py-1 md:py-1.5 rounded-lg border border-verdant/10 select-all max-w-[150px] md:max-w-[250px] truncate block">
+                      <code className="text-[8px] md:text-[9px] font-mono text-verdant bg-verdant/5 dark:bg-slate-900/40 px-1.5 md:px-2 py-1 md:py-1.5 rounded-lg border border-verdant/10 select-all max-w-[150px] md:max-w-[250px] truncate block">
                         {hFormatHash}
                       </code>
                     </td>

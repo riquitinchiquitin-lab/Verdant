@@ -9,6 +9,8 @@ import { Logo } from '../components/ui/Logo';
 import { Button } from '../components/ui/Button';
 import { LanguageSelector } from '../components/ui/LanguageSelector';
 
+import { ThemeToggle } from '../components/ThemeToggle';
+
 declare global {
   interface Window {
     google: any;
@@ -36,10 +38,11 @@ const GoogleLoginButton = memo(({ onResponse, isDarkMode, language }: { onRespon
 
         const initGsi = () => {
             const clientId = getGoogleClientId();
-            console.log("[GSI] Initializing with Client ID:", clientId ? (clientId.substring(0, 10) + '...') : 'NULL');
+            if (clientId === 'MISSING_CLIENT_ID') return;
             
-            if (window.google?.accounts?.id && btnRef.current && !initialized.current) {
+            if (window.google?.accounts?.id && btnRef.current) {
                 try {
+                    // Always initialize if it's the first time or if we need to ensure it's set
                     window.google.accounts.id.initialize({
                         client_id: clientId,
                         callback: handleResponse,
@@ -49,6 +52,7 @@ const GoogleLoginButton = memo(({ onResponse, isDarkMode, language }: { onRespon
                         locale: language
                     });
                     
+                    // Always render the button to reflect theme/language changes
                     window.google.accounts.id.renderButton(btnRef.current, {
                         theme: isDarkMode ? 'filled_black' : 'outline',
                         size: 'large',
@@ -76,7 +80,7 @@ const GoogleLoginButton = memo(({ onResponse, isDarkMode, language }: { onRespon
             }, 100);
             return () => clearInterval(interval);
         }
-    }, [language, isDarkMode]); // Added language and isDarkMode as dependencies
+    }, [language, isDarkMode]);
 
     return (
         <div className="min-h-[44px] w-[320px] flex justify-center border border-dashed border-emerald-500/20 rounded-full">
@@ -106,7 +110,15 @@ export const SecureAuth: React.FC = () => {
   const usersRef = useRef(users);
   useEffect(() => { usersRef.current = users; }, [users]);
 
-  const isDarkMode = document.documentElement.classList.contains('dark');
+  const [isDarkMode, setIsDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDarkMode(document.documentElement.classList.contains('dark'));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const checkConfig = () => {
@@ -227,12 +239,13 @@ export const SecureAuth: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen w-full flex flex-col bg-slate-50 dark:bg-[#020617] items-center justify-start md:justify-center p-6 font-sans relative overflow-y-auto transition-colors duration-500">
+    <div className="min-h-screen w-full flex flex-col bg-white dark:bg-slate-950 items-center justify-start md:justify-center p-6 font-sans relative overflow-y-auto transition-colors duration-500">
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/5 blur-[120px] rounded-full pointer-events-none"></div>
 
-      {/* Language Selector Overlay - Fixed alignment */}
-      <div className="absolute top-4 right-4 md:top-8 md:right-8 z-20">
+      {/* Theme and Language Selectors Overlay */}
+      <div className="absolute top-4 right-4 md:top-8 md:right-8 z-20 flex items-center gap-3">
+          <ThemeToggle />
           <LanguageSelector variant="filled" align="right" />
       </div>
 
@@ -272,7 +285,7 @@ export const SecureAuth: React.FC = () => {
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed uppercase font-bold tracking-widest px-4">
                       {t('sys_config_desc')}
                   </p>
-                  <div className="p-4 bg-slate-50 dark:bg-black/40 rounded-xl border border-slate-100 dark:border-white/5 font-mono text-[9px] text-emerald-600 dark:text-emerald-500 break-all space-y-1">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-white/5 font-mono text-[9px] text-emerald-600 dark:text-emerald-500 break-all space-y-1">
                       <div>ENV_SCRIPT: {envLoaded ? 'LOADED' : 'WAITING...'}</div>
                       <div>DETECTED_ID: {getGoogleClientId() || 'EMPTY_STRING'}</div>
                       {envLoaded && (window as any)._ENV_?._DIAGNOSTIC && (
@@ -329,7 +342,10 @@ export const SecureAuth: React.FC = () => {
 
         {/* ORCHESTRATION LINKS FOOTER - RESTORED & UPDATED */}
         <div className="text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500">
-          <p className="text-[8px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.4em]">System Orchestration</p>
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-[8px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.4em]">System Orchestration</p>
+            <p className="text-[7px] text-emerald-600/40 dark:text-emerald-500/30 font-black uppercase tracking-[0.2em]">Verdant Protocol v1.0</p>
+          </div>
           <div className="flex flex-wrap justify-center items-center gap-x-8 gap-y-4 px-4">
             {serviceLinks.map(link => (
               <a 
