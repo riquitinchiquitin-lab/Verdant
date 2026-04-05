@@ -66,6 +66,52 @@ Verdant uses a strict **Role-Based Access Control** system:
 
 ---
 
+## 🛠️ 6. Vault Security Operations
+
+When you interact with the **Vault Security** section in the Admin panel, you are managing the core security layer of the application.
+
+### 1. What key is rotating?
+When you press **"Rotate Key"** (or "Generate Key" if none exists), you are rotating the **Master Encryption Key**.
+
+*   **The Key itself**: It is a 50-character high-entropy random string (using characters like A-Z, a-z, 0-9, and special symbols).
+*   **Its Purpose**: This is a symmetric key used for AES-GCM encryption. It secures your "Vault," which includes system backups, sensitive plant data, and configuration files.
+*   **The Process**:
+    1.  A brand new 50-character key is generated locally in your browser.
+    2.  It is synchronized with the server (encrypted for transmission).
+    3.  It replaces the old key in your browser's local storage (`verdant_master_key`).
+    4.  The application reloads to initialize the new security protocol.
+
+### 2. What is the "Export Public Key"?
+The "Export Public Key" button is a bit of a misnomer in the UI—it is actually a **Master Key Backup tool**.
+
+*   **What it downloads**: It exports your current Master Encryption Key into a plain text file (e.g., `verdant_master_key_2026-04-05.txt`).
+*   **Why you need it**: Since the application uses end-to-end encryption for backups, you must have this key to restore your data if you ever move to a new device or if the server database is reset.
+*   **⚠️ Security Warning**: Even though the button says "Public Key," the file contains your **private secret key**. You should store this file in a very secure location (like a password manager or a physical safe) and never share it, as anyone with this key can decrypt your exported database backups.
+
+### Summary Table:
+| Action | Key Involved | Result |
+| :--- | :--- | :--- |
+| **Rotate Key** | Master Encryption Key | Generates a new 50-char secret and syncs it to the server. |
+| **Export Public Key** | Master Encryption Key | Downloads a `.txt` backup of your secret key for disaster recovery. |
+
+---
+
+## 🚀 7. Self-Hosted Deployment (Critical)
+
+If you are hosting Verdant on your own infrastructure (e.g., a Proxmox LXC or Docker container), you must follow this synchronization workflow to ensure your configuration persists across restarts:
+
+1.  **Rotate in UI**: Click "Rotate Key" in the app. This updates the server's memory and the database immediately.
+2.  **Export Key**: Click **Export Public Key** to get the new 50-character string.
+3.  **Update `.env`**: Log into your server and update the `MASTER_KEY=` line in your `.env` file with that new string.
+4.  **Restart (Optional but Recommended)**: When the app restarts, it will see the new key in the `.env` file and confirm it matches the database.
+
+### Why this is important:
+If you rotate the key in the UI but **do not** update the `.env` file, the next time your server restarts, it will see the *old* key in the environment and **overwrite** the database with it to stay synchronized with your configuration. This would cause your browser to lose access until it re-syncs again.
+
+By updating the `.env` file, you ensure that the server and your configuration are always in perfect sync.
+
+---
+
 ## 🚨 Reporting Vulnerabilities
 
 If you discover a security vulnerability, please do not open a public issue. Instead, contact the maintainer directly at the email specified in your `VITE_ROOT_OWNER_EMAIL` configuration.
