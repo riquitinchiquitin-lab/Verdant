@@ -66,7 +66,11 @@ export const fetchWithAuth = async (endpoint: string, token: string, options: Re
           const errData = await cloned.json();
           if (errData.error === 'DECRYPTION_PROTOCOL_FAULT') {
               console.warn("[API] Decryption Protocol Fault detected. Attempting key re-sync...");
-              const userRole = localStorage.getItem('verdant_user_role');
+              const storedUser = localStorage.getItem('verdant_user');
+              let userRole = '';
+              if (storedUser) {
+                  try { userRole = JSON.parse(storedUser).role; } catch (e) {}
+              }
               if (userRole === 'OWNER' || userRole === 'CO_CEO') {
                   const configRes = await fetch(`${API_URL}/api/system/config`, {
                       headers: { 'Authorization': `Bearer ${token}`, 'x-user-role': userRole }

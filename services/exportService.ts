@@ -88,3 +88,44 @@ export const exportLogsToExcel = (plants: Plant[], lv: (val: any) => string, fil
   
   XLSX.writeFile(workbook, fileName);
 };
+
+export const exportCombinedLogsToExcel = (logs: any[], fileName: string = 'verdant_system_logs.xlsx') => {
+  if (!logs || logs.length === 0) {
+    // Create a worksheet with headers even if no data
+    const worksheet = XLSX.utils.json_to_sheet([{
+      'Timestamp': '-',
+      'Category': '-',
+      'Event': '-',
+      'Details': '-',
+      'Level': '-'
+    }]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Logs");
+    XLSX.writeFile(workbook, fileName);
+    return;
+  }
+
+  const data = logs.map(l => ({
+    'Timestamp': l.timestamp ? new Date(l.timestamp).toLocaleString() : '-',
+    'Category': l.category || '-',
+    'Event': l.event || '-',
+    'Details': l.details || '-',
+    'Level': l.level || '-'
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  
+  const wscols = [
+    { wch: 25 }, // Timestamp
+    { wch: 15 }, // Category
+    { wch: 30 }, // Event
+    { wch: 60 }, // Details
+    { wch: 10 }, // Level
+  ];
+  worksheet['!cols'] = wscols;
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "System Logs");
+  
+  XLSX.writeFile(workbook, fileName);
+};

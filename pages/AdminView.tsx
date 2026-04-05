@@ -373,10 +373,10 @@ export const AdminView: React.FC = () => {
   };
 
   const handleExportCareLogs = async () => {
-    const { exportLogsToExcel } = await import('../services/exportService');
+    const { exportCombinedLogsToExcel } = await import('../services/exportService');
     setIsExportingLogs(true);
     try {
-      await exportLogsToExcel(plants, lv);
+      await exportCombinedLogsToExcel(combinedLogs);
       showNotification(t('msg_backup_downloaded'), 'SUCCESS');
     } catch (error) {
       showNotification(t('msg_backup_failed'), 'ERROR');
@@ -443,7 +443,7 @@ export const AdminView: React.FC = () => {
           timestamp: log.date,
           category: 'CARE',
           event: lv(plant.nickname),
-          details: `${log.type}${log.value ? `: ${log.value}` : ''}${log.note ? ` (${log.note})` : ''}`,
+          details: `${log.type}${log.value ? `: ${log.value}` : ''}${log.localizedNote ? ` - ${lv(log.localizedNote)}` : (log.note ? ` - ${log.note}` : '')}`,
           level: 'INFO'
         });
       });

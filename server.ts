@@ -194,7 +194,8 @@ const checkAuth = (req: express.Request, res: express.Response, next: express.Ne
     console.warn("[AUTH] Missing authorization header");
     return res.status(401).json({ error: "UNAUTHORIZED" });
   }
-  (req as any).userRole = req.headers['x-user-role'];
+  const role = req.headers['x-user-role'];
+  (req as any).userRole = typeof role === 'string' ? role.toUpperCase() : undefined;
   (req as any).userHouseId = req.headers['x-user-house-id'];
   (req as any).userId = req.headers['x-user-id'];
   (req as any).userEmail = req.headers['x-user-email'];
@@ -226,7 +227,8 @@ app.use(async (req, res, next) => {
   }
   const originalJson = res.json;
   res.json = function (data) {
-    if (req.url === '/api/system/vault-key' && req.method === 'POST') return originalJson.call(this, data);
+    const isVaultKeyPost = (req.path === '/api/system/vault-key' || req.url.startsWith('/api/system/vault-key')) && req.method === 'POST';
+    if (isVaultKeyPost) return originalJson.call(this, data);
     if ((req as any).wasEncrypted && currentVaultKey) {
       try {
         const encrypted = encrypt(data);
