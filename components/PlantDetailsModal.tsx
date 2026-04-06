@@ -586,7 +586,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                             <PassportItem icon="🌍" label={t('lbl_origin')} value={lv(plant.origin)} />
                                             <PassportItem icon="🌿" label={t('lbl_family_genus')} value={`${plant.family} / ${plant.genus}`} />
-                                            <PassportItem icon="📏" label={t('lbl_growth_size')} value={`${t('lbl_max_height')}: ${plant.maxHeight}cm (${lv(plant.growthRate as any) || t('lbl_standard')})`} />
+                                            <PassportItem icon="📏" label={t('lbl_growth_size')} value={`${t('lbl_max_height')}: ${plant.maxHeight} cm (${lv(plant.growthRate as any) || t('lbl_standard')})`} />
                                             <PassportItem icon="🏷️" label={t('lbl_category')} value={lv(plant.category as any) || t('lbl_na')} />
                                             <PassportItem icon="☀️" label={t('lbl_light_advice')} value={lv(plant.lightAdvice)} />
                                         </div>
@@ -740,7 +740,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                         <PassportItem 
                                             icon="🪴" 
                                             label={t('lbl_last_pot_size')} 
-                                            value={plant.lastPotSize ? (/^\d+(\.\d+)?$/.test(plant.lastPotSize.toString().trim()) ? `${plant.lastPotSize.toString().trim()}cm` : plant.lastPotSize) : t('lbl_na')} 
+                                            value={plant.lastPotSize ? (/^\d+(\.\d+)?$/.test(plant.lastPotSize.toString().trim()) ? `${plant.lastPotSize.toString().trim()} cm` : plant.lastPotSize) : t('lbl_na')} 
                                         />
                                         <PassportItem 
                                             icon="🔄" 

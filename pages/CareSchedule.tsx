@@ -120,7 +120,7 @@ const CareActionItem: React.FC<{
 export const CareSchedule: React.FC = () => {
   const { plants, addLog, updatePlant, houses } = usePlants();
   const { user } = useAuth();
-  const { t, lv, language } = useLanguage();
+  const { t, lv, language, getLocalizedString } = useLanguage();
   const location = useLocation();
   const scheduleScroll = useDraggableScroll();
   
@@ -156,21 +156,27 @@ export const CareSchedule: React.FC = () => {
   };
 
   const handleAction = async (plant: Plant, type: 'WATER' | 'ROTATE') => {
+    const now = new Date().toISOString();
     if (type === 'WATER') {
-      await addLog(plant.id, { id: `l-${generateUUID()}`, date: new Date().toISOString(), type: 'WATER', localizedNote: { en: t('log_water_manual') } });
-      updatePlant(plant.id, { lastWatered: new Date().toISOString() });
+      // Use getLocalizedString to avoid Gemini translation delay for standard notes
+      const localizedNote = getLocalizedString('log_water_manual');
+      addLog(plant.id, { 
+        id: `l-${generateUUID()}`, 
+        date: now, 
+        type: 'WATER', 
+        localizedNote 
+      });
+      // updatePlant is redundant because addLog already updates lastWatered
       setLastLoggedAction(plant.id + '-water');
     } else {
-      await addLog(plant.id, { 
+      const localizedNote = getLocalizedString('log_rotated_manual');
+      addLog(plant.id, { 
         id: `l-${generateUUID()}`, 
-        date: new Date().toISOString(), 
+        date: now, 
         type: 'ROTATED', 
-        localizedNote: { 
-          en: t('log_rotated_manual'),
-          [language]: t('log_rotated_manual')
-        } 
+        localizedNote 
       });
-      updatePlant(plant.id, { lastRotated: new Date().toISOString() });
+      // updatePlant is redundant because addLog already updates lastRotated
       setLastLoggedAction(plant.id + '-rotate');
     }
     setTimeout(() => setLastLoggedAction(null), 2000);

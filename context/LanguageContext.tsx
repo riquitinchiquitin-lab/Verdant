@@ -11,6 +11,7 @@ interface LanguageContextType {
   t: (key: string, params?: Record<string, string>) => string;
   lv: (localized?: LocalizedString | string | null) => string;
   lva: (localized?: LocalizedArray | null) => string[];
+  getLocalizedString: (key: string) => LocalizedString;
 }
 
 const staticTranslations: Record<string, Record<string, string>> = {
@@ -330,7 +331,7 @@ const staticTranslations: Record<string, Record<string, string>> = {
     placeholder_category: "e.g. Araceae, Succulent...",
     placeholder_days: "e.g. 7",
     btn_set_primary: "Set Primary",
-    placeholder_pot_size: "e.g. 15",
+    placeholder_pot_size: "e.g. 15 cm",
     placeholder_propagation_methods: "Nodal Cuttings, Division...",
     placeholder_guide: "Step-by-step guide...",
     btn_refresh_ai: "Refresh AI Data",
@@ -1527,7 +1528,7 @@ const staticTranslations: Record<string, Record<string, string>> = {
     msg_admin_transfer_only: "只有所有者或首席执行官可以转移未归属的标本。",
     placeholder_category: "例如：天南星科、多肉植物...",
     placeholder_days: "例如：7",
-    placeholder_pot_size: "例如：15厘米",
+    placeholder_pot_size: "例如：15 厘米",
     placeholder_propagation_methods: "茎节扦插、分株...",
     btn_refresh_ai: "刷新 AI 数据",
     msg_establishing_uplink: "正在建立植物上行链路",
@@ -2289,7 +2290,7 @@ const staticTranslations: Record<string, Record<string, string>> = {
     msg_admin_transfer_only: "未帰属の標本を転送できるのは、オーナーまたはCEOのみです。",
     placeholder_category: "例：サトイモ科、多肉植物...",
     placeholder_days: "例：7",
-    placeholder_pot_size: "例：15cm",
+    placeholder_pot_size: "例：15 cm",
     placeholder_propagation_methods: "茎伏せ、分株...",
     btn_refresh_ai: "AIデータを更新",
     msg_establishing_uplink: "植物アップリンクを確立中",
@@ -3061,7 +3062,7 @@ const staticTranslations: Record<string, Record<string, string>> = {
     msg_admin_transfer_only: "소유자 또는 CEO만 미지정 표본을 전송할 수 있습니다.",
     placeholder_category: "예: 천남성과, 다육식물...",
     placeholder_days: "예: 7",
-    placeholder_pot_size: "예: 15cm",
+    placeholder_pot_size: "예: 15 cm",
     placeholder_propagation_methods: "줄기 꽂이, 포기 나누기...",
     btn_refresh_ai: "AI 데이터 새로고침",
     msg_establishing_uplink: "식물 업링크 구축 중",
@@ -3833,7 +3834,7 @@ const staticTranslations: Record<string, Record<string, string>> = {
     msg_admin_transfer_only: "Solo el Propietario o el Director pueden transferir especímenes no atribuidos.",
     placeholder_category: "ej. Araceae, Suculenta...",
     placeholder_days: "ej. 7",
-    placeholder_pot_size: "ej. 15cm",
+    placeholder_pot_size: "ej. 15 cm",
     placeholder_propagation_methods: "Esquejes de nudo, División...",
     btn_refresh_ai: "Actualizar Datos AI",
     placeholder_species: "ej. Monstera Deliciosa",
@@ -4594,7 +4595,7 @@ const staticTranslations: Record<string, Record<string, string>> = {
     msg_admin_transfer_only: "Seul le Propriétaire ou le PDG peut transférer des spécimens non attribués.",
     placeholder_category: "ex: Aracées, Succulente...",
     placeholder_days: "ex: 7",
-    placeholder_pot_size: "ex: 15cm",
+    placeholder_pot_size: "ex: 15 cm",
     placeholder_propagation_methods: "Bouturage, Division...",
     btn_refresh_ai: "Actualiser Données IA",
     placeholder_species: "ex: Monstera Deliciosa",
@@ -5375,7 +5376,7 @@ const staticTranslations: Record<string, Record<string, string>> = {
     msg_admin_transfer_only: "Apenas o Proprietário ou o CEO podem transferir espécimes não atribuídos.",
     placeholder_category: "ex: Araceae, Suculenta...",
     placeholder_days: "ex: 7",
-    placeholder_pot_size: "ex: 15cm",
+    placeholder_pot_size: "ex: 15 cm",
     placeholder_propagation_methods: "Estacas de nó, Divisão...",
     btn_refresh_ai: "Atualizar Dados IA",
     msg_establishing_uplink: "Estabelecendo Link Botânico",
@@ -6144,7 +6145,7 @@ const staticTranslations: Record<string, Record<string, string>> = {
     msg_admin_transfer_only: "Nur der Eigentümer oder CEO kann nicht zugewiesene Exemplare übertragen.",
     placeholder_category: "z.B. Araceae, Sukkulente...",
     placeholder_days: "z.B. 7",
-    placeholder_pot_size: "z.B. 15cm",
+    placeholder_pot_size: "z.B. 15 cm",
     placeholder_propagation_methods: "Knotenstecklinge, Teilung...",
     btn_refresh_ai: "KI-Daten aktualisieren",
     deploy_specimen: "Exemplar einsetzen",
@@ -6919,7 +6920,7 @@ const staticTranslations: Record<string, Record<string, string>> = {
     msg_admin_transfer_only: "Hanya Pemilik atau CEO yang dapat mentransfer spesimen yang tidak diatribusikan.",
     placeholder_category: "misal: Araceae, Sukulen...",
     placeholder_days: "misal: 7",
-    placeholder_pot_size: "misal: 15cm",
+    placeholder_pot_size: "misal: 15 cm",
     placeholder_propagation_methods: "Stek batang, Divisi...",
     btn_refresh_ai: "Segarkan Data AI",
     msg_establishing_uplink: "Membangun Uplink Botani",
@@ -7693,7 +7694,7 @@ const staticTranslations: Record<string, Record<string, string>> = {
     msg_admin_transfer_only: "Chỉ Chủ sở hữu hoặc Giám đốc điều hành mới có thể chuyển các mẫu chưa được phân bổ.",
     placeholder_category: "vd: Họ Ráy, Cây Mọng Nước...",
     placeholder_days: "vd: 7",
-    placeholder_pot_size: "vd: 15cm",
+    placeholder_pot_size: "vd: 15 cm",
     placeholder_propagation_methods: "Giâm cành, Tách bụi...",
     btn_refresh_ai: "Làm Mới Dữ Liệu AI",
     msg_establishing_uplink: "Đang Thiết Lập Kết Nối Thực Vật",
@@ -8464,7 +8465,7 @@ const staticTranslations: Record<string, Record<string, string>> = {
     msg_admin_transfer_only: "Tanging ang May-ari o CEO ang maaaring mag-transfer ng mga hindi nai-attribute na ispesimen.",
     placeholder_category: "hal. Araceae, Succulent...",
     placeholder_days: "hal. 7",
-    placeholder_pot_size: "hal. 15cm",
+    placeholder_pot_size: "hal. 15 cm",
     placeholder_propagation_methods: "Node cuttings, Division...",
     btn_refresh_ai: "I-refresh ang AI Data",
     msg_establishing_uplink: "Nagtatatag ng Botanical Uplink",
@@ -8588,8 +8589,16 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     return (Array.isArray(val) ? val : [String(val)]) as string[];
   }, [language]);
 
+  const getLocalizedString = useCallback((key: string): LocalizedString => {
+    const result: any = {};
+    Object.keys(staticTranslations).forEach(lang => {
+      result[lang] = staticTranslations[lang][key] || staticTranslations.en[key] || key;
+    });
+    return result as LocalizedString;
+  }, []);
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, currentLanguage, t, lv, lva }}>
+    <LanguageContext.Provider value={{ language, setLanguage, currentLanguage, t, lv, lva, getLocalizedString }}>
       {children}
     </LanguageContext.Provider>
   );

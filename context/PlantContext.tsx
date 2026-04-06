@@ -230,8 +230,8 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     // 3. Repotting Task
     if (plant.repottingFrequency && plant.lastPotSize && !isNaN(parseInt(plant.lastPotSize))) {
-      const currentSize = plant.lastPotSize.toLowerCase().endsWith('cm') ? plant.lastPotSize : `${plant.lastPotSize}cm`;
-      const nextSize = `${parseInt(plant.lastPotSize) + 2}cm`;
+      const currentSize = plant.lastPotSize.toLowerCase().endsWith('cm') ? plant.lastPotSize.replace(/cm$/i, ' cm') : `${plant.lastPotSize} cm`;
+      const nextSize = `${parseInt(plant.lastPotSize) + 2} cm`;
       newTasks.push({
         id: `t-repot-${plant.id}-${generateUUID()}`,
         plantIds: [plant.id],
@@ -466,14 +466,22 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     
     setTasks(prev => prev.map(t => t.id === id ? updatedTask : t));
     
-    // If it's a watering task being completed, update the plant's lastWatered
-    if (isCompleting && task.type === 'WATER' && task.plantIds.length > 0) {
+    // Add to history when a task is completed
+    if (isCompleting && task.plantIds.length > 0) {
+      const logTypeMap: Record<string, any> = {
+        'WATER': 'WATER',
+        'FERTILIZE': 'FERTILIZED',
+        'REPOT': 'REPOTTED',
+        'PRUNE': 'PRUNED',
+        'GENERAL': 'NOTE'
+      };
+
       for (const plantId of task.plantIds) {
         await addLog(plantId, {
           id: `l-auto-${generateUUID()}`,
           date: new Date().toISOString(),
-          type: 'WATER',
-          localizedNote: { en: 'Automated task completed', fr: 'Tâche automatisée terminée' }
+          type: logTypeMap[task.type || 'GENERAL'] || 'NOTE',
+          localizedNote: task.title // Use task title as log note (already localized)
         });
       }
     }
@@ -497,8 +505,8 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     let finalLog = { ...log };
     
     // Ensure 11 languages translation for every log entry
-    const currentLangs = Object.keys(finalLog.localizedNote || {});
-    if (currentLangs.length < 11) {
+    const currentLangs = Object.keys(finalLog.localizedNote || {}).filter(k => TARGET_LANGS.includes(k));
+    if (currentLangs.length < TARGET_LANGS.length) {
       let textToTranslate = '';
       if (finalLog.localizedNote) {
         textToTranslate = (finalLog.localizedNote as any)[language] || finalLog.localizedNote.en || Object.values(finalLog.localizedNote)[0] as string;
@@ -509,11 +517,16 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
 
       if (textToTranslate) {
+        // Optimization: If the text matches a standard key, we might already have translations.
+        // However, since we don't have easy access to all staticTranslations here, 
+        // we'll at least make the translation non-blocking for the UI update if possible,
+        // or just ensure we don't call Gemini if we already have the languages.
         try {
+          // Only call Gemini if we really need to (e.g. it's a custom note)
+          // For standard notes like "Watered", we should ideally have them pre-localized.
           finalLog.localizedNote = await translateInput(textToTranslate, language, getEffectiveApiKey());
         } catch (e) {
           console.warn("Auto-translation failed in addLog:", e);
-          // Fallback to what we have or at least the source text
           if (!finalLog.localizedNote) {
             finalLog.localizedNote = { en: textToTranslate, [language]: textToTranslate };
           }
@@ -529,17 +542,15 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         lastModified: new Date().toISOString()
     };
 
+    // Update local state immediately
     setPlants(prev => prev.map(p => p.id === plantId ? updatedPlant : p));
 
+    // Sync to server
     if (token) {
-      try {
-        await fetchWithAuth('/api/plants', token, { 
-          method: 'POST', 
-          body: JSON.stringify(updatedPlant) 
-        });
-      } catch (e) {
-        console.error("Failed to sync log addition:", e);
-      }
+      fetchWithAuth('/api/plants', token, { 
+        method: 'POST', 
+        body: JSON.stringify(updatedPlant) 
+      }).catch(e => console.error("Failed to sync log addition:", e));
     }
   };
 
