@@ -16,11 +16,7 @@ interface ManageHousePersonnelModalProps {
 export const ManageHousePersonnelModal: React.FC<ManageHousePersonnelModalProps> = ({ isOpen, onClose, house }) => {
   const { users, updateUser } = usePersonnel();
   const { t, lv } = useLanguage();
-  const { updateHouse } = usePlants();
   
-  const [tempApiKey, setTempApiKey] = useState(house.googleApiKey || '');
-  const [isVerifying, setIsVerifying] = useState(false);
-
   const assignedUsers = users.filter(u => u.houseId === house.id && !u.deletedAt);
   const availableUsers = users.filter(u => u.houseId !== house.id && !u.deletedAt);
 
@@ -28,54 +24,9 @@ export const ManageHousePersonnelModal: React.FC<ManageHousePersonnelModalProps>
       updateUser(targetUser.id, { houseId: assign ? house.id : null });
   };
 
-  const handleUpdateApiKey = async () => {
-    if (tempApiKey === house.googleApiKey) return;
-    
-    setIsVerifying(true);
-    try {
-      if (tempApiKey.trim()) {
-        const isValid = await verifyApiKey(tempApiKey);
-        if (!isValid) {
-          alert(t('invalid_api_key') || "INVALID GOOGLE API KEY");
-          return;
-        }
-      }
-      await updateHouse(house.id, { googleApiKey: tempApiKey });
-      alert(t('api_key_updated') || "API KEY UPDATED");
-    } catch (e) {
-      alert("UPDATE FAILED");
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`${t('menu_admin')}: ${lv(house.name)}`} size="lg">
       <div className="space-y-8 py-2 max-h-[80vh] overflow-y-auto no-scrollbar px-1">
-        
-        <div className="bg-gray-50 dark:bg-slate-800/50 p-6 rounded-[32px] border border-gray-100 dark:border-slate-800 space-y-4">
-            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">{t('api_configuration') || "API CONFIGURATION"}</h4>
-            <div className="flex gap-3">
-                <input 
-                    type="password"
-                    className="flex-1 h-12 bg-white dark:bg-slate-900 rounded-xl px-4 font-bold outline-none border border-gray-100 dark:border-slate-700 dark:text-white focus:ring-4 focus:ring-verdant/10 transition-all"
-                    placeholder="Google API Key"
-                    value={tempApiKey}
-                    onChange={e => setTempApiKey(e.target.value)}
-                />
-                <Button 
-                    onClick={handleUpdateApiKey} 
-                    isLoading={isVerifying}
-                    disabled={tempApiKey === house.googleApiKey}
-                    className="h-12 px-6 rounded-xl font-black uppercase tracking-widest text-[10px]"
-                >
-                    {t('update') || "UPDATE"}
-                </Button>
-            </div>
-            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest px-1">
-                {t('api_key_notice') || "THIS KEY ENABLES AI DIAGNOSTICS FOR THIS SPECIFIC HOUSE."}
-            </p>
-        </div>
         
         <div>
             <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 px-1">{t('assigned_personnel')}</h4>

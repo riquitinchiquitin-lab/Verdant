@@ -1,4 +1,16 @@
-import { Plant, InventoryItem } from '../types';
+import { Plant, InventoryItem, LocalizedArray, LocalizedString } from '../types';
+
+const getAllStrings = (la?: LocalizedArray | string[] | null): string[] => {
+  if (!la) return [];
+  if (Array.isArray(la)) return la;
+  return Object.values(la).flat().filter(v => typeof v === 'string') as string[];
+};
+
+const getLocalizedValue = (ls?: LocalizedString | string | null): string => {
+    if (!ls) return '';
+    if (typeof ls === 'string') return ls;
+    return Object.values(ls).find(v => typeof v === 'string') || '';
+};
 
 /**
  * Checks if an inventory item is compatible with a specific plant.
@@ -8,25 +20,32 @@ import { Plant, InventoryItem } from '../types';
  * 3. General category rules (e.g., all fertilisers are somewhat compatible, but some are specific)
  */
 export const checkCompatibility = (plant: Plant, item: InventoryItem): boolean => {
+  const compatibilityTags = getAllStrings(item.compatibility);
   // 1. Explicit compatibility tags
-  if (item.compatibility && item.compatibility.length > 0) {
-    const isCompatible = item.compatibility.some(tag => {
+  if (compatibilityTags.length > 0) {
+    const isCompatible = compatibilityTags.some(tag => {
       const t = tag.toLowerCase();
+      const plantCategory = getLocalizedValue(plant.category).toLowerCase();
+      const plantNickname = getLocalizedValue(plant.nickname).toLowerCase();
+      
       return (
         plant.species.toLowerCase().includes(t) ||
         t.includes(plant.species.toLowerCase()) ||
         (plant.family && plant.family.toLowerCase().includes(t)) ||
-        (plant.genus && plant.genus.toLowerCase().includes(t))
+        (plant.genus && plant.genus.toLowerCase().includes(t)) ||
+        plantCategory.includes(t) ||
+        plantNickname.includes(t)
       );
     });
     if (isCompatible) return true;
   }
 
   // 2. Soil compatibility
-  if (item.category === 'soil' && item.soilTypes && item.soilTypes.length > 0) {
+  const soilTypes = getAllStrings(item.soilTypes);
+  if (item.category === 'soil' && soilTypes.length > 0) {
     // If plant has specific soil requirements or if the item matches plant's characteristics
     // This is a bit more complex, but we can do a basic check
-    const isSoilCompatible = item.soilTypes.some(type => {
+    const isSoilCompatible = soilTypes.some(type => {
       const t = type.toLowerCase();
       const categoryMatch = plant.category && typeof plant.category === 'object' 
         ? Object.values(plant.category).some(val => typeof val === 'string' && val.toLowerCase().includes(t))

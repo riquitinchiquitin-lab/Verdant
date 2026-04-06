@@ -107,8 +107,6 @@ export const identifyPlantWithGemini = async (base64: string, apiKey?: string): 
   
   try {
     reportSystemHit();
-    trackUsage('gemini');
-    console.log(`[GEMINI] Identifying specimen with ${model} (Key: ${maskedKey})...`);
     const res = await callGeminiWithRetry(() => ai.models.generateContent({
       model,
       contents: {
@@ -118,6 +116,13 @@ export const identifyPlantWithGemini = async (base64: string, apiKey?: string): 
         ]
       }
     }));
+    
+    if (res.usageMetadata) {
+      const totalTokens = (res.usageMetadata.promptTokenCount || 0) + (res.usageMetadata.candidatesTokenCount || 0);
+      trackUsage('gemini', totalTokens);
+    } else {
+      trackUsage('gemini');
+    }
     const bestMatch = res.text?.trim() || "Unknown";
     console.log(`[GEMINI] Identification Result: ${bestMatch}`);
     return { bestMatch, score: 0.99 };
@@ -192,7 +197,6 @@ export const generatePlantDetails = async (
 
   try {
     reportSystemHit();
-    trackUsage('gemini');
     const response = await callGeminiWithRetry(() => ai.models.generateContent({
       model,
       contents: prompt,
@@ -267,6 +271,13 @@ export const generatePlantDetails = async (
         }
       }
     }));
+
+    if (response.usageMetadata) {
+      const totalTokens = (response.usageMetadata.promptTokenCount || 0) + (response.usageMetadata.candidatesTokenCount || 0);
+      trackUsage('gemini', totalTokens);
+    } else {
+      trackUsage('gemini');
+    }
 
     const parsed = JSON.parse(cleanJson(response.text || "{}"));
     return createPlant({
@@ -391,7 +402,6 @@ export const analyzePlantHealth = async (
 
   try {
     reportSystemHit();
-    trackUsage('gemini');
     const response = await callGeminiWithRetry(() => ai.models.generateContent({
       model,
       contents: {
@@ -423,67 +433,18 @@ export const analyzePlantHealth = async (
       }
     }));
 
+    if (response.usageMetadata) {
+      const totalTokens = (response.usageMetadata.promptTokenCount || 0) + (response.usageMetadata.candidatesTokenCount || 0);
+      trackUsage('gemini', totalTokens);
+    } else {
+      trackUsage('gemini');
+    }
+
     const text = response.text;
     if (!text) return null;
     return JSON.parse(cleanJson(text));
   } catch (error) {
     console.error("Diagnostic Failure:", error);
-    return null;
-  }
-};
-
-/**
- * 6. Analyze Receipt for Provenance Data
- */
-export const analyzeReceipt = async (base64: string, apiKey?: string): Promise<any> => {
-  const key = apiKey || getGeminiApiKey();
-  if (!key) {
-    console.error("[AI] Receipt scan failed: API Key missing");
-    return null;
-  }
-
-  console.log("[AI] Analyzing receipt image...");
-  const ai = new GoogleGenAI({ apiKey: key });
-  const model = 'gemini-3-flash-preview';
-
-  const prompt = `Analyze this receipt or invoice image and extract the following plant provenance details:
-  1. Nursery/Store Name
-  2. Date of Purchase (ISO format YYYY-MM-DD)
-  3. Total Cost (numeric)
-  4. Currency (3-letter code, e.g., USD, GBP, EUR)
-
-  Return the data in JSON format. If a field cannot be found, omit it or set to null.`;
-
-  try {
-    reportSystemHit();
-    const response = await callGeminiWithRetry(() => ai.models.generateContent({
-      model,
-      contents: {
-        parts: [
-          { inlineData: { mimeType: 'image/jpeg', data: base64.split(',')[1] } },
-          { text: prompt }
-        ]
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            nursery: { type: Type.STRING },
-            dateOfPurchase: { type: Type.STRING },
-            cost: { type: Type.NUMBER },
-            currency: { type: Type.STRING }
-          }
-        }
-      }
-    }));
-
-    const text = response.text;
-    console.log("[AI] Receipt analysis raw response:", text);
-    if (!text) return null;
-    return JSON.parse(cleanJson(text));
-  } catch (error) {
-    console.error("[AI] Receipt Analysis Failure:", error);
     return null;
   }
 };

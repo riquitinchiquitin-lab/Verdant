@@ -1,8 +1,8 @@
 import { API_URL } from '../constants';
 
-export type ApiType = 'google_maps' | 'gemini' | 'plantnet' | 'trefle' | 'perenual' | 'serper';
+export type ApiType = 'gemini' | 'plantnet' | 'trefle' | 'perenual' | 'serper';
 
-export const trackUsage = async (type: ApiType) => {
+export const trackUsage = async (type: ApiType, tokens?: number) => {
   const token = localStorage.getItem('verdant_token');
   const userStr = localStorage.getItem('verdant_user');
   
@@ -19,7 +19,7 @@ export const trackUsage = async (type: ApiType) => {
         'x-user-id': user.id,
         'x-user-house-id': user.houseId || ''
       },
-      body: JSON.stringify({ type })
+      body: JSON.stringify({ type, tokens })
     });
   } catch (e) {
     console.error(`[USAGE] Failed to track ${type}:`, e);

@@ -18,7 +18,7 @@ interface PlantContextType {
   updatePlant: (id: string, updates: Partial<Plant>) => Promise<void>;
   deletePlant: (id: string) => Promise<void>;
   cloneHouse: (sourceId: string, newName: string) => Promise<void>;
-  addHouse: (name: string, googleApiKey?: string) => Promise<void>;
+  addHouse: (name: string) => Promise<void>;
   updateHouse: (id: string, updates: Partial<House>) => Promise<void>;
   deleteHouse: (id: string) => Promise<void>;
   addLog: (plantId: string, log: Log) => Promise<void>;
@@ -30,6 +30,7 @@ interface PlantContextType {
   addCustomRoom: (name: string) => void;
   removeCustomRoom: (name: string) => void;
   addTask: (task: Task) => Promise<void>;
+  updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   toggleTaskCompletion: (id: string) => Promise<void>;
   refreshAllData: () => Promise<void>;
@@ -338,7 +339,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (token) await fetchWithAuth(`/api/plants/${id}`, token, { method: 'DELETE' });
   };
 
-  const addHouse = async (name: string, googleApiKey?: string) => {
+  const addHouse = async (name: string) => {
     console.log("[PlantContext] addHouse called with name:", name);
     try {
         // 1. Localize the house name via AI
@@ -360,7 +361,6 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const newH: House = { 
           id: `h-temp-${generateUUID()}`, 
           name: localizedName, 
-          googleApiKey,
           createdAt: new Date().toISOString() 
         };
             
@@ -436,6 +436,18 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (token) await fetchWithAuth('/api/tasks', token, { method: 'POST', body: JSON.stringify(task) });
   };
 
+  const updateTask = async (id: string, updates: Partial<Task>) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    
+    const updatedTask = { ...task, ...updates };
+    setTasks(prev => prev.map(t => t.id === id ? updatedTask : t));
+    
+    if (token) {
+        fetchWithAuth('/api/tasks', token, { method: 'POST', body: JSON.stringify(updatedTask) });
+    }
+  };
+
   const deleteTask = async (id: string) => { 
     setTasks(p => p.filter(t => t.id !== id)); 
     if (token) await fetchWithAuth(`/api/tasks/${id}`, token, { method: 'DELETE' });
@@ -474,16 +486,9 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const getEffectiveApiKey = useCallback(() => {
     if (!user) return getGeminiApiKey();
     
-    // If user has a specific house assigned, use that house's key
-    if (user.houseId) {
-      const house = houses.find(h => h.id === user.houseId);
-      const houseKey = house?.googleApiKey?.trim();
-      if (houseKey && houseKey !== 'undefined' && houseKey !== 'null') return houseKey;
-    }
-    
     // Fallback to global key
     return getGeminiApiKey();
-  }, [user, houses]);
+  }, [user]);
 
   const addLog = async (plantId: string, log: Log) => {
     const plant = plants.find(p => p.id === plantId);
@@ -576,7 +581,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     <PlantContext.Provider value={{ 
         plants, tasks, houses, isLoading, isSynced, addPlant, updatePlant, deletePlant, 
         addLog, deleteAllLogs, deleteLogsByDay, restoreDemoData, allRooms, addHouse, updateHouse, deleteHouse, cloneHouse,
-        customRooms, addCustomRoom, removeCustomRoom, addTask, deleteTask, toggleTaskCompletion,
+        customRooms, addCustomRoom, removeCustomRoom, addTask, updateTask, deleteTask, toggleTaskCompletion,
         refreshAllData, getEffectiveApiKey,
         alertMessage,
         setAlertMessage,

@@ -7,8 +7,8 @@ import { API_URL } from '../constants';
 import { Activity, Cpu, Database, Key } from 'lucide-react';
 
 interface ApiUsage {
-    google_maps_count: number;
     gemini_count: number;
+    gemini_tokens: number;
     plantnet_count: number;
     trefle_count: number;
     perenual_count: number;
@@ -18,8 +18,8 @@ interface ApiUsage {
 }
 
 const API_LIMITS: Record<string, number> = {
-    google_maps: 10000,
     gemini: 5000,
+    gemini_tokens: 1000000,
     plantnet: 500,
     trefle: 2500,
     perenual: 1000,
@@ -71,7 +71,6 @@ export const SystemTelemetry: React.FC = () => {
         const totalSize = baseSize + (plants.length * plantWeight) + (tasks.length * taskWeight) + (houses.length * houseWeight);
         
         const totalApiUsage = apiUsage ? 
-            apiUsage.google_maps_count + 
             apiUsage.gemini_count + 
             apiUsage.plantnet_count + 
             apiUsage.trefle_count + 
@@ -149,6 +148,12 @@ export const SystemTelemetry: React.FC = () => {
                         <span className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">{stats.apiUsage}</span>
                         <span className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest ml-1">HITS</span>
                     </div>
+                    {apiUsage && apiUsage.gemini_tokens > 0 && (
+                        <div className="flex items-center gap-1 mt-1">
+                            <span className="text-[9px] font-black text-amber-500 uppercase tracking-tight">Gemini:</span>
+                            <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400">{(apiUsage.gemini_tokens / 1000).toFixed(1)}k tokens</span>
+                        </div>
+                    )}
                     <div className="mt-2 flex gap-1 items-end h-4">
                         {apiUsage && Object.entries(apiUsage).filter(([key]) => key.endsWith('_count')).map(([key, value], i) => {
                             const apiKey = key.replace('_count', '');

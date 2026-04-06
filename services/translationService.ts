@@ -50,6 +50,8 @@ const processQueue = async () => {
   }
 };
 
+import { trackUsage } from "./usageService";
+
 const executeTranslation = async (text: string, sourceLang: string, apiKey?: string): Promise<LocalizedString> => {
   // Fix: Use provided apiKey or fallback to global getGeminiApiKey()
   const key = apiKey || getGeminiApiKey();
@@ -86,6 +88,13 @@ const executeTranslation = async (text: string, sourceLang: string, apiKey?: str
           }
         }
       });
+
+      if (response.usageMetadata) {
+        const totalTokens = (response.usageMetadata.promptTokenCount || 0) + (response.usageMetadata.candidatesTokenCount || 0);
+        trackUsage('gemini', totalTokens);
+      } else {
+        trackUsage('gemini');
+      }
 
       // Fix: Access .text property directly
       return JSON.parse(response.text || "{}") as LocalizedString;

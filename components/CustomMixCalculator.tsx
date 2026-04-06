@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useInventory } from '../context/InventoryContext';
-import { translateInput } from '../services/translationService';
+import { translateInput, translateObjectInput } from '../services/translationService';
 import { Button } from './ui/Button';
 import { generateUUID } from '../services/crypto';
 import { useAuth } from '../context/AuthContext';
@@ -31,6 +31,8 @@ export const CustomMixCalculator: React.FC<CustomMixCalculatorProps> = ({ onSave
   
   const [mixName, setMixName] = useState<string>(lv(itemToEdit?.name) || '');
   const [description, setDescription] = useState<string>(lv(itemToEdit?.description) || '');
+  const [applicationUsage, setApplicationUsage] = useState<string>(lv(itemToEdit?.applicationUsage) || '');
+  const [instructions, setInstructions] = useState<string>(lv(itemToEdit?.instructions) || '');
   const [mixType, setMixType] = useState<CustomMixType>(itemToEdit?.mixType || 'general');
   const [containerType, setContainerType] = useState<ContainerType>(itemToEdit?.containerType || 'hdpe_jug');
   const [containerColor, setContainerColor] = useState<string>(itemToEdit?.containerColor || '#5E8F47');
@@ -89,16 +91,24 @@ export const CustomMixCalculator: React.FC<CustomMixCalculatorProps> = ({ onSave
     if (!mixName.trim() || isSaving) return;
     setIsSaving(true);
     try {
-        const mixNameObj = await translateInput(mixName);
-        const descriptionObj = await translateInput(description);
+        const apiKey = user?.personalAiKey || '';
+        const translations = await translateObjectInput({
+          name: mixName,
+          description: description || '',
+          applicationUsage: applicationUsage || '',
+          instructions: instructions || ''
+        }, 'en', apiKey);
+
         const localizedIngredients = await Promise.all(ingredients.map(async ing => {
-            const localizedIngName = await translateInput(ing.name || 'Unnamed Ingredient');
+            const localizedIngName = await translateInput(ing.name || 'Unnamed Ingredient', 'en', apiKey);
             return { name: localizedIngName, quantity: parseFloat(ing.quantity) || 0, unit: ing.unit };
         }));
         const itemData = { 
           category: 'custom-mix' as const, 
-          name: mixNameObj, 
-          description: descriptionObj, 
+          name: translations.name, 
+          description: translations.description, 
+          applicationUsage: translations.applicationUsage,
+          instructions: translations.instructions,
           mixType, 
           containerType, 
           containerColor, 
@@ -190,7 +200,9 @@ export const CustomMixCalculator: React.FC<CustomMixCalculatorProps> = ({ onSave
            <div className="flex flex-wrap items-center gap-2">{PRESET_COLORS.map(c => <button key={c} onClick={() => setContainerColor(c)} className={`w-10 h-10 rounded-2xl border-2 transition-all ${containerColor === c ? 'scale-110 border-gray-900 dark:border-white shadow-xl' : 'border-transparent'}`} style={{ backgroundColor: c }} />)}</div>
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
              <div><label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t('vessel_type')}</label><select value={containerType} onChange={(e) => setContainerType(e.target.value as ContainerType)} className="w-full bg-gray-100 dark:bg-slate-800 border-none rounded-xl px-3 py-3 text-xs font-bold outline-none dark:text-white">{CONTAINER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
-             <div><label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t('usage_desc')}</label><input type="text" placeholder="e.g. Weekly fertilization" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full bg-gray-100 dark:bg-slate-800 border-none rounded-xl px-3 py-3 text-xs font-bold outline-none dark:text-white" /></div>
+             <div><label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t('lbl_desc')}</label><input type="text" placeholder="e.g. Weekly fertilization" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full bg-gray-100 dark:bg-slate-800 border-none rounded-xl px-3 py-3 text-xs font-bold outline-none dark:text-white" /></div>
+             <div><label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t('lbl_usage_instructions')}</label><input type="text" placeholder="e.g. Mix 1:10 with water" value={applicationUsage} onChange={(e) => setApplicationUsage(e.target.value)} className="w-full bg-gray-100 dark:bg-slate-800 border-none rounded-xl px-3 py-3 text-xs font-bold outline-none dark:text-white" /></div>
+             <div><label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t('lbl_instructions')}</label><input type="text" placeholder="e.g. Apply to soil only" value={instructions} onChange={(e) => setInstructions(e.target.value)} className="w-full bg-gray-100 dark:bg-slate-800 border-none rounded-xl px-3 py-3 text-xs font-bold outline-none dark:text-white" /></div>
            </div>
         </div>
         <div className="pt-4"><Button variant="primary" className="w-full py-5 rounded-[28px] shadow-2xl shadow-verdant/30 text-base font-black tracking-[0.2em]" disabled={isSaving || !mixName.trim() || ingredients.some(i => !i.name)} onClick={handleSave} isLoading={isSaving}>{itemToEdit ? t('save_changes').toUpperCase() : t('save_mix').toUpperCase()}</Button></div>

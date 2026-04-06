@@ -756,7 +756,6 @@
     view_all_properties:
     lbl_api_usage:
     api_gemini:
-    api_google_maps:
     api_perenual:
     api_plantnet:
     api_serper:

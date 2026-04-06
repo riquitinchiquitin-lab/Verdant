@@ -25,8 +25,6 @@ export const getGeminiApiKey = (): string => {
   return key;
 };
 
-export const GOOGLE_MAPS_API_KEY = (window as any)._ENV_?.GOOGLE_MAPS_API_KEY || '';
-
 // Current App Version
 export const APP_VERSION = '1.0';
 

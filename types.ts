@@ -51,7 +51,6 @@ export interface House {
   name: LocalizedString;
   createdAt?: string;
   deletedAt?: string | null;
-  googleApiKey?: string; // House-specific Google API key
   aiKeyTestedAt?: string; // Verification timestamp
   _count?: {
     users: number;
@@ -207,9 +206,9 @@ export interface Task {
   houseId?: string | null;
 }
 
-export type InventoryCategory = 'tools' | 'insecticide' | 'fertiliser' | 'seeds' | 'soil' | 'accessories' | 'pots' | 'custom-mix';
+export type InventoryCategory = 'tools' | 'insecticide' | 'fungicide' | 'pesticide' | 'fertiliser' | 'seeds' | 'soil' | 'accessories' | 'pots' | 'custom-mix';
 
-export type CustomMixType = 'general' | 'soil' | 'fertiliser' | 'insecticide';
+export type CustomMixType = 'general' | 'soil' | 'fertiliser' | 'insecticide' | 'fungicide' | 'pesticide';
 
 export type ContainerType = 'hdpe_jug' | 'jerry_can' | 'bag_in_box' | 'spray_bottle' | 'pressure_sprayer' | 'bucket' | 'tote' | 'none';
 
@@ -235,10 +234,10 @@ export interface InventoryItem {
   deletedAt?: string | null;
 
   model?: string;
-  applicationUsage?: string;
-  compatibility?: string[];
-  instructions?: string;
-  soilTypes?: string[];
+  applicationUsage?: LocalizedString;
+  compatibility?: LocalizedArray;
+  instructions?: LocalizedString;
+  soilTypes?: LocalizedArray;
   
   potType?: PotType;
   potColor?: string;

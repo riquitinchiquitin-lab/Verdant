@@ -1,15 +1,17 @@
 import { GoogleGenAI } from '@google/genai';
-import { House, User } from '../types';
+import { User } from '../types';
+import { getGeminiApiKey } from '../constants';
 
 let geminiClient: GoogleGenAI | null = null;
 
 export const getGeminiClient = (user: User | null): GoogleGenAI | null => {
-  if (!user || !user.house || !user.house.googleApiKey) {
+  const apiKey = user?.personalAiKey || getGeminiApiKey();
+  if (!apiKey) {
     return null;
   }
 
   if (!geminiClient) {
-    geminiClient = new GoogleGenAI({ apiKey: user.house.googleApiKey });
+    geminiClient = new GoogleGenAI({ apiKey });
   }
 
   return geminiClient;

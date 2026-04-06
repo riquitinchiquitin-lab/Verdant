@@ -6,24 +6,44 @@ import { usePlants } from '../context/PlantContext';
 import { useAuth } from '../context/AuthContext';
 import { translateInput } from '../services/translationService';
 import { generateUUID } from '../services/crypto';
-import { RecurrenceSettings, RecurrenceType, Task } from '../types';
+import { RecurrenceSettings, RecurrenceType, Task, InventoryItem } from '../types';
+import { getRecommendationsForTask, Recommendation } from '../services/recommendationService';
+import { useInventory } from '../context/InventoryContext';
 
 interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (task: Task) => void;
+  taskToEdit?: Task;
 }
 
-export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave }) => {
+export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, taskToEdit }) => {
   const { t, lv } = useLanguage();
   const { plants } = usePlants();
   const { user } = useAuth();
+  const { inventory } = useInventory();
   
-  const [title, setTitle] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [recurrence, setRecurrence] = useState<RecurrenceSettings>({ type: 'NONE' });
-  const [selectedPlantIds, setSelectedPlantIds] = useState<string[]>([]);
+  const [title, setTitle] = useState(taskToEdit ? lv(taskToEdit.title) : '');
+  const [date, setDate] = useState(taskToEdit ? new Date(taskToEdit.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+  const [recurrence, setRecurrence] = useState<RecurrenceSettings>(taskToEdit?.recurrence || { type: 'NONE' });
+  const [selectedPlantIds, setSelectedPlantIds] = useState<string[]>(taskToEdit?.plantIds || []);
+  const [type, setType] = useState<Task['type']>(taskToEdit?.type || 'GENERAL');
+  const [description, setDescription] = useState(taskToEdit ? lv(taskToEdit.description as any) : '');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Recommendations based on current state
+  const recommendations = useMemo(() => {
+    const tempTask: Task = {
+      id: taskToEdit?.id || 'temp',
+      title: { en: title },
+      description: { en: description },
+      type,
+      date: new Date(date).toISOString(),
+      plantIds: selectedPlantIds,
+      completed: false
+    };
+    return getRecommendationsForTask(tempTask, inventory, plants);
+  }, [title, description, type, date, selectedPlantIds, inventory, plants, taskToEdit?.id]);
 
   // Only show plants relevant to the user's house
   const visiblePlants = useMemo(() => {
@@ -37,17 +57,21 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave })
     setIsSaving(true);
     try {
         const titleObj = await translateInput(title);
+        const descObj = description ? await translateInput(description) : undefined;
 
-        const newTask: Task = {
-          id: `t-${generateUUID()}`,
+        const taskData: Task = {
+          id: taskToEdit?.id || `t-${generateUUID()}`,
           title: titleObj,
+          description: descObj,
+          type,
           date: new Date(date).toISOString(),
           recurrence,
           plantIds: selectedPlantIds,
-          completed: false
+          completed: taskToEdit?.completed || false,
+          houseId: taskToEdit?.houseId || user?.houseId
         };
 
-        onSave(newTask);
+        onSave(taskData);
         handleClose();
     } catch (e) {
         console.error("Task Protocol Failure:", e);
@@ -57,10 +81,14 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave })
   };
 
   const handleClose = () => {
-    setTitle('');
-    setDate(new Date().toISOString().split('T')[0]);
-    setRecurrence({ type: 'NONE' });
-    setSelectedPlantIds([]);
+    if (!taskToEdit) {
+      setTitle('');
+      setDate(new Date().toISOString().split('T')[0]);
+      setRecurrence({ type: 'NONE' });
+      setSelectedPlantIds([]);
+      setType('GENERAL');
+      setDescription('');
+    }
     setIsSaving(false);
     onClose();
   };
@@ -82,19 +110,73 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave })
   const isAllSelected = visiblePlants.length > 0 && selectedPlantIds.length === visiblePlants.length;
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title={t('add_task')}>
+    <Modal isOpen={isOpen} onClose={handleClose} title={taskToEdit ? t('edit_task') : t('add_task')}>
       <div className="space-y-6 max-h-[75vh] overflow-y-auto no-scrollbar py-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">{t('task_title_placeholder')}</label>
+            <input 
+              type="text" 
+              className="w-full h-14 px-5 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Feeding Protocol"
+              autoFocus
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">{t('category')}</label>
+            <select
+              className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold appearance-none"
+              value={type}
+              onChange={(e) => setType(e.target.value as Task['type'])}
+            >
+              <option value="GENERAL">{t('cat_custom_mix')}</option>
+              <option value="WATER">{t('water')}</option>
+              <option value="FERTILIZE">{t('cat_fertiliser')}</option>
+              <option value="REPOT">{t('repot')}</option>
+              <option value="PRUNE">{t('prune')}</option>
+            </select>
+          </div>
+        </div>
+
         <div className="space-y-2">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">{t('task_title_placeholder')}</label>
-          <input 
-            type="text" 
-            className="w-full h-14 px-5 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Feeding Protocol"
-            autoFocus
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">{t('lbl_desc')}</label>
+          <textarea 
+            className="w-full p-5 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-medium min-h-[100px] resize-none"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={t('usage_desc')}
           />
         </div>
+
+        {recommendations.length > 0 && (
+          <div className="space-y-3">
+            <label className="text-[10px] font-black text-verdant uppercase tracking-widest px-1">{t('lbl_recommendations')}</label>
+            <div className="flex flex-col gap-2">
+              {recommendations.map(rec => (
+                <div key={rec.item.id} className="flex items-center gap-3 p-3 bg-verdant/5 dark:bg-verdant/10 border border-verdant/20 rounded-2xl">
+                  <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-white dark:bg-slate-800 border border-verdant/10">
+                    {rec.item.images?.[0] && <img src={rec.item.images[0]} alt="" className="w-full h-full object-cover" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-tight truncate">{lv(rec.item.name)}</p>
+                    <p className="text-[9px] text-verdant font-bold uppercase tracking-widest leading-none mt-0.5">{rec.reason}</p>
+                    {rec.item.category === 'custom-mix' && rec.item.ingredients && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {rec.item.ingredients.map((ing, i) => (
+                          <span key={i} className="text-[8px] bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-verdant/10 text-gray-500 dark:text-slate-400 font-bold">
+                            {ing.quantity}{ing.unit} {lv(ing.name as any)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">

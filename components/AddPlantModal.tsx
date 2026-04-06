@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
-import { identifyPlantWithPlantNet, identifyPlantWithGemini, generatePlantDetails, createPlant, analyzeReceipt } from '../services/plantAi';
+import { identifyPlantWithPlantNet, identifyPlantWithGemini, generatePlantDetails, createPlant } from '../services/plantAi';
 import { translateInput } from '../services/translationService';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
@@ -55,8 +55,6 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
   const [compatibleItems, setCompatibleItems] = useState<InventoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
-  const [isScanningReceipt, setIsScanningReceipt] = useState(false);
-  const [isAnalyzingReceipt, setIsAnalyzingReceipt] = useState(false);
   const [countdown, setCountdown] = useState(0);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -122,26 +120,6 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
     setCompatibleItems([]);
     setError(null);
     setIsBusy(false);
-    setIsScanningReceipt(false);
-    setIsAnalyzingReceipt(false);
-  };
-
-  const handleReceiptCapture = async (base64: string) => {
-    setIsScanningReceipt(false);
-    setIsAnalyzingReceipt(true);
-    try {
-      const data = await analyzeReceipt(base64, getEffectiveApiKey());
-      if (data) {
-        if (data.nursery) setNursery(data.nursery);
-        if (data.dateOfPurchase) setDateOfPurchase(data.dateOfPurchase);
-        if (data.cost) setCost(data.cost);
-        if (data.currency) setCurrency(data.currency);
-      }
-    } catch (err) {
-      console.error("Receipt analysis failed:", err);
-    } finally {
-      setIsAnalyzingReceipt(false);
-    }
   };
 
   const initiateSync = async () => {
@@ -398,15 +376,6 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
               <div className="pt-4 border-t border-gray-100 dark:border-slate-800 space-y-4">
                 <div className="flex items-center justify-between">
                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 ml-2">{t('lbl_provenance_history')}</h4>
-                    <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-[9px] font-black uppercase tracking-widest text-emerald-600"
-                        onClick={() => setIsScanningReceipt(true)}
-                        isLoading={isAnalyzingReceipt}
-                    >
-                        {t('btn_scan_receipt')}
-                    </Button>
                 </div>
                 <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_nursery_origin')}</label>
@@ -694,15 +663,6 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
           </div>
         )}
       </div>
-
-      {isScanningReceipt && (
-        <div className="fixed inset-0 z-[100] bg-black flex flex-col">
-          <CameraCapture 
-            onCapture={handleReceiptCapture}
-            onCancel={() => setIsScanningReceipt(false)}
-          />
-        </div>
-      )}
     </Modal>
   );
 };

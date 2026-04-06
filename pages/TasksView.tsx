@@ -10,10 +10,11 @@ const TaskItem: React.FC<{
   task: Task; 
   onToggle: (id: string) => void; 
   onDelete: (id: string) => void; 
+  onEdit: (task: Task) => void;
   plants: Plant[];
   today: Date;
   can: (action: string, subject?: any) => boolean;
-}> = ({ task, onToggle, onDelete, plants, today, can }) => {
+}> = ({ task, onToggle, onDelete, onEdit, plants, today, can }) => {
     const { t, lv } = useLanguage();
     
     const taskDate = new Date(task.date);
@@ -32,7 +33,7 @@ const TaskItem: React.FC<{
                 {task.completed && <svg className="w-3 h-3 md:w-3.5 md:h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
             </button>
             
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onEdit(task)}>
                 <div className="flex items-center gap-1.5">
                     <h3 className={`font-black text-gray-900 dark:text-white uppercase tracking-tight text-base md:text-lg ${task.completed ? 'line-through text-gray-400' : ''}`}>
                         {lv(task.title)}
@@ -64,14 +65,24 @@ const TaskItem: React.FC<{
                 </div>
             </div>
 
-            {can('manage_tasks') && (
-                <button 
-                    onClick={() => onDelete(task.id)}
-                    className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-300 hover:text-red-500 transition-all transform hover:scale-110 border border-gray-100 dark:border-slate-800 rounded-lg"
-                >
-                    <svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
-            )}
+            <div className="flex items-center gap-1">
+                {can('manage_tasks') && (
+                    <>
+                        <button 
+                            onClick={() => onEdit(task)}
+                            className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-300 hover:text-verdant transition-all transform hover:scale-110 border border-gray-100 dark:border-slate-800 rounded-lg"
+                        >
+                            <svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                        </button>
+                        <button 
+                            onClick={() => onDelete(task.id)}
+                            className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-300 hover:text-red-500 transition-all transform hover:scale-110 border border-gray-100 dark:border-slate-800 rounded-lg"
+                        >
+                            <svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                    </>
+                )}
+            </div>
         </div>
     );
 };
@@ -79,8 +90,9 @@ const TaskItem: React.FC<{
 export const TasksView: React.FC = () => {
   const { t, lv } = useLanguage();
   const { user, can } = useAuth();
-  const { tasks, addTask, deleteTask, toggleTaskCompletion, plants, searchFilter } = usePlants();
+  const { tasks, addTask, updateTask, deleteTask, toggleTaskCompletion, plants, searchFilter } = usePlants();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
   const [notifyPerm, setNotifyPerm] = useState<NotificationPermission>(typeof Notification !== 'undefined' ? Notification.permission : 'default');
 
   const requestNotification = async () => {
@@ -97,8 +109,24 @@ export const TasksView: React.FC = () => {
     }
   };
 
-  const handleAddTask = (newTask: Task) => {
-      addTask(newTask);
+  const handleSaveTask = (task: Task) => {
+      if (editingTask) {
+          updateTask(task.id, task);
+      } else {
+          addTask(task);
+      }
+      setIsModalOpen(false);
+      setEditingTask(undefined);
+  };
+
+  const handleEditTask = (task: Task) => {
+      setEditingTask(task);
+      setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+      setIsModalOpen(false);
+      setEditingTask(undefined);
   };
 
   const filteredPlants = useMemo(() => {
@@ -162,7 +190,7 @@ export const TasksView: React.FC = () => {
             <section className="space-y-4">
                 <h2 className="text-sm md:text-base font-black text-red-500 uppercase tracking-[0.4em] px-2">{t('tasks_due_now')}</h2>
                 <div className="flex flex-col gap-3">
-                    {dueToday.map(task => <TaskItem key={task.id} task={task} onToggle={toggleTaskCompletion} onDelete={deleteTask} plants={plants} today={today} can={can} />)}
+                    {dueToday.map(task => <TaskItem key={task.id} task={task} onToggle={toggleTaskCompletion} onDelete={deleteTask} onEdit={handleEditTask} plants={plants} today={today} can={can} />)}
                     {dueToday.length === 0 && <p className="text-gray-300 italic text-[10px] uppercase font-black tracking-widest px-2">{t('tasks_no_urgent')}</p>}
                 </div>
             </section>
@@ -170,7 +198,7 @@ export const TasksView: React.FC = () => {
             <section className="space-y-4">
                 <h2 className="text-sm md:text-base font-black text-blue-500 uppercase tracking-[0.4em] px-2">{t('tasks_upcoming')}</h2>
                 <div className="flex flex-col gap-3">
-                    {upcoming.map(task => <TaskItem key={task.id} task={task} onToggle={toggleTaskCompletion} onDelete={deleteTask} plants={plants} today={today} can={can} />)}
+                    {upcoming.map(task => <TaskItem key={task.id} task={task} onToggle={toggleTaskCompletion} onDelete={deleteTask} onEdit={handleEditTask} plants={plants} today={today} can={can} />)}
                 </div>
             </section>
 
@@ -178,13 +206,13 @@ export const TasksView: React.FC = () => {
                 <section className="space-y-4 opacity-60">
                     <h2 className="text-sm md:text-base font-black text-gray-400 uppercase tracking-[0.4em] px-2">{t('completed')}</h2>
                     <div className="flex flex-col gap-3">
-                        {completed.map(task => <TaskItem key={task.id} task={task} onToggle={toggleTaskCompletion} onDelete={deleteTask} plants={plants} today={today} can={can} />)}
+                        {completed.map(task => <TaskItem key={task.id} task={task} onToggle={toggleTaskCompletion} onDelete={deleteTask} onEdit={handleEditTask} plants={plants} today={today} can={can} />)}
                     </div>
                 </section>
             )}
         </div>
 
-        {isModalOpen && <TaskModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleAddTask} />}
+        {isModalOpen && <TaskModal isOpen={isModalOpen} onClose={handleCloseModal} onSave={handleSaveTask} taskToEdit={editingTask} />}
     </div>
   );
 };

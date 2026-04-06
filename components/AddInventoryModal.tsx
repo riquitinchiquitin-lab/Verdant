@@ -6,7 +6,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useInventory } from '../context/InventoryContext';
 import { usePlants } from '../context/PlantContext';
 import { useAuth } from '../context/AuthContext';
-import { translateInput } from '../services/translationService';
+import { translateInput, translateObjectInput } from '../services/translationService';
 import { InventoryItem, InventoryCategory, Plant } from '../types';
 import { identifyInventoryItem } from '../services/inventoryAi';
 import { compressImage } from '../services/imageUtils';
@@ -48,6 +48,8 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
     name: '',
     brand: '',
     description: '',
+    applicationUsage: '',
+    instructions: '',
     quantity: 1,
     unit: 'units',
     images: [],
@@ -63,6 +65,8 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
         name: lv(itemToEdit.name),
         brand: lv(itemToEdit.brand),
         description: lv(itemToEdit.description),
+        applicationUsage: lv(itemToEdit.applicationUsage),
+        instructions: lv(itemToEdit.instructions),
         quantity: itemToEdit.quantity,
         unit: itemToEdit.unit,
         images: itemToEdit.images || [],
@@ -177,16 +181,22 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
     setIsSaving(true);
     try {
         const apiKey = getEffectiveApiKey();
-        const nameObj = await translateInput(formData.name, 'en', apiKey);
-        const brandObj = formData.brand ? await translateInput(formData.brand, 'en', apiKey) : { en: '' };
-        const descObj = formData.description ? await translateInput(formData.description, 'en', apiKey) : { en: '' };
+        const translations = await translateObjectInput({
+          name: formData.name,
+          brand: formData.brand || '',
+          description: formData.description || '',
+          applicationUsage: formData.applicationUsage || '',
+          instructions: formData.instructions || ''
+        }, 'en', apiKey);
 
         if (itemToEdit) {
           updateItem(itemToEdit.id, {
             category: formData.category as InventoryCategory,
-            name: nameObj,
-            brand: brandObj,
-            description: descObj,
+            name: translations.name,
+            brand: translations.brand,
+            description: translations.description,
+            applicationUsage: translations.applicationUsage,
+            instructions: translations.instructions,
             quantity: formData.quantity,
             unit: formData.unit,
             images: formData.images,
@@ -199,9 +209,11 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
             id: `inv-${generateUUID()}`,
             houseId: user?.houseId,
             category: formData.category as InventoryCategory,
-            name: nameObj,
-            brand: brandObj,
-            description: descObj,
+            name: translations.name,
+            brand: translations.brand,
+            description: translations.description,
+            applicationUsage: translations.applicationUsage,
+            instructions: translations.instructions,
             quantity: formData.quantity,
             unit: formData.unit,
             images: formData.images,
@@ -421,6 +433,46 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
                 />
              </div>
 
+             <div className="md:col-span-2">
+                <label className="block text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">{t('lbl_brand')}</label>
+                <input 
+                  className="w-full bg-gray-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-verdant dark:text-white transition-all outline-none" 
+                  value={formData.brand} 
+                  onChange={(e) => setFormData({...formData, brand: e.target.value})} 
+                  placeholder="e.g. Schultz"
+                />
+             </div>
+
+             <div className="md:col-span-2">
+                <label className="block text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">{t('lbl_desc')}</label>
+                <textarea 
+                  className="w-full bg-gray-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-verdant dark:text-white transition-all outline-none min-h-[80px]" 
+                  value={formData.description} 
+                  onChange={(e) => setFormData({...formData, description: e.target.value})} 
+                  placeholder={t('placeholder_describe_specimen')}
+                />
+             </div>
+
+             <div className="md:col-span-2">
+                <label className="block text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">{t('lbl_usage_instructions')}</label>
+                <textarea 
+                  className="w-full bg-gray-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-verdant dark:text-white transition-all outline-none min-h-[80px]" 
+                  value={formData.applicationUsage} 
+                  onChange={(e) => setFormData({...formData, applicationUsage: e.target.value})} 
+                  placeholder={t('placeholder_usage_desc')}
+                />
+             </div>
+
+             <div className="md:col-span-2">
+                <label className="block text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">{t('lbl_instructions')}</label>
+                <textarea 
+                  className="w-full bg-gray-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-verdant dark:text-white transition-all outline-none min-h-[80px]" 
+                  value={formData.instructions} 
+                  onChange={(e) => setFormData({...formData, instructions: e.target.value})} 
+                  placeholder={t('placeholder_guide')}
+                />
+             </div>
+
              <div>
                 <label className="block text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">{t('lbl_quantity')}</label>
                 <input 
@@ -499,6 +551,13 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
                 <p className="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest px-1">{t('lbl_desc')}</p>
                 <p className="text-xs text-gray-800 dark:text-slate-200 italic leading-relaxed">"{lv(identifiedItem.description)}"</p>
               </div>
+
+              {(identifiedItem.applicationUsage || identifiedItem.instructions) && (
+                <div className="space-y-3">
+                  <p className="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest px-1">{t('lbl_usage_instructions')}</p>
+                  <p className="text-xs text-gray-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">{lv(identifiedItem.applicationUsage) || lv(identifiedItem.instructions)}</p>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-4">

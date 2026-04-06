@@ -151,7 +151,7 @@ app.use((req, res, next) => {
   res.setHeader(
     'Content-Security-Policy',
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://www.gstatic.com https://cdn.jsdelivr.net https://maps.googleapis.com https://maps.gstatic.com; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://www.gstatic.com https://cdn.jsdelivr.net; " +
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; " +
     "font-src 'self' https://fonts.gstatic.com; " +
     "img-src 'self' data: blob: https://*; " +
@@ -329,8 +329,8 @@ app.get('/api/system/logs', checkAuth, async (req, res) => {
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.post('/api/system/track-usage', checkAuth, async (req, res) => {
-  const { type } = req.body;
-  const validTypes = ['google_maps', 'gemini', 'plantnet', 'trefle', 'perenual', 'serper', 'opb'];
+  const { type, tokens } = req.body;
+  const validTypes = ['gemini', 'plantnet', 'trefle', 'perenual', 'serper', 'opb'];
   if (!validTypes.includes(type)) return res.status(400).json({ error: "INVALID_TYPE" });
 
   const now = new Date();
@@ -341,9 +341,20 @@ app.post('/api/system/track-usage', checkAuth, async (req, res) => {
     const result = await query('SELECT * FROM api_usage WHERE id = ?', [monthId]);
     if (result.rows.length === 0) {
       // Initialize all columns to 0
-      await query(`INSERT INTO api_usage (id, google_maps_count, gemini_count, plantnet_count, trefle_count, perenual_count, serper_count, opb_count, last_updated) VALUES (?, 0, 0, 0, 0, 0, 0, 0, ?)`, [monthId, now.toISOString()]);
+      await query(`INSERT INTO api_usage (id, gemini_count, gemini_tokens, plantnet_count, trefle_count, perenual_count, serper_count, opb_count, last_updated) VALUES (?, 0, 0, 0, 0, 0, 0, 0, ?)`, [monthId, now.toISOString()]);
     }
-    await query(`UPDATE api_usage SET ${column} = ${column} + 1, last_updated = ? WHERE id = ?`, [now.toISOString(), monthId]);
+    
+    let updateSql = `UPDATE api_usage SET ${column} = ${column} + 1, last_updated = ?`;
+    let params = [now.toISOString(), monthId];
+    
+    if (type === 'gemini' && typeof tokens === 'number') {
+      updateSql = `UPDATE api_usage SET ${column} = ${column} + 1, gemini_tokens = gemini_tokens + ?, last_updated = ? WHERE id = ?`;
+      params = [tokens, now.toISOString(), monthId];
+    } else {
+      updateSql = `UPDATE api_usage SET ${column} = ${column} + 1, last_updated = ? WHERE id = ?`;
+    }
+    
+    await query(updateSql, params);
     res.json({ status: "ok" });
   } catch (e) {
     res.status(500).json({ error: "USAGE_TRACK_FAULT" });
@@ -448,7 +459,6 @@ app.get('/api/system/usage', checkAuth, async (req, res) => {
     
     const usageData = result.rows[0] || { 
       id: monthId, 
-      google_maps_count: 0, 
       gemini_count: 0, 
       plantnet_count: 0, 
       trefle_count: 0, 
@@ -528,8 +538,8 @@ app.post('/api/system/restore', checkAuth, async (req, res) => {
       if (decoded.houses && Array.isArray(decoded.houses)) {
         console.log(`[RESTORE] Restoring ${decoded.houses.length} houses...`);
         for (const h of decoded.houses) {
-          await query('INSERT OR REPLACE INTO houses (id, name, googleApiKey, createdAt, data) VALUES (?, ?, ?, ?, ?)',
-            [h.id, JSON.stringify(h.name), h.googleApiKey, h.createdAt, JSON.stringify(h)]);
+          await query('INSERT OR REPLACE INTO houses (id, name, createdAt, data) VALUES (?, ?, ?, ?)',
+            [h.id, JSON.stringify(h.name), h.createdAt, JSON.stringify(h)]);
         }
       }
 
@@ -651,8 +661,8 @@ app.post('/api/houses', checkAuth, async (req, res) => {
       return res.status(400).json({ error: "INVALID_HOUSE_DATA" });
     }
 
-    await query('INSERT OR REPLACE INTO houses (id, name, googleApiKey, createdAt, data) VALUES (?, ?, ?, ?, ?)',
-      [h.id, JSON.stringify(h.name), h.googleApiKey, h.createdAt, JSON.stringify(h)]);
+    await query('INSERT OR REPLACE INTO houses (id, name, createdAt, data) VALUES (?, ?, ?, ?)',
+      [h.id, JSON.stringify(h.name), h.createdAt, JSON.stringify(h)]);
     
     console.log(`[API] House ${h.id} successfully saved to DB.`);
     await logSystemEvent('HOUSE_UPDATED', `House ${h.id} updated by ${email}`, 'INFO');
@@ -792,24 +802,9 @@ app.post('/api/users', checkAuth, async (req, res) => {
 app.get('/env-config.js', async (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
   
-  const now = new Date();
-  const monthId = `${now.getFullYear()}-${now.getMonth() + 1}`;
-  let mapsUsage = 0;
-  try {
-    const result = await query('SELECT google_maps_count FROM api_usage WHERE id = ?', [monthId]);
-    if (result.rows.length > 0) mapsUsage = result.rows[0].google_maps_count;
-  } catch (e) {}
-
-  // $200 free credit is roughly 11,000 sessions. We set limit to 10,000 for safety.
-  const MAPS_LIMIT = 10000;
-  const mapsKey = (mapsUsage >= MAPS_LIMIT) ? '' : (process.env.GOOGLE_MAPS_API_KEY || '').trim();
-
   res.send(`window._ENV_ = ${JSON.stringify({
     GOOGLE_CLIENT_ID: (process.env.GOOGLE_CLIENT_ID || '').trim(),
-    API_KEY: (process.env.GEMINI_API_KEY || process.env.API_KEY || '').trim(),
-    GOOGLE_MAPS_API_KEY: mapsKey,
-    GOOGLE_MAPS_USAGE: mapsUsage,
-    GOOGLE_MAPS_LIMIT: MAPS_LIMIT
+    API_KEY: (process.env.GEMINI_API_KEY || process.env.API_KEY || '').trim()
   })};`);
 });
 
@@ -859,14 +854,14 @@ async function initializeDatabase() {
     `CREATE TABLE IF NOT EXISTS vault_key (id INTEGER PRIMARY KEY CHECK (id = 1), encrypted_key TEXT NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT, role TEXT DEFAULT 'OWNER', houseId TEXT, personalAiKey TEXT, personalAiKeyTestedAt TEXT, deletedAt TEXT, caretakerStart TEXT, caretakerEnd TEXT)`,
     `CREATE TABLE IF NOT EXISTS plants (id TEXT PRIMARY KEY, houseId TEXT, species TEXT, nickname TEXT, images TEXT, logs TEXT, lastWatered TEXT, updatedAt TEXT, data TEXT)`,
-    `CREATE TABLE IF NOT EXISTS houses (id TEXT PRIMARY KEY, name TEXT, googleApiKey TEXT, createdAt TEXT, data TEXT)`,
+    `CREATE TABLE IF NOT EXISTS houses (id TEXT PRIMARY KEY, name TEXT, createdAt TEXT, data TEXT)`,
     `CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, houseId TEXT, plantIds TEXT, type TEXT, title TEXT, description TEXT, date TEXT, completed INTEGER, completedAt TEXT, recurrence TEXT, data TEXT)`,
     `CREATE TABLE IF NOT EXISTS inventory (id TEXT PRIMARY KEY, houseId TEXT, name TEXT, data TEXT)`,
     `CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, event TEXT, details TEXT, level TEXT, created_at TEXT)`,
     `CREATE TABLE IF NOT EXISTS api_usage (
       id TEXT PRIMARY KEY, 
-      google_maps_count INTEGER DEFAULT 0, 
       gemini_count INTEGER DEFAULT 0,
+      gemini_tokens INTEGER DEFAULT 0,
       plantnet_count INTEGER DEFAULT 0,
       trefle_count INTEGER DEFAULT 0,
       perenual_count INTEGER DEFAULT 0,
@@ -883,6 +878,7 @@ async function initializeDatabase() {
   // Migrations
   try { await query(`ALTER TABLE users ADD COLUMN caretakerStart TEXT`); } catch(e) {}
   try { await query(`ALTER TABLE users ADD COLUMN caretakerEnd TEXT`); } catch(e) {}
+  try { await query(`ALTER TABLE api_usage ADD COLUMN gemini_tokens INTEGER DEFAULT 0`); } catch(e) {}
 
   console.log('[DB] Schema Synchronized');
 }

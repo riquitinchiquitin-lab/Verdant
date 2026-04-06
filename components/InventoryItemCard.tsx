@@ -13,7 +13,7 @@ export const InventoryItemCard: React.FC<{
   onClick?: () => void;
   onEditClick?: () => void;
 }> = ({ item, onCompatibilityClick, onClick, onEditClick }) => {
-  const { t, lv } = useLanguage();
+  const { t, lv, lva } = useLanguage();
   const { consumeItem, updateItem } = useInventory();
   const { plants } = usePlants();
 
@@ -36,7 +36,7 @@ export const InventoryItemCard: React.FC<{
   const isPot = item.category === 'pots';
   const isAccessory = item.category === 'accessories';
   const isLowStock = item.quantity <= 0;
-  const hasCompatibility = !!item.compatibility && item.compatibility.length > 0;
+  const hasCompatibility = !!item.compatibility && lva(item.compatibility).length > 0;
   
   const formattedVolume = formatVolume(item.quantity, item.unit);
 

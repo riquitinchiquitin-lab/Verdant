@@ -6,7 +6,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { usePlants } from '../context/PlantContext';
 import { useAuth } from '../context/AuthContext';
 import { translateInput, translateArrayInput, translateObjectInput } from '../services/translationService';
-import { generatePlantDetails, analyzeReceipt } from '../services/plantAi';
+import { generatePlantDetails } from '../services/plantAi';
 import { CameraCapture } from './ui/CameraCapture';
 import { ROOM_TYPES, CURRENCIES, getCurrencyForLanguage } from '../constants';
 
@@ -48,8 +48,6 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
   const [isCustom, setIsCustom] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isScanningReceipt, setIsScanningReceipt] = useState(false);
-  const [isAnalyzingReceipt, setIsAnalyzingReceipt] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshedData, setRefreshedData] = useState<Partial<Plant> | null>(null);
   const [isAddingImage, setIsAddingImage] = useState(false);
@@ -130,24 +128,6 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
         setError(e.message || "Refresh failed");
     } finally {
         setIsRefreshing(false);
-    }
-  };
-
-  const handleReceiptCapture = async (base64: string) => {
-    setIsScanningReceipt(false);
-    setIsAnalyzingReceipt(true);
-    try {
-      const data = await analyzeReceipt(base64, getEffectiveApiKey());
-      if (data) {
-        if (data.nursery) setNursery(data.nursery);
-        if (data.dateOfPurchase) setDateOfPurchase(data.dateOfPurchase);
-        if (data.cost) setCost(data.cost);
-        if (data.currency) setCurrency(data.currency);
-      }
-    } catch (err) {
-      console.error("Receipt analysis failed:", err);
-    } finally {
-      setIsAnalyzingReceipt(false);
     }
   };
 
@@ -468,15 +448,6 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
           <div className="pt-8 border-t border-gray-100 dark:border-slate-800">
               <div className="flex items-center justify-between mb-6">
                   <h3 className="text-[11px] font-serif font-black text-verdant uppercase tracking-[0.3em]">{t('lbl_provenance_history')}</h3>
-                  <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="text-[9px] font-black uppercase tracking-widest text-emerald-600"
-                      onClick={() => setIsScanningReceipt(true)}
-                      isLoading={isAnalyzingReceipt}
-                  >
-                      {t('btn_scan_receipt')}
-                  </Button>
               </div>
               <div className="space-y-4">
                   <div>
@@ -533,15 +504,6 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
               <Button className="flex-[2] h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-verdant/20" onClick={handleSave} isLoading={isSaving} disabled={isRefreshing}>{t('btn_save_changes')}</Button>
           </div>
       </div>
-
-      {isScanningReceipt && (
-        <div className="fixed inset-0 z-[100] bg-black flex flex-col">
-          <CameraCapture 
-            onCapture={handleReceiptCapture}
-            onCancel={() => setIsScanningReceipt(false)}
-          />
-        </div>
-      )}
     </Modal>
   );
 };

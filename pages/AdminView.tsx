@@ -572,15 +572,6 @@ export const AdminView: React.FC = () => {
                                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 ring-verdant/20"
                             />
                         </div>
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('lbl_google_api_key_optional')}</label>
-                            <input 
-                                type="password" 
-                                value={editingHouse.googleApiKey || ''} 
-                                onChange={(e) => setEditingHouse({...editingHouse, googleApiKey: e.target.value})}
-                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 ring-verdant/20"
-                            />
-                        </div>
                     </div>
                     <div className="flex gap-4 pt-4">
                         <Button variant="secondary" onClick={() => setEditingHouse(null)} className="flex-1 rounded-2xl uppercase font-black">{t('btn_cancel')}</Button>

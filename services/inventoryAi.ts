@@ -3,6 +3,8 @@ import { getGeminiApiKey } from '../constants';
 
 const TARGET_LANGS = ['en', 'zh', 'ja', 'ko', 'es', 'fr', 'pt', 'de', 'id', 'vi', 'tl'];
 
+import { trackUsage } from './usageService';
+
 export const identifyInventoryItem = async (
   image: string, 
   currentPlants: string[], 
@@ -52,7 +54,7 @@ export const identifyInventoryItem = async (
     2. Categorize: [tools, insecticide, fertiliser, seeds, soil, accessories, pots].
     3. Generate a technical description and usage instructions.
     4. Provide compatibility tags (which plant species is this for?).
-    5. LOCALIZATION: Provide the 'name', 'brand', and 'description' as objects localized into: ${TARGET_LANGS.join(', ')}.
+    5. LOCALIZATION: Provide the 'name', 'brand', 'description', 'applicationUsage', 'instructions', 'compatibility', and 'soilTypes' as objects localized into: ${TARGET_LANGS.join(', ')}.
     
     Return ONLY pure JSON matching the schema.
   `;
@@ -78,10 +80,10 @@ export const identifyInventoryItem = async (
             quantity: { type: Type.NUMBER },
             unit: { type: Type.STRING },
             model: { type: Type.STRING },
-            applicationUsage: { type: Type.STRING },
-            compatibility: { type: Type.ARRAY, items: { type: Type.STRING } },
-            instructions: { type: Type.STRING },
-            soilTypes: { type: Type.ARRAY, items: { type: Type.STRING } },
+            applicationUsage: { type: Type.OBJECT, properties: TARGET_LANGS.reduce((a:any, l) => ({...a, [l]: {type: Type.STRING}}), {}) },
+            compatibility: { type: Type.OBJECT, properties: TARGET_LANGS.reduce((a:any, l) => ({...a, [l]: {type: Type.ARRAY, items: {type: Type.STRING}}}), {}) },
+            instructions: { type: Type.OBJECT, properties: TARGET_LANGS.reduce((a:any, l) => ({...a, [l]: {type: Type.STRING}}), {}) },
+            soilTypes: { type: Type.OBJECT, properties: TARGET_LANGS.reduce((a:any, l) => ({...a, [l]: {type: Type.ARRAY, items: {type: Type.STRING}}}), {}) },
             potType: { type: Type.STRING },
             potColor: { type: Type.STRING },
             openingHoleSize: { type: Type.STRING },
@@ -93,6 +95,13 @@ export const identifyInventoryItem = async (
         }
       }
     }));
+
+    if (response.usageMetadata) {
+      const totalTokens = (response.usageMetadata.promptTokenCount || 0) + (response.usageMetadata.candidatesTokenCount || 0);
+      trackUsage('gemini', totalTokens);
+    } else {
+      trackUsage('gemini');
+    }
 
     const result = JSON.parse(response.text || "{}");
     onLog?.("Identification & Translation finalized in single pass.", "GEMINI");

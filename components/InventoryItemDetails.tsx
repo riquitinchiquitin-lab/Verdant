@@ -16,7 +16,7 @@ interface InventoryItemDetailsProps {
 }
 
 export const InventoryItemDetails: React.FC<InventoryItemDetailsProps> = ({ item, onClose }) => {
-  const { t, lv } = useLanguage();
+  const { t, lv, lva } = useLanguage();
   const { assignToPlant, releaseFromPlant, deleteItem } = useInventory();
   const { plants } = usePlants();
   const { can } = useAuth();
@@ -219,12 +219,15 @@ export const InventoryItemDetails: React.FC<InventoryItemDetailsProps> = ({ item
       {(item.applicationUsage || item.instructions) && (
         <div className="p-6 bg-gray-50/50 dark:bg-slate-800/30 rounded-[32px] border border-gray-100 dark:border-slate-800">
           <p className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-3">{t('lbl_usage_instructions')}</p>
-          <p className="text-sm text-gray-700 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-wrap">{lv(item.applicationUsage || item.instructions)}</p>
+          <p className="text-sm text-gray-700 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-wrap">{lv(item.applicationUsage) || lv(item.instructions)}</p>
         </div>
       )}
 
       {/* Dynamic Specs Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+        {item.category === 'soil' && (
+          <SpecItem label={t('cat_soil')} value={lva(item.soilTypes).join(', ')} />
+        )}
         {item.category === 'pots' && (
           <>
             <SpecItem label={t('lbl_material')} value={item.material} />
@@ -239,11 +242,11 @@ export const InventoryItemDetails: React.FC<InventoryItemDetailsProps> = ({ item
       </div>
 
       {/* General Compatibility List */}
-      {item.compatibility && item.compatibility.length > 0 && (
+      {item.compatibility && lva(item.compatibility).length > 0 && (
         <div className="space-y-3">
             <p className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest px-1">{t('lbl_species_compatibility')}</p>
             <div className="flex flex-wrap gap-2">
-                {item.compatibility.map((c, i) => (
+                {lva(item.compatibility).map((c, i) => (
                     <span key={i} className="px-3 py-1 bg-gray-100 dark:bg-slate-800 rounded-lg text-xs font-bold text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700 shadow-sm">{c}</span>
                 ))}
             </div>

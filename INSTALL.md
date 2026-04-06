@@ -150,7 +150,6 @@ Set `VITE_ALLOWED_HOSTS` to your domain (e.g., `verdant.example.com`) to ensure 
 ## 🛡️ Monitoring & Limits
 
 Verdant includes built-in telemetry to track API usage:
-- **Google Maps Safety**: Automatically capped at 10,000 sessions/month.
 - **Real-time Tracking**: Monitor all API calls via the **System Telemetry** dashboard in the Admin panel.
 
 ---
