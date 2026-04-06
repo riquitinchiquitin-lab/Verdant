@@ -588,6 +588,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                             <PassportItem icon="🌿" label={t('lbl_family_genus')} value={`${plant.family} / ${plant.genus}`} />
                                             <PassportItem icon="📏" label={t('lbl_growth_size')} value={`${t('lbl_max_height')}: ${plant.maxHeight} cm (${lv(plant.growthRate as any) || t('lbl_standard')})`} />
                                             <PassportItem icon="🏷️" label={t('lbl_category')} value={lv(plant.category as any) || t('lbl_na')} />
+                                            <PassportItem icon="🏠" label={t('lbl_room')} value={lv(plant.room as any) || t('lbl_unassigned')} />
                                             <PassportItem icon="☀️" label={t('lbl_light_advice')} value={lv(plant.lightAdvice)} />
                                         </div>
                                     </section>
@@ -740,7 +741,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                         <PassportItem 
                                             icon="🪴" 
                                             label={t('lbl_last_pot_size')} 
-                                            value={plant.lastPotSize ? (/^\d+(\.\d+)?$/.test(plant.lastPotSize.toString().trim()) ? `${plant.lastPotSize.toString().trim()} cm` : plant.lastPotSize) : t('lbl_na')} 
+                                            value={plant.lastPotSize ? (String(plant.lastPotSize).match(/^\d+(\.\d+)?$/) ? `${plant.lastPotSize} cm` : String(plant.lastPotSize)) : t('lbl_na')}
                                         />
                                         <PassportItem 
                                             icon="🔄" 
@@ -750,7 +751,12 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                         <PassportItem 
                                             icon="📅" 
                                             label={t('lbl_last_rotated')} 
-                                            value={plant.lastRotated ? new Date(plant.lastRotated).toLocaleDateString() : t('lbl_na')} 
+                                            value={plant.lastRotated ? new Date(plant.lastRotated).toLocaleDateString() : t('lbl_na')}
+                                        />
+                                        <PassportItem 
+                                            icon="💧" 
+                                            label={t('lbl_last_watered_date')} 
+                                            value={plant.lastWatered ? new Date(plant.lastWatered).toLocaleDateString() : t('lbl_na')} 
                                         />
                                         <PassportItem icon="🧬" label={t('lbl_propagation')} value={lva(plant.propagationMethods as any)?.join(', ') || t('lbl_na')} />
                                     </div>

@@ -27,6 +27,7 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
   const [room, setRoom] = useState('');
   const [houseId, setHouseId] = useState<string | null>(null);
   const [wateringInterval, setWateringInterval] = useState<number | null>(null);
+  const [lastWatered, setLastWatered] = useState<string | null>(null);
   const [targetPh, setTargetPh] = useState<number | null>(null);
   const [targetEc, setTargetEc] = useState<number | null>(null);
   const [targetVpd, setTargetVpd] = useState<number | null>(null);
@@ -68,6 +69,7 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
         setGrowthRate(lv(plant.growthRate as any));
         setHouseId(plant.houseId || null);
         setWateringInterval(plant.wateringInterval || null);
+        setLastWatered(plant.lastWatered || null);
         setTargetPh(plant.targetPh || null);
         setTargetEc(plant.targetEc || null);
         setTargetVpd(plant.targetVpd || null);
@@ -167,6 +169,7 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
               growthRate: batchResults.growthRate || plant.growthRate,
               houseId: houseId,
               wateringInterval: wateringInterval,
+              lastWatered: lastWatered,
               targetPh,
               targetEc,
               targetVpd,
@@ -305,16 +308,27 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
               )}
           </div>
 
-          <div>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_hydration_interval_days')}</label>
-              <input 
-                  type="number" 
-                  className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold"
-                  value={wateringInterval || ''}
-                  onChange={(e) => setWateringInterval(parseInt(e.target.value) || null)}
-                  placeholder={t('placeholder_days')}
-              />
-          </div>
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_hydration_interval_days')}</label>
+                          <input 
+                              type="number" 
+                              className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold"
+                              value={wateringInterval || ''}
+                              onChange={(e) => setWateringInterval(parseInt(e.target.value) || null)}
+                              placeholder={t('placeholder_days')}
+                          />
+                      </div>
+                      <div>
+                          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_last_watered_date')}</label>
+                          <input 
+                              type="date" 
+                              className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold"
+                              value={lastWatered || ''}
+                              onChange={(e) => setLastWatered(e.target.value)}
+                          />
+                      </div>
+                  </div>
 
           <div className="pt-8 border-t border-gray-100 dark:border-slate-800">
               <h3 className="text-[11px] font-serif font-black text-verdant uppercase tracking-[0.3em] mb-6">{t('lbl_specimen_documentation')}</h3>

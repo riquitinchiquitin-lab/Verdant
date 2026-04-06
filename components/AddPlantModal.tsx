@@ -50,6 +50,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
   const [selectedHouseId, setSelectedHouseId] = useState<string | null>(user?.houseId || null);
   const [nursery, setNursery] = useState('');
   const [dateOfPurchase, setDateOfPurchase] = useState(new Date().toISOString().split('T')[0]);
+  const [editLastWateredDate, setEditLastWateredDate] = useState<string | null>(null);
   const [cost, setCost] = useState<number | null>(null);
   const [currency, setCurrency] = useState(getCurrencyForLanguage(language));
   const [compatibleItems, setCompatibleItems] = useState<InventoryItem[]>([]);
@@ -115,6 +116,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
     setEditRoom('');
     setNursery('');
     setDateOfPurchase(new Date().toISOString().split('T')[0]);
+    setEditLastWateredDate(null);
     setCost(null);
     setCurrency(getCurrencyForLanguage(language));
     setCompatibleItems([]);
@@ -224,6 +226,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
           wateringInterval: editWateringInterval,
           repottingFrequency: editRepottingFrequency,
           lastPotSize: editLastPotSize,
+          lastWatered: editLastWateredDate,
           houseId: selectedHouseId,
           provenance: {
             nursery,
@@ -397,7 +400,17 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
                             className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white"
                         />
                     </div>
-                    <div className="flex gap-3">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_last_watered_date')}</label>
+                        <input 
+                            type="date" 
+                            value={editLastWateredDate || ''}
+                            onChange={(e) => setEditLastWateredDate(e.target.value || null)}
+                            className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white"
+                        />
+                    </div>
+                </div>
+                <div className="flex gap-3">
                         <div className="flex-[3] space-y-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_cost')}</label>
                             <input 
@@ -421,7 +434,6 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
                         </div>
                     </div>
                 </div>
-              </div>
             </div>
 
             <div className="flex gap-4 pt-4">
@@ -611,7 +623,17 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
                             className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white"
                         />
                     </div>
-                    <div className="flex gap-3">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_last_watered_date')}</label>
+                        <input 
+                            type="date" 
+                            value={editLastWateredDate || ''}
+                            onChange={(e) => setEditLastWateredDate(e.target.value || null)}
+                            className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white"
+                        />
+                    </div>
+                </div>
+                <div className="flex gap-3">
                         <div className="flex-[3] space-y-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_cost')}</label>
                             <input 
@@ -635,7 +657,6 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
                         </div>
                     </div>
                 </div>
-            </div>
 
             {compatibleItems.length > 0 && (
               <div className="p-6 bg-blue-50/50 dark:bg-blue-900/10 rounded-[32px] border border-blue-100 dark:border-blue-800/30">
