@@ -23,10 +23,6 @@
 body {
   @apply bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  padding-top: var(--sat);
-  padding-bottom: var(--sab);
-  padding-left: var(--sal);
-  padding-right: var(--sar);
   margin: 0;
   height: 100vh;
   width: 100vw;
@@ -89,7 +85,7 @@ body {
   }
 
   .clay-button {
-    @apply transition-all duration-300 active:scale-95;
+    @apply transition-all duration-300;
     background: #ffffff;
     box-shadow: 
       4px 4px 8px rgba(0, 0, 0, 0.05),

@@ -225,7 +225,7 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
                     <div className="mt-auto pt-1">
                         <Button 
                             variant="primary"
-                            className={`w-full rounded-xl h-10 font-black text-[9px] uppercase tracking-widest shadow-sm active:scale-95 transition-all ${lastLoggedAction === 'WATER' ? 'bg-emerald-500 text-white' : status.daysLeft === 0 ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} 
+                            className={`w-full rounded-xl h-10 font-black text-[9px] uppercase tracking-widest shadow-sm transition-all ${lastLoggedAction === 'WATER' ? 'bg-emerald-500 text-white' : status.daysLeft === 0 ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} 
                             onClick={async (e) => { 
                                 e.stopPropagation(); 
                                 await addLog(plant.id!, { id: `l-${generateUUID()}`, date: new Date().toISOString(), type: 'WATER' }); 

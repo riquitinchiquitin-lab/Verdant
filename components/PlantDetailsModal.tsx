@@ -48,7 +48,7 @@ const MoistureProbeIcon = ({ className }: { className?: string }) => (
 );
 
 export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, onClose, plant: initialPlant }) => {
-  const { updatePlant, plants, addLog, deletePlant, setAlertMessage, getEffectiveApiKey } = usePlants();
+  const { updatePlant, plants, addLog, deleteLog, deletePlant, setAlertMessage, getEffectiveApiKey } = usePlants();
   const { consumeItem } = useInventory();
   const { t, lv, lva, language } = useLanguage();
   const { user } = useAuth();
@@ -67,7 +67,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
   );
 
   const TechMetric = ({ label, min, max, unit, advice }: { label: string, min?: number | null, max?: number | null, unit: string, advice: string }) => (
-    <div className="relative space-y-4 p-6 bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden group hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer">
+    <div className="relative space-y-4 p-6 bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden group hover:scale-105 transition-all duration-300 cursor-pointer">
       {/* Hardware Decoration: Corner Accent */}
       <div className="absolute top-0 right-0 w-8 h-8 opacity-10">
         <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-verdant" />
@@ -362,7 +362,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
         {/* CLOSE BUTTON - TOP RIGHT */}
         <button 
             onClick={onClose}
-            className="absolute top-4 right-4 md:top-8 md:right-8 z-[100] w-10 h-10 md:w-14 md:h-14 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-full flex items-center justify-center text-gray-900 dark:text-white transition-all shadow-2xl border border-gray-200 dark:border-slate-700 group hover:scale-110 active:scale-95"
+            className="absolute top-4 right-4 md:top-8 md:right-8 z-[100] w-10 h-10 md:w-14 md:h-14 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-full flex items-center justify-center text-gray-900 dark:text-white transition-all shadow-2xl border border-gray-200 dark:border-slate-700 group hover:scale-110"
             title={t('btn_close')}
         >
             <svg className="w-5 h-5 md:w-7 md:h-7 group-hover:rotate-90 transition-transform duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -830,6 +830,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                                 <th className="pb-4 text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{t('lbl_phase')}</th>
                                                 <th className="pb-4 text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{t('lbl_date')}</th>
                                                 <th className="pb-4 text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{t('lbl_notes')}</th>
+                                                <th className="pb-4"></th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-50 dark:divide-slate-800">
@@ -838,6 +839,15 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                                     <td className="py-4 text-sm font-serif font-bold text-gray-900 dark:text-white">{t(`PHASE_${log.metadata?.phase}` as any)}</td>
                                                     <td className="py-4 text-sm font-serif text-gray-700 dark:text-slate-200">{new Date(log.date).toLocaleDateString()}</td>
                                                     <td className="py-4 text-sm font-serif text-gray-700 dark:text-slate-200 italic">{lv(log.localizedNote)}</td>
+                                                    <td className="py-4 text-right">
+                                                        <button 
+                                                            onClick={() => deleteLog(plant.id, log.id)}
+                                                            className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                                                            title={t('btn_delete')}
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                        </button>
+                                                    </td>
                                                 </tr>
                                             ))}
                                             {(!plant.logs || plant.logs.filter(l => l.type === 'PHENOPHASE').length === 0) && (
@@ -879,7 +889,16 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                                         </p>
                                                         <span className="text-[11px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{new Date(log.date).toLocaleDateString(language)}</span>
                                                     </div>
-                                                    <p className="text-sm md:text-base text-gray-900 dark:text-slate-100 font-serif italic leading-relaxed">"{lv(log.localizedNote) || log.note || '...'}"</p>
+                                                    <div className="flex justify-between items-start gap-4">
+                                                        <p className="text-sm md:text-base text-gray-900 dark:text-slate-100 font-serif italic leading-relaxed flex-1">"{lv(log.localizedNote) || log.note || '...'}"</p>
+                                                        <button 
+                                                            onClick={() => deleteLog(plant.id, log.id)}
+                                                            className="p-2 text-slate-400 hover:text-red-500 transition-colors shrink-0"
+                                                            title={t('btn_delete')}
+                                                        >
+                                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                        </button>
+                                                    </div>
                                                     {log.imageUrl && (
                                                         <div 
                                                             className="mt-4 w-32 h-32 rounded-2xl overflow-hidden border border-gray-100 dark:border-slate-800 shadow-sm cursor-pointer hover:scale-105 transition-transform"

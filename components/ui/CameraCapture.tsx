@@ -159,7 +159,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onCance
         {/* Switch Camera Button */}
         <button 
           onClick={toggleCamera}
-          className="absolute top-6 right-6 p-3 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all active:scale-90 z-20 border border-white/20"
+          className="absolute top-6 right-6 p-3 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all z-20 border border-white/20"
           title={t('btn_switch_camera')}
         >
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -184,7 +184,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onCance
       <div className="flex items-center gap-6 w-full px-4">
         <button 
           onClick={handleCancel}
-          className="p-4 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all active:scale-90"
+          className="p-4 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all"
         >
           <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
@@ -194,7 +194,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onCance
         <button 
           onClick={handleCapture}
           disabled={!isLensReady}
-          className={`flex-1 h-16 bg-verdant hover:bg-verdant-hover text-white rounded-3xl shadow-xl shadow-verdant/20 flex items-center justify-center gap-3 transition-all active:scale-95 group ${!isLensReady ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`flex-1 h-16 bg-verdant hover:bg-verdant-hover text-white rounded-3xl shadow-xl shadow-verdant/20 flex items-center justify-center gap-3 transition-all group ${!isLensReady ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner">
             <div className="w-4 h-4 bg-white rounded-full"></div>

@@ -9,6 +9,7 @@ import { InventoryItemCard } from '../components/InventoryItemCard';
 import { CustomMixCalculator } from '../components/CustomMixCalculator';
 import { InventoryItemDetails } from '../components/InventoryItemDetails';
 import { AddInventoryModal } from '../components/AddInventoryModal';
+import { CompatibilityModal } from '../components/CompatibilityModal';
 import { InventoryItem, InventoryCategory } from '../types';
 
 export const InventoryView: React.FC = () => {
@@ -25,7 +26,7 @@ export const InventoryView: React.FC = () => {
 
   const isAdmin = user?.role === 'OWNER' || user?.role === 'CO_CEO';
 
-  const categories: (InventoryCategory | 'all')[] = ['all', 'tools', 'insecticide', 'fertiliser', 'seeds', 'soil', 'accessories', 'pots', 'custom-mix'];
+  const categories: (InventoryCategory | 'all')[] = ['all', 'tools', 'insecticide', 'fertiliser', 'seeds', 'soil', 'accessories', 'pots', 'saucers', 'custom-mix'];
 
   const filteredByProperty = inventory.filter(i => {
     // --- STRICT INVENTORY VISIBILITY ---
@@ -151,6 +152,10 @@ export const InventoryView: React.FC = () => {
           </div>
         </Modal>
       )}
+      <CompatibilityModal 
+        item={compatibilityItem} 
+        onClose={() => setCompatibilityItem(null)} 
+      />
     </div>
   );
 };

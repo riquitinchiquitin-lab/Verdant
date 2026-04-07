@@ -37,7 +37,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
     <div className={`relative ${className}`} ref={dropdownRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all active:scale-95 ${baseButtonStyles}`}
+        className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all ${baseButtonStyles}`}
       >
         <span className="text-xl">{currentLanguage.flag}</span>
         <span className="text-[10px] font-black text-gray-600 dark:text-slate-400 uppercase tracking-widest">{currentLanguage.code}</span>

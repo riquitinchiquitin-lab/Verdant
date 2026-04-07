@@ -88,3 +88,12 @@ export const PotIcon: React.FC<PotIconProps> = ({ type, color = 'currentColor', 
       );
   }
 };
+
+export const SaucerIcon: React.FC<{ color?: string; className?: string }> = ({ color = 'currentColor', className = "w-6 h-6" }) => {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M3 16h18l-1 3a2 2 0 0 1-2 1.5H6a2 2 0 0 1-2-1.5l-1-3z" />
+      <path d="M4 16c0-1 2-2 8-2s8 1 8 2" opacity="0.4" />
+    </svg>
+  );
+};

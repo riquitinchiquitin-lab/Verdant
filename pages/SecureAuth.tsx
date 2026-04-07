@@ -244,7 +244,7 @@ export const SecureAuth: React.FC = () => {
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/5 blur-[120px] rounded-full pointer-events-none"></div>
 
       {/* Theme and Language Selectors Overlay */}
-      <div className="absolute top-4 right-4 md:top-8 md:right-8 z-20 flex items-center gap-3">
+      <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] right-[calc(1rem+env(safe-area-inset-right))] md:top-8 md:right-8 z-20 flex items-center gap-3">
           <ThemeToggle />
           <LanguageSelector variant="filled" align="right" />
       </div>
@@ -353,7 +353,7 @@ export const SecureAuth: React.FC = () => {
                 href={link.url} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-500 transition-all hover:scale-110 active:scale-95"
+                className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-500 transition-all hover:scale-110"
               >
                 {link.name}
               </a>

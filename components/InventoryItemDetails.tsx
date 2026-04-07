@@ -38,7 +38,7 @@ export const InventoryItemDetails: React.FC<InventoryItemDetailsProps> = ({ item
 
   const formattedVolume = formatVolume(item.quantity, item.unit);
   const canConsume = ['insecticide', 'fertiliser', 'soil', 'custom-mix', 'seeds'].includes(item.category);
-  const canAssociate = ['pots', 'accessories'].includes(item.category);
+  const canAssociate = ['pots', 'accessories', 'saucers'].includes(item.category);
   const associatedPlant = item.associatedPlantId ? plants.find(p => p.id === item.associatedPlantId) : null;
 
   const SpecItem = ({ label, value }: { label: string, value?: string | number }) => {
@@ -130,6 +130,14 @@ export const InventoryItemDetails: React.FC<InventoryItemDetailsProps> = ({ item
                 {formattedVolume.value} <span className="text-sm text-gray-400 font-bold ml-1">{formattedVolume.unit}</span>
               </span>
             </div>
+            {(item.sizeCm || item.sizeInches) && (
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest">{t('lbl_size')}</span>
+                <span className="text-2xl font-black text-gray-900 dark:text-white">
+                  {item.sizeCm}cm {item.sizeInches ? <span className="text-sm text-gray-400 font-bold ml-1">({item.sizeInches}")</span> : ''}
+                </span>
+              </div>
+            )}
             {item.model && (
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest">{t('lbl_model')}</span>
@@ -235,6 +243,12 @@ export const InventoryItemDetails: React.FC<InventoryItemDetailsProps> = ({ item
             <SpecItem label={t('lbl_hole_size')} value={item.openingHoleSize} />
             <SpecItem label={t('lbl_depth')} value={item.depth} />
             <SpecItem label={t('lbl_drainage')} value={item.drainageCapability} />
+          </>
+        )}
+        {item.category === 'saucers' && (
+          <>
+            <SpecItem label={t('lbl_material')} value={item.material} />
+            <SpecItem label={t('lbl_color')} value={item.color} />
           </>
         )}
         

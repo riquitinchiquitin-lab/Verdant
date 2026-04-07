@@ -5,7 +5,7 @@ import { useInventory } from '../context/InventoryContext';
 import { usePlants } from '../context/PlantContext';
 import { formatVolume } from '../services/unitUtils';
 import { ContainerIcon } from './icons/ContainerIcons';
-import { PotIcon } from './icons/PotIcons';
+import { PotIcon, SaucerIcon } from './icons/PotIcons';
 
 export const InventoryItemCard: React.FC<{ 
   item: InventoryItem; 
@@ -26,6 +26,7 @@ export const InventoryItemCard: React.FC<{
       case 'soil': return t('cat_soil');
       case 'accessories': return t('cat_accessories');
       case 'pots': return t('cat_pots');
+      case 'saucers': return t('cat_saucers');
       case 'custom-mix': return t('cat_custom_mix');
       default: return item.category;
     }
@@ -34,13 +35,14 @@ export const InventoryItemCard: React.FC<{
   const canConsume = ['insecticide', 'fertiliser', 'soil', 'custom-mix', 'seeds'].includes(item.category);
   const isCustomMix = item.category === 'custom-mix';
   const isPot = item.category === 'pots';
+  const isSaucer = item.category === 'saucers';
   const isAccessory = item.category === 'accessories';
   const isLowStock = item.quantity <= 0;
-  const hasCompatibility = !!item.compatibility && lva(item.compatibility).length > 0;
+  const hasCompatibility = (!!item.compatibility && lva(item.compatibility).length > 0) || isPot || isSaucer;
   
   const formattedVolume = formatVolume(item.quantity, item.unit);
 
-  const isPotOrAccessory = isPot || isAccessory;
+  const isPotOrAccessory = isPot || isAccessory || isSaucer;
   const associatedPlant = item.associatedPlantId ? plants.find(p => p.id === item.associatedPlantId) : null;
 
   const getStepSize = () => {
@@ -86,6 +88,13 @@ export const InventoryItemCard: React.FC<{
               >
                 <PotIcon type={item.potType || 'ceramic'} color={item.potColor || '#9CA3AF'} className="w-16 h-16 opacity-80" />
               </div>
+            ) : isSaucer ? (
+               <div 
+                className="p-8 rounded-[32px] bg-white/50 dark:bg-slate-800/50 shadow-inner flex items-center justify-center transition-all group-hover:scale-110"
+                style={{ color: item.potColor || '#9CA3AF' }}
+              >
+                <SaucerIcon color={item.potColor || '#9CA3AF'} className="w-16 h-16 opacity-80" />
+              </div>
             ) : (
               <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
             )}
@@ -95,7 +104,7 @@ export const InventoryItemCard: React.FC<{
         <div className="absolute top-4 left-4 flex flex-col gap-2">
           <span 
             className={`${(isCustomMix || isPot) ? 'opacity-90' : 'bg-verdant/90'} backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-lg`}
-            style={isCustomMix ? { backgroundColor: item.containerColor || '#5E8F47' } : isPot ? { backgroundColor: item.potColor || '#5E8F47' } : {}}
+            style={isCustomMix ? { backgroundColor: item.containerColor || '#5E8F47' } : (isPot || isSaucer) ? { backgroundColor: item.potColor || '#5E8F47' } : {}}
           >
             {getCategoryLabel()}
           </span>
@@ -115,9 +124,14 @@ export const InventoryItemCard: React.FC<{
       <div className="p-3 md:p-5 flex-1 flex flex-col space-y-2 md:space-y-4">
         <div>
           <h3 className="font-bold text-gray-900 dark:text-white leading-tight group-hover:text-verdant transition-colors text-xs md:text-base line-clamp-2">{lv(item.name)}</h3>
-          {(item.brand || item.model) && (
+          {(item.brand || item.model || item.sizeCm || item.sizeInches) && (
             <p className="text-[8px] md:text-[10px] text-gray-500 dark:text-slate-500 font-black uppercase tracking-wider mt-0.5 md:mt-1 truncate">
-              {lv(item.brand)} {item.model ? `• ${item.model}` : ''}
+              {lv(item.brand)} {item.model ? `• ${item.model}` : ''} 
+              {(item.sizeCm || item.sizeInches) && (
+                <span className="ml-1 text-verdant dark:text-verdant-light">
+                  • {item.sizeCm ? `${item.sizeCm}cm` : ''} {item.sizeInches ? `(${item.sizeInches}")` : ''}
+                </span>
+              )}
             </p>
           )}
         </div>

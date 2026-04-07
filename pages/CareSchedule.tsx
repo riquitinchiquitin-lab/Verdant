@@ -104,7 +104,7 @@ const CareActionItem: React.FC<{
             <div className="flex gap-1.5 md:gap-2">
                 <button 
                     onClick={() => onAction(plant, type)}
-                    className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all shadow-sm border-b-2 active:scale-95 ${lastLoggedAction === actionKey ? 'bg-emerald-500 border-emerald-700 text-white' : isOverdue ? (type === 'WATER' ? 'bg-red-600 hover:bg-red-700 border-red-800' : 'bg-amber-600 hover:bg-amber-700 border-amber-800') : (type === 'WATER' ? 'bg-blue-600 hover:bg-blue-700 border-blue-800' : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-800')} text-white`}
+                    className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all shadow-sm border-b-2 ${lastLoggedAction === actionKey ? 'bg-emerald-500 border-emerald-700 text-white' : isOverdue ? (type === 'WATER' ? 'bg-red-600 hover:bg-red-700 border-red-800' : 'bg-amber-600 hover:bg-amber-700 border-amber-800') : (type === 'WATER' ? 'bg-blue-600 hover:bg-blue-700 border-blue-800' : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-800')} text-white`}
                 >
                     {type === 'WATER' ? (
                         <span className="text-xs md:text-sm">💧</span>

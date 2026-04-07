@@ -206,7 +206,7 @@ export interface Task {
   houseId?: string | null;
 }
 
-export type InventoryCategory = 'tools' | 'insecticide' | 'fungicide' | 'pesticide' | 'fertiliser' | 'seeds' | 'soil' | 'accessories' | 'pots' | 'custom-mix';
+export type InventoryCategory = 'tools' | 'insecticide' | 'fungicide' | 'pesticide' | 'fertiliser' | 'seeds' | 'soil' | 'accessories' | 'pots' | 'saucers' | 'custom-mix';
 
 export type CustomMixType = 'general' | 'soil' | 'fertiliser' | 'insecticide' | 'fungicide' | 'pesticide';
 
@@ -241,6 +241,8 @@ export interface InventoryItem {
   
   potType?: PotType;
   potColor?: string;
+  sizeInches?: number;
+  sizeCm?: number;
   openingHoleSize?: string;
   depth?: string;
   material?: string;

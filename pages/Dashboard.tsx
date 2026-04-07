@@ -163,7 +163,7 @@ export const Dashboard: React.FC = () => {
                 )}
                 <Button
                     onClick={() => setIsAddModalOpen(true)}
-                    className="h-12 px-6 bg-verdant text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-verdant/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                    className="h-12 px-6 bg-verdant text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-verdant/20 hover:scale-105 transition-all flex items-center gap-2"
                 >
                     <Plus className="w-4 h-4" />
                     {t('btn_add_plant')}

@@ -55,6 +55,8 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
     images: [],
     potType: 'ceramic',
     potColor: '#3B82F6',
+    sizeInches: '',
+    sizeCm: '',
     drainageCapability: 'Has drainage'
   });
 
@@ -72,6 +74,8 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
         images: itemToEdit.images || [],
         potType: itemToEdit.potType || 'ceramic',
         potColor: itemToEdit.potColor || '#3B82F6',
+        sizeInches: itemToEdit.sizeInches || '',
+        sizeCm: itemToEdit.sizeCm || '',
         drainageCapability: itemToEdit.drainageCapability || 'Has drainage'
       });
       setAddMode('MANUAL');
@@ -202,6 +206,8 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
             images: formData.images,
             potType: formData.potType,
             potColor: formData.potColor,
+            sizeInches: formData.sizeInches ? parseFloat(formData.sizeInches) : undefined,
+            sizeCm: formData.sizeCm ? parseFloat(formData.sizeCm) : undefined,
             drainageCapability: formData.drainageCapability
           });
         } else {
@@ -217,6 +223,11 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
             quantity: formData.quantity,
             unit: formData.unit,
             images: formData.images,
+            sizeInches: formData.sizeInches ? parseFloat(formData.sizeInches) : undefined,
+            sizeCm: formData.sizeCm ? parseFloat(formData.sizeCm) : undefined,
+            potType: (formData.category === 'pots' || formData.category === 'saucers') ? formData.potType : undefined,
+            potColor: (formData.category === 'pots' || formData.category === 'saucers') ? formData.potColor : undefined,
+            drainageCapability: (formData.category === 'pots' || formData.category === 'saucers') ? formData.drainageCapability : undefined,
           };
           addItem(newItem);
         }
@@ -241,6 +252,8 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
       images: [],
       potType: 'ceramic',
       potColor: '#3B82F6',
+      sizeInches: '',
+      sizeCm: '',
       drainageCapability: 'Has drainage'
     });
     setAddMode('CHOICE');
@@ -302,7 +315,7 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
                   onClick={() => setAddMode('CAMERA')} 
                   className={`group relative flex items-center p-8 bg-verdant/5 border-2 border-dashed border-verdant/20 rounded-[40px] hover:border-emerald-500 hover:bg-verdant/10 transition-all duration-500 text-left ${isAiDisabled ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
                 >
-                  <div className="w-16 h-16 bg-white dark:bg-slate-900 rounded-3xl shadow-xl flex items-center justify-center text-emerald-600 shrink-0 group-hover:scale-110 group-active:scale-95 transition-all">
+                  <div className="w-16 h-16 bg-white dark:bg-slate-900 rounded-3xl shadow-xl flex items-center justify-center text-emerald-600 shrink-0 group-hover:scale-110 transition-all">
                     <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                       <circle cx="12" cy="13" r="3" />
@@ -319,7 +332,7 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
                   onClick={() => fileInputRef.current?.click()} 
                   className={`group relative flex items-center p-8 bg-blue-50/50 dark:bg-blue-950/10 border-2 border-dashed border-blue-200/50 dark:border-blue-800/30 rounded-[40px] hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all duration-500 text-left ${isAiDisabled ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
                 >
-                  <div className="w-16 h-16 bg-white dark:bg-slate-900 rounded-3xl shadow-xl flex items-center justify-center text-blue-600 shrink-0 group-hover:scale-110 group-active:scale-95 transition-all">
+                  <div className="w-16 h-16 bg-white dark:bg-slate-900 rounded-3xl shadow-xl flex items-center justify-center text-blue-600 shrink-0 group-hover:scale-110 transition-all">
                     <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
@@ -420,6 +433,7 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
                   <option value="soil">{t('cat_soil')}</option>
                   <option value="accessories">{t('cat_accessories')}</option>
                   <option value="pots">{t('cat_pots')}</option>
+                  <option value="saucers">{t('cat_saucers')}</option>
                 </select>
              </div>
 
@@ -492,6 +506,42 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
                   placeholder={t('placeholder_inventory_unit')}
                 />
              </div>
+
+             {(formData.category === 'pots' || formData.category === 'saucers') && (
+               <>
+                 <div>
+                    <label className="block text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">{t('lbl_size_inches')}</label>
+                    <input 
+                      type="number"
+                      step="0.1"
+                      className="w-full bg-gray-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-verdant dark:text-white transition-all outline-none" 
+                      value={formData.sizeInches} 
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const cm = val ? (parseFloat(val) * 2.54).toFixed(2) : '';
+                        setFormData({...formData, sizeInches: val, sizeCm: cm});
+                      }}
+                      placeholder="e.g. 6"
+                    />
+                 </div>
+
+                 <div>
+                    <label className="block text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">{t('lbl_size_cm')}</label>
+                    <input 
+                      type="number"
+                      step="0.1"
+                      className="w-full bg-gray-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-verdant dark:text-white transition-all outline-none" 
+                      value={formData.sizeCm} 
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const inches = val ? (parseFloat(val) / 2.54).toFixed(2) : '';
+                        setFormData({...formData, sizeCm: val, sizeInches: inches});
+                      }}
+                      placeholder="e.g. 15"
+                    />
+                 </div>
+               </>
+             )}
 
              <div className="md:col-span-2 pt-6 flex gap-3">
                 <button onClick={resetForm} className="flex-1 h-14 bg-gray-100 dark:bg-slate-800 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-700 dark:text-slate-200 hover:bg-gray-200 border border-gray-200 dark:border-slate-700">{t('btn_return_to_choice')}</button>

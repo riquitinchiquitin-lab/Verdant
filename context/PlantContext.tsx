@@ -22,6 +22,7 @@ interface PlantContextType {
   updateHouse: (id: string, updates: Partial<House>) => Promise<void>;
   deleteHouse: (id: string) => Promise<void>;
   addLog: (plantId: string, log: Log) => Promise<void>;
+  deleteLog: (plantId: string, logId: string) => Promise<void>;
   deleteAllLogs: () => Promise<void>;
   deleteLogsByDay: (date: string) => Promise<void>;
   restoreDemoData: () => void;
@@ -553,6 +554,28 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }).catch(e => console.error("Failed to sync log addition:", e));
     }
   };
+  
+  const deleteLog = async (plantId: string, logId: string) => {
+    const plant = plants.find(p => p.id === plantId);
+    if (!plant) return;
+
+    const updatedPlant = {
+      ...plant,
+      logs: (plant.logs || []).filter(l => l.id !== logId),
+      lastModified: new Date().toISOString()
+    };
+
+    // Update local state immediately
+    setPlants(prev => prev.map(p => p.id === plantId ? updatedPlant : p));
+
+    // Sync to server
+    if (token) {
+      fetchWithAuth('/api/plants', token, { 
+        method: 'POST', 
+        body: JSON.stringify(updatedPlant) 
+      }).catch(e => console.error("Failed to sync log deletion:", e));
+    }
+  };
 
   const deleteAllLogs = async () => {
     const updatedPlants = plants.map(p => ({ ...p, logs: [], lastModified: new Date().toISOString() }));
@@ -591,7 +614,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   return (
     <PlantContext.Provider value={{ 
         plants, tasks, houses, isLoading, isSynced, addPlant, updatePlant, deletePlant, 
-        addLog, deleteAllLogs, deleteLogsByDay, restoreDemoData, allRooms, addHouse, updateHouse, deleteHouse, cloneHouse,
+        addLog, deleteLog, deleteAllLogs, deleteLogsByDay, restoreDemoData, allRooms, addHouse, updateHouse, deleteHouse, cloneHouse,
         customRooms, addCustomRoom, removeCustomRoom, addTask, updateTask, deleteTask, toggleTaskCompletion,
         refreshAllData, getEffectiveApiKey,
         alertMessage,
