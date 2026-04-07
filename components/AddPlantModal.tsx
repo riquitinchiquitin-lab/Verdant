@@ -47,6 +47,8 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
   const [editWateringInterval, setEditWateringInterval] = useState<number | null>(null);
   const [editRepottingFrequency, setEditRepottingFrequency] = useState<number | null>(null);
   const [editLastPotSize, setEditLastPotSize] = useState('');
+  const [editLastPotSizeInches, setEditLastPotSizeInches] = useState<number | null>(null);
+  const [editLastPotSizeCm, setEditLastPotSizeCm] = useState<number | null>(null);
   const [selectedHouseId, setSelectedHouseId] = useState<string | null>(user?.houseId || null);
   const [nursery, setNursery] = useState('');
   const [dateOfPurchase, setDateOfPurchase] = useState(new Date().toISOString().split('T')[0]);
@@ -164,6 +166,13 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
       setEditWateringInterval(details.wateringInterval || null);
       setEditRepottingFrequency(details.repottingFrequency || null);
       setEditLastPotSize(details.lastPotSize ? details.lastPotSize.toString().replace(/cm$/i, '').trim() : '');
+      setEditLastPotSizeCm(details.lastPotSize ? parseFloat(details.lastPotSize.toString()) || null : null);
+      if (details.lastPotSize) {
+          const cm = parseFloat(details.lastPotSize.toString());
+          if (!isNaN(cm)) {
+              setEditLastPotSizeInches(Number((cm / 2.54).toFixed(2)));
+          }
+      }
       
       // If nursery is empty, try to fill it with origin data
       if (!nursery && details.origin) {
@@ -226,6 +235,8 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
           wateringInterval: editWateringInterval,
           repottingFrequency: editRepottingFrequency,
           lastPotSize: editLastPotSize,
+          lastPotSizeInches: editLastPotSizeInches,
+          lastPotSizeCm: editLastPotSizeCm,
           lastWatered: editLastWateredDate,
           houseId: selectedHouseId,
           provenance: {
@@ -590,15 +601,48 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
                         placeholder={t('lbl_months')}
                     />
                 </div>
-                <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_last_pot_size')}</label>
-                    <input 
-                        type="number" 
-                        value={editLastPotSize}
-                        onChange={(e) => setEditLastPotSize(e.target.value)}
-                        className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white"
-                        placeholder={t('placeholder_pot_size')}
-                    />
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_size_cm')}</label>
+                        <input 
+                            type="number" 
+                            value={editLastPotSizeCm || ''}
+                            onChange={(e) => {
+                                const val = parseFloat(e.target.value) || null;
+                                setEditLastPotSizeCm(val);
+                                if (val) {
+                                    setEditLastPotSizeInches(Number((val / 2.54).toFixed(2)));
+                                    setEditLastPotSize(val.toString());
+                                } else {
+                                    setEditLastPotSizeInches(null);
+                                    setEditLastPotSize('');
+                                }
+                            }}
+                            className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white"
+                            placeholder="cm"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 ml-2">{t('lbl_size_inches')}</label>
+                        <input 
+                            type="number" 
+                            value={editLastPotSizeInches || ''}
+                            onChange={(e) => {
+                                const val = parseFloat(e.target.value) || null;
+                                setEditLastPotSizeInches(val);
+                                if (val) {
+                                    const cm = Number((val * 2.54).toFixed(2));
+                                    setEditLastPotSizeCm(cm);
+                                    setEditLastPotSize(cm.toString());
+                                } else {
+                                    setEditLastPotSizeCm(null);
+                                    setEditLastPotSize('');
+                                }
+                            }}
+                            className="w-full h-12 px-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all text-gray-900 dark:text-white"
+                            placeholder="inches"
+                        />
+                    </div>
                 </div>
             </div>
 

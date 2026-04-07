@@ -36,6 +36,8 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
   const [growthRate, setGrowthRate] = useState('');
   const [repottingFrequency, setRepottingFrequency] = useState<number | null>(null);
   const [lastPotSize, setLastPotSize] = useState('');
+  const [lastPotSizeInches, setLastPotSizeInches] = useState<number | null>(null);
+  const [lastPotSizeCm, setLastPotSizeCm] = useState<number | null>(null);
   const [rotationFrequency, setRotationFrequency] = useState<number | null>(null);
   const [lastRotated, setLastRotated] = useState<string | null>(null);
   const [propagationMethods, setPropagationMethods] = useState('');
@@ -76,6 +78,8 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
         setTargetDli(plant.targetDli || null);
         setRepottingFrequency(plant.repottingFrequency || null);
         setLastPotSize(plant.lastPotSize ? plant.lastPotSize.toString().replace(/cm$/i, '').trim() : '');
+        setLastPotSizeInches(plant.lastPotSizeInches || null);
+        setLastPotSizeCm(plant.lastPotSizeCm || null);
         setRotationFrequency(plant.rotationFrequency || null);
         setLastRotated(plant.lastRotated || null);
         setPropagationMethods(lva(plant.propagationMethods as any)?.join(', ') || '');
@@ -176,6 +180,8 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
               targetDli,
               repottingFrequency,
               lastPotSize,
+              lastPotSizeInches,
+              lastPotSizeCm,
               rotationFrequency,
               lastRotated,
               propagationMethods: batchResults.propagationMethods ? 
@@ -419,9 +425,48 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
                           <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_repot_frequency')}</label>
                           <input type="number" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={repottingFrequency || ''} onChange={e => setRepottingFrequency(parseInt(e.target.value) || null)} />
                       </div>
-                      <div>
-                          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_last_pot_size')}</label>
-                          <input type="number" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={lastPotSize} onChange={e => setLastPotSize(e.target.value)} placeholder={t('placeholder_pot_size')} />
+                      <div className="space-y-4">
+                          <div>
+                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_size_cm')}</label>
+                              <input 
+                                  type="number" 
+                                  className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" 
+                                  value={lastPotSizeCm || ''} 
+                                  onChange={e => {
+                                      const val = parseFloat(e.target.value) || null;
+                                      setLastPotSizeCm(val);
+                                      if (val) {
+                                          setLastPotSizeInches(Number((val / 2.54).toFixed(2)));
+                                          setLastPotSize(val.toString());
+                                      } else {
+                                          setLastPotSizeInches(null);
+                                          setLastPotSize('');
+                                      }
+                                  }} 
+                                  placeholder="cm" 
+                              />
+                          </div>
+                          <div>
+                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_size_inches')}</label>
+                              <input 
+                                  type="number" 
+                                  className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" 
+                                  value={lastPotSizeInches || ''} 
+                                  onChange={e => {
+                                      const val = parseFloat(e.target.value) || null;
+                                      setLastPotSizeInches(val);
+                                      if (val) {
+                                          const cm = Number((val * 2.54).toFixed(2));
+                                          setLastPotSizeCm(cm);
+                                          setLastPotSize(cm.toString());
+                                      } else {
+                                          setLastPotSizeCm(null);
+                                          setLastPotSize('');
+                                      }
+                                  }} 
+                                  placeholder="inches" 
+                              />
+                          </div>
                       </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">

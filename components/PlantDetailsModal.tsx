@@ -741,7 +741,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                         <PassportItem 
                                             icon="🪴" 
                                             label={t('lbl_last_pot_size')} 
-                                            value={plant.lastPotSize ? (String(plant.lastPotSize).match(/^\d+(\.\d+)?$/) ? `${plant.lastPotSize} cm` : String(plant.lastPotSize)) : t('lbl_na')}
+                                            value={plant.lastPotSizeCm || plant.lastPotSizeInches ? `${plant.lastPotSizeCm || '--'} cm / ${plant.lastPotSizeInches || '--'} in` : (plant.lastPotSize ? (String(plant.lastPotSize).match(/^\d+(\.\d+)?$/) ? `${plant.lastPotSize} cm` : String(plant.lastPotSize)) : t('lbl_na'))}
                                         />
                                         <PassportItem 
                                             icon="🔄" 

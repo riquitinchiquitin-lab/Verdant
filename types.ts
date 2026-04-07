@@ -170,6 +170,8 @@ export interface Plant {
   };
   repottingFrequency?: number | null; // in months
   lastPotSize?: string | null;
+  lastPotSizeInches?: number | null;
+  lastPotSizeCm?: number | null;
   
   // Advanced Technical Metrics Targets
   targetVpd?: number | null;
