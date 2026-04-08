@@ -37,7 +37,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" 
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] bg-black/60 backdrop-blur-sm" 
       role="dialog"
       onClick={onClose}
     >

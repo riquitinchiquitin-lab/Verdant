@@ -362,7 +362,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
         {/* CLOSE BUTTON - TOP RIGHT */}
         <button 
             onClick={onClose}
-            className="absolute top-4 right-4 md:top-8 md:right-8 z-[100] w-10 h-10 md:w-14 md:h-14 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-full flex items-center justify-center text-gray-900 dark:text-white transition-all shadow-2xl border border-gray-200 dark:border-slate-700 group hover:scale-110"
+            className="absolute top-[calc(1rem+env(safe-area-inset-top))] right-[calc(1rem+env(safe-area-inset-right))] md:top-8 md:right-8 z-[100] w-10 h-10 md:w-14 md:h-14 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-full flex items-center justify-center text-gray-900 dark:text-white transition-all shadow-2xl border border-gray-200 dark:border-slate-700 group hover:scale-110"
             title={t('btn_close')}
         >
             <svg className="w-5 h-5 md:w-7 md:h-7 group-hover:rotate-90 transition-transform duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -370,7 +370,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
         
         <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col">
             {/* TOP NAVIGATION / TABS */}
-            <div className="flex justify-start md:justify-center items-center gap-3 md:gap-4 lg:gap-10 border-b border-gray-100 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 pt-8 pb-6 md:pt-10 md:pb-8 overflow-x-auto pl-4 pr-20 md:px-6 flex-nowrap scroll-smooth no-scrollbar">
+            <div className="flex justify-start md:justify-center items-center gap-3 md:gap-4 lg:gap-10 border-b border-gray-100 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 pt-[calc(2rem+env(safe-area-inset-top))] pb-6 md:pt-10 md:pb-8 overflow-x-auto pl-4 pr-20 md:px-6 flex-nowrap scroll-smooth no-scrollbar">
                 {[
                     { id: 'DOSSIER', label: t('tab_dossier') }, 
                     { id: 'TECH', label: t('tab_tech') }, 
