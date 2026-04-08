@@ -32,7 +32,7 @@ const NotificationToast: React.FC = () => {
   };
 
   return (
-    <div className="fixed top-[calc(2rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-[1000] animate-in slide-in-from-top-4 duration-500">
+    <div className="fixed top-[calc(1rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-[1000] animate-in slide-in-from-top-4 duration-500">
       <div className={`${typeStyles[notification.type]} px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 backdrop-blur-md bg-opacity-90 border border-white/20`}>
         <span className="font-black text-sm">{icons[notification.type]}</span>
         <p className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap">{notification.message}</p>

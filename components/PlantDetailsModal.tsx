@@ -474,44 +474,53 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
 
                 <div className="flex flex-col lg:flex-row gap-12">
                   <div className="w-full lg:w-1/3 space-y-8">
-                    <div className="grid grid-cols-3 gap-4">
-                      <button onClick={() => setIsAddingPhoto(true)} className="flex flex-col items-center justify-center gap-3 p-6 bg-white dark:bg-slate-900 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm hover:border-verdant transition-all group">
-                        <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center group-hover:bg-verdant/10 transition-colors">
-                          <Camera className="w-6 h-6 text-slate-400 group-hover:text-verdant" />
-                        </div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{t('btn_add_image')}</span>
-                      </button>
-                      <button onClick={() => setIsEditOpen(true)} className="flex flex-col items-center justify-center gap-3 p-6 bg-white dark:bg-slate-900 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm hover:border-verdant transition-all group">
-                        <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center group-hover:bg-verdant/10 transition-colors">
-                          <Edit3 className="w-6 h-6 text-slate-400 group-hover:text-verdant" />
-                        </div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{t('btn_edit_data')}</span>
-                      </button>
-                      <button 
-                        onClick={handleTogglePriority} 
-                        disabled={isTogglingPriority}
-                        className={`flex flex-col items-center justify-center gap-3 p-6 rounded-[32px] border shadow-sm transition-all group col-span-3 md:col-span-1 ${
-                          plant.isPriority 
-                            ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 hover:border-amber-400' 
-                            : 'bg-white dark:bg-slate-900 border-gray-100 dark:border-slate-800 hover:border-verdant'
-                        }`}
-                      >
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
-                          plant.isPriority 
-                            ? 'bg-amber-100 dark:bg-amber-800/40' 
-                            : 'bg-slate-50 dark:bg-slate-800 group-hover:bg-verdant/10'
-                        }`}>
-                          <span className={`text-2xl transition-transform duration-500 ${plant.isPriority ? 'scale-125' : 'group-hover:scale-110'}`}>
-                            {plant.isPriority ? '⭐' : '☆'}
+                      <div className="grid grid-cols-3 gap-4">
+                        <motion.button 
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setIsAddingPhoto(true)} 
+                          className="flex flex-col items-center justify-center gap-3 p-6 bg-white dark:bg-slate-900 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm hover:border-verdant transition-all group"
+                        >
+                          <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center group-hover:bg-verdant/10 transition-colors">
+                            <Camera className="w-6 h-6 text-slate-400 group-hover:text-verdant" />
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{t('btn_add_image')}</span>
+                        </motion.button>
+                        <motion.button 
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setIsEditOpen(true)} 
+                          className="flex flex-col items-center justify-center gap-3 p-6 bg-white dark:bg-slate-900 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm hover:border-verdant transition-all group"
+                        >
+                          <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center group-hover:bg-verdant/10 transition-colors">
+                            <Edit3 className="w-6 h-6 text-slate-400 group-hover:text-verdant" />
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{t('btn_edit_data')}</span>
+                        </motion.button>
+                        <motion.button 
+                          whileTap={{ scale: 0.95 }}
+                          onClick={handleTogglePriority} 
+                          disabled={isTogglingPriority}
+                          className={`flex flex-col items-center justify-center gap-3 p-6 rounded-[32px] border shadow-sm transition-all group col-span-3 md:col-span-1 ${
+                            plant.isPriority 
+                              ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 hover:border-amber-400' 
+                              : 'bg-white dark:bg-slate-900 border-gray-100 dark:border-slate-800 hover:border-verdant'
+                          }`}
+                        >
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
+                            plant.isPriority 
+                              ? 'bg-amber-100 dark:bg-amber-800/40' 
+                              : 'bg-slate-50 dark:bg-slate-800 group-hover:bg-verdant/10'
+                          }`}>
+                            <span className={`text-2xl transition-transform duration-500 ${plant.isPriority ? 'scale-125' : 'group-hover:scale-110'}`}>
+                              {plant.isPriority ? '⭐' : '☆'}
+                            </span>
+                          </div>
+                          <span className={`text-[10px] font-black uppercase tracking-widest ${
+                            plant.isPriority ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'
+                          }`}>
+                            {plant.isPriority ? t('btn_remove_priority') : t('btn_set_priority')}
                           </span>
-                        </div>
-                        <span className={`text-[10px] font-black uppercase tracking-widest ${
-                          plant.isPriority ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'
-                        }`}>
-                          {plant.isPriority ? t('btn_remove_priority') : t('btn_set_priority')}
-                        </span>
-                      </button>
-                    </div>
+                        </motion.button>
+                      </div>
 
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">{t('lbl_image_archive')}</h4>
@@ -562,14 +571,15 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                         { type: 'ROTATED', icon: <PotRotationIcon className="w-8 h-8 group-hover:animate-[spin_3s_linear_infinite]" />, label: t('btn_rotate_caps') },
                         { type: 'TRANSFER', icon: <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>, label: t('btn_transfer') }
                       ].map(action => (
-                        <button 
+                        <motion.button 
                           key={action.type}
+                          whileTap={{ scale: 0.92 }}
                           onClick={() => handleLogAction(action.type as any)}
                           className={`h-20 rounded-3xl clay-button flex flex-col items-center justify-center gap-1 hover:scale-105 transition-all duration-300 group ${lastLoggedAction === action.type ? 'ring-4 ring-emerald-500/20 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-500/30' : ''}`}
                         >
                           <span className="text-2xl">{action.icon}</span>
                           <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600">{action.label}</span>
-                        </button>
+                        </motion.button>
                       ))}
                     </div>
                   </div>
@@ -945,7 +955,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
 
       {/* MODALS & OVERLAYS */}
       {isAddingPhoto && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-2xl p-6" onClick={() => setIsAddingPhoto(false)}>
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-2xl p-6 pl-[calc(1.5rem+env(safe-area-inset-left))] pr-[calc(1.5rem+env(safe-area-inset-right))] pt-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))]" onClick={() => setIsAddingPhoto(false)}>
               <div className="w-full max-w-md space-y-4">
                   <div onClick={(e) => { e.stopPropagation(); setIsAddingPhoto(false); setIsCapturingFromCamera(true); }} className="bg-white/10 border-2 border-dashed border-emerald-400/50 rounded-3xl p-6 flex items-center gap-6 cursor-pointer hover:bg-white/20 transition-all">
                       <div className="w-16 h-16 bg-emerald-400/20 rounded-2xl flex items-center justify-center">
@@ -964,7 +974,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
       )}
 
       {isCapturingFromCamera && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-6">
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-6 pl-[calc(1.5rem+env(safe-area-inset-left))] pr-[calc(1.5rem+env(safe-area-inset-right))] pt-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
               <div className="w-full max-w-xl">
                   <CameraCapture onCapture={handleAddNewImageFromCamera} onCancel={() => setIsCapturingFromCamera(false)} />
               </div>
@@ -1000,7 +1010,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                     <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                   </button>
 
-                  <div className="absolute top-4 right-4 flex gap-4">
+                  <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] right-[calc(1rem+env(safe-area-inset-right))] flex gap-4">
                       {enlargedImageIndex !== 0 && (
                           <button 
                             onClick={(e) => { e.stopPropagation(); handleSetMainImage(enlargedImageIndex); setEnlargedImageIndex(0); }} 
@@ -1029,7 +1039,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
               </div>
 
               {/* THUMBNAIL STRIP */}
-              <div className="w-full max-w-4xl flex justify-center gap-2 py-6 overflow-x-auto no-scrollbar" onClick={(e) => e.stopPropagation()}>
+              <div className="w-full max-w-4xl flex justify-center gap-2 py-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] overflow-x-auto no-scrollbar" onClick={(e) => e.stopPropagation()}>
                   {plant.images?.map((img, idx) => (
                       <button 
                         key={idx} 
@@ -1053,7 +1063,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                   />
                   <button 
                     onClick={() => setEnlargedLogImage(null)} 
-                    className="absolute top-4 right-4 w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all"
+                    className="absolute top-[calc(1rem+env(safe-area-inset-top))] right-[calc(1rem+env(safe-area-inset-right))] w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all"
                   >
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                   </button>

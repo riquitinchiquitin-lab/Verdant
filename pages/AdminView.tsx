@@ -536,7 +536,7 @@ export const AdminView: React.FC = () => {
         {/* Modals */}
         {isAddingHouse && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[40px] p-8 space-y-6 border border-slate-200 dark:border-slate-800 shadow-2xl">
+                <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[40px] p-8 space-y-6 border border-slate-200 dark:border-slate-800 shadow-2xl mb-[env(safe-area-inset-bottom)]">
                     <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('lbl_add_house')}</h2>
                     <div className="space-y-4">
                         <div className="space-y-1">
@@ -560,7 +560,7 @@ export const AdminView: React.FC = () => {
 
         {editingHouse && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[40px] p-8 space-y-6 border border-slate-200 dark:border-slate-800 shadow-2xl">
+                <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[40px] p-8 space-y-6 border border-slate-200 dark:border-slate-800 shadow-2xl mb-[env(safe-area-inset-bottom)]">
                     <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('lbl_edit_house')}</h2>
                     <div className="space-y-4">
                         <div className="space-y-1">
@@ -583,7 +583,7 @@ export const AdminView: React.FC = () => {
 
         {isAddingUser && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[40px] p-8 space-y-6 border border-slate-200 dark:border-slate-800 shadow-2xl">
+                <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[40px] p-8 space-y-6 border border-slate-200 dark:border-slate-800 shadow-2xl mb-[env(safe-area-inset-bottom)]">
                     <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('lbl_add_personnel')}</h2>
                     <div className="space-y-4">
                         <div className="space-y-1">
@@ -661,7 +661,7 @@ export const AdminView: React.FC = () => {
 
         {editingUser && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[40px] p-8 space-y-6 border border-slate-200 dark:border-slate-800 shadow-2xl">
+                <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[40px] p-8 space-y-6 border border-slate-200 dark:border-slate-800 shadow-2xl mb-[env(safe-area-inset-bottom)]">
                     <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('lbl_edit_personnel')}</h2>
                     <div className="space-y-4">
                         <div className="space-y-1">
@@ -757,7 +757,7 @@ export const AdminView: React.FC = () => {
 
         {movingPlantId && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[40px] p-8 space-y-6 border border-slate-200 dark:border-slate-800 shadow-2xl">
+                <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[40px] p-8 space-y-6 border border-slate-200 dark:border-slate-800 shadow-2xl mb-[env(safe-area-inset-bottom)]">
                     <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('btn_move_plant')}</h2>
                     <div className="space-y-4">
                         <div className="space-y-1">

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { motion } from 'motion/react';
 import { useLocation } from 'react-router-dom';
 import { usePlants } from '../context/PlantContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -102,7 +103,8 @@ const CareActionItem: React.FC<{
 
             {/* Actions */}
             <div className="flex gap-1.5 md:gap-2">
-                <button 
+                <motion.button 
+                    whileTap={{ scale: 0.92 }}
                     onClick={() => onAction(plant, type)}
                     className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all shadow-sm border-b-2 ${lastLoggedAction === actionKey ? 'bg-emerald-500 border-emerald-700 text-white' : isOverdue ? (type === 'WATER' ? 'bg-red-600 hover:bg-red-700 border-red-800' : 'bg-amber-600 hover:bg-amber-700 border-amber-800') : (type === 'WATER' ? 'bg-blue-600 hover:bg-blue-700 border-blue-800' : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-800')} text-white`}
                 >
@@ -111,7 +113,7 @@ const CareActionItem: React.FC<{
                     ) : (
                         <PotRotationIcon className="w-5 h-5 md:w-6 md:h-6" />
                     )}
-                </button>
+                </motion.button>
             </div>
         </div>
     );

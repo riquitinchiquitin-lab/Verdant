@@ -74,10 +74,10 @@ export const HealthCheckModal: React.FC<HealthCheckModalProps> = ({ isOpen, onCl
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-6 transition-all">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-6 pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] transition-all">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={onClose} />
       
-      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
+      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300 mb-[env(safe-area-inset-bottom)]">
         <div className="p-6 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center">
           <h2 className="text-xl font-black uppercase tracking-widest text-gray-900 dark:text-white">
             {t('health_check_title') || 'Botanical Health Check'}
@@ -195,7 +195,7 @@ export const HealthCheckModal: React.FC<HealthCheckModalProps> = ({ isOpen, onCl
       </div>
 
       {isCapturing && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-6">
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-6 pl-[calc(1.5rem+env(safe-area-inset-left))] pr-[calc(1.5rem+env(safe-area-inset-right))] pt-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
           <div className="w-full max-w-xl">
             <CameraCapture onCapture={handleCapture} onCancel={() => setIsCapturing(false)} />
           </div>

@@ -503,56 +503,72 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const plant = plants.find(p => p.id === plantId);
     if (!plant) return;
     
-    let finalLog = { ...log };
-    
-    // Ensure 11 languages translation for every log entry
-    const currentLangs = Object.keys(finalLog.localizedNote || {}).filter(k => TARGET_LANGS.includes(k));
-    if (currentLangs.length < TARGET_LANGS.length) {
-      let textToTranslate = '';
-      if (finalLog.localizedNote) {
-        textToTranslate = (finalLog.localizedNote as any)[language] || finalLog.localizedNote.en || Object.values(finalLog.localizedNote)[0] as string;
-      } else {
-        // Fallback to default note keys if no note provided
-        const noteKey = log.type === 'NEW_LEAF' ? 'log_new_leaf' : ('log_' + log.type.toLowerCase() + '_manual');
-        textToTranslate = t(noteKey as any);
-      }
+    // 1. Update local state IMMEDIATELY for instant UI feedback
+    const initialLog = { ...log };
+    const initialPlantUpdate = {
+        ...plant,
+        logs: [initialLog, ...(plant.logs || [])],
+        lastWatered: initialLog.type === 'WATER' ? initialLog.date : plant.lastWatered,
+        lastRotated: initialLog.type === 'ROTATED' ? initialLog.date : plant.lastRotated,
+        lastModified: new Date().toISOString()
+    };
+    setPlants(prev => prev.map(p => p.id === plantId ? initialPlantUpdate : p));
 
-      if (textToTranslate) {
-        // Optimization: If the text matches a standard key, we might already have translations.
-        // However, since we don't have easy access to all staticTranslations here, 
-        // we'll at least make the translation non-blocking for the UI update if possible,
-        // or just ensure we don't call Gemini if we already have the languages.
-        try {
-          // Only call Gemini if we really need to (e.g. it's a custom note)
-          // For standard notes like "Watered", we should ideally have them pre-localized.
-          finalLog.localizedNote = await translateInput(textToTranslate, language, getEffectiveApiKey());
-        } catch (e) {
-          console.warn("Auto-translation failed in addLog:", e);
-          if (!finalLog.localizedNote) {
-            finalLog.localizedNote = { en: textToTranslate, [language]: textToTranslate };
+    // 2. Handle translations and server sync in the background
+    const processLogBackground = async () => {
+      let finalLog = { ...initialLog };
+      
+      // Ensure 11 languages translation for every log entry
+      const currentLangs = Object.keys(finalLog.localizedNote || {}).filter(k => TARGET_LANGS.includes(k));
+      if (currentLangs.length < TARGET_LANGS.length) {
+        let textToTranslate = '';
+        if (finalLog.localizedNote) {
+          textToTranslate = (finalLog.localizedNote as any)[language] || finalLog.localizedNote.en || Object.values(finalLog.localizedNote)[0] as string;
+        } else {
+          const noteKey = log.type === 'NEW_LEAF' ? 'log_new_leaf' : ('log_' + log.type.toLowerCase() + '_manual');
+          textToTranslate = t(noteKey as any);
+        }
+
+        if (textToTranslate) {
+          try {
+            // Only call Gemini if we really need to (e.g. it's a custom note)
+            finalLog.localizedNote = await translateInput(textToTranslate, language, getEffectiveApiKey());
+            
+            // Update state again with translated note
+            setPlants(prev => prev.map(p => {
+              if (p.id === plantId) {
+                return {
+                  ...p,
+                  logs: (p.logs || []).map(l => l.id === finalLog.id ? finalLog : l)
+                };
+              }
+              return p;
+            }));
+          } catch (e) {
+            console.warn("Auto-translation failed in addLog:", e);
+            if (!finalLog.localizedNote) {
+              finalLog.localizedNote = { en: textToTranslate, [language]: textToTranslate };
+            }
           }
         }
       }
-    }
-    
-    const updatedPlant = {
-        ...plant,
-        logs: [finalLog, ...(plant.logs || [])],
-        lastWatered: finalLog.type === 'WATER' ? finalLog.date : plant.lastWatered,
-        lastRotated: finalLog.type === 'ROTATED' ? finalLog.date : plant.lastRotated,
-        lastModified: new Date().toISOString()
+      
+      // Final sync to server
+      if (token) {
+        const latestPlant = plants.find(p => p.id === plantId) || initialPlantUpdate;
+        const syncPlant = {
+          ...latestPlant,
+          logs: (latestPlant.logs || []).map(l => l.id === finalLog.id ? finalLog : l),
+          lastModified: new Date().toISOString()
+        };
+        fetchWithAuth('/api/plants', token, { 
+          method: 'POST', 
+          body: JSON.stringify(syncPlant) 
+        }).catch(e => console.error("Failed to sync log addition:", e));
+      }
     };
 
-    // Update local state immediately
-    setPlants(prev => prev.map(p => p.id === plantId ? updatedPlant : p));
-
-    // Sync to server
-    if (token) {
-      fetchWithAuth('/api/plants', token, { 
-        method: 'POST', 
-        body: JSON.stringify(updatedPlant) 
-      }).catch(e => console.error("Failed to sync log addition:", e));
-    }
+    processLogBackground();
   };
   
   const deleteLog = async (plantId: string, logId: string) => {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
@@ -31,10 +32,11 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   return (
-    <button 
+    <motion.button 
+      whileTap={{ scale: 0.96 }}
       className={`${baseStyles} ${variant ? variants[variant] : ''} ${sizes[size]} ${className}`}
       disabled={disabled || isLoading}
-      {...props}
+      {...(props as any)}
     >
       {isLoading && (
         <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -43,6 +45,6 @@ export const Button: React.FC<ButtonProps> = ({
         </svg>
       )}
       {children}
-    </button>
+    </motion.button>
   );
 };
