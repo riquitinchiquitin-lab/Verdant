@@ -555,10 +555,10 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       
       // Final sync to server
       if (token) {
-        const latestPlant = plants.find(p => p.id === plantId) || initialPlantUpdate;
+        // Use initialPlantUpdate as base to ensure the new log is included in the sync
         const syncPlant = {
-          ...latestPlant,
-          logs: (latestPlant.logs || []).map(l => l.id === finalLog.id ? finalLog : l),
+          ...initialPlantUpdate,
+          logs: (initialPlantUpdate.logs || []).map(l => l.id === finalLog.id ? finalLog : l),
           lastModified: new Date().toISOString()
         };
         fetchWithAuth('/api/plants', token, { 
