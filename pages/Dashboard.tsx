@@ -7,27 +7,22 @@ import { useLanguage } from '../context/LanguageContext';
 import { useSystem } from '../context/SystemContext';
 import { Button } from '../components/ui/Button';
 import { Plant } from '../types';
-import { Plus, Scan, Download } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { AddPlantModal } from '../components/AddPlantModal';
 import { PlantCard } from '../components/PlantCard';
 import { PlantDetailsModal } from '../components/PlantDetailsModal';
-import { QrScannerModal } from '../components/QrScannerModal';
 import { Logo } from '../components/ui/Logo';
 import { PlantTelemetry } from '../components/PlantTelemetry';
 import { exportPlantsToNiimbotExcel } from '../services/exportService';
-import { generatePlantDetails } from '../services/plantAi';
-import { generateUUID } from '../services/crypto';
 
 export const Dashboard: React.FC = () => {
   const { user, can } = useAuth();
   const { showNotification } = useSystem();
   const navigate = useNavigate();
-  const { plants, addPlant, restoreDemoData, houses, getEffectiveApiKey, searchFilter, refreshAllData, isSynced } = usePlants();
+  const { plants, addPlant, restoreDemoData, houses, searchFilter } = usePlants();
   const { t, lv } = useLanguage();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [viewMode, setViewMode] = useState<'MY_HOUSE' | 'ALL'>('MY_HOUSE');
   const [selectedHouseFilter, setSelectedHouseFilter] = useState<string | 'ALL' | 'UNATTRIBUTED'>('ALL');
 
@@ -75,50 +70,10 @@ export const Dashboard: React.FC = () => {
     showNotification("EXPORT COMPLETE", "SUCCESS");
   };
 
-  const handleScanSuccess = async (data: string) => {
-    setIsScannerOpen(false);
-    
-    const parts = data.split('|');
-    if (parts.length >= 3) {
-      const [sourceHouse, sourceId, species, family] = parts;
-      
-      setIsSyncing(true);
-      showNotification("SYNCING SPECIMEN...", "INFO");
-      try {
-        const details = await generatePlantDetails(species, undefined, undefined, getEffectiveApiKey());
-        
-        const syncedPlant: Plant = {
-          ...details,
-          id: `p-synced-${generateUUID()}`,
-          species: species,
-          family: family || details.family,
-          houseId: user?.houseId || null, 
-          createdAt: new Date().toISOString(),
-          nickname: details.nickname || { en: species },
-          images: details.images?.length ? details.images : ['https://images.unsplash.com/photo-1545239351-ef35f43d514b?q=80&w=1000&auto=format&fit=crop'],
-          edible: details.edible || false,
-          logs: []
-        } as Plant;
-
-        await addPlant(syncedPlant);
-        setSelectedPlant(syncedPlant);
-        showNotification("SYNC SUCCESS", "SUCCESS");
-      } catch (err) {
-        console.error("Botanical Sync Failure:", err);
-        showNotification("SYNC FAILED", "ERROR");
-      } finally {
-        setIsSyncing(false);
-      }
-    } else {
-      showNotification("INVALID SYNC ID", "WARNING");
-    }
-  };
-
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-20 transition-all">
         <AddPlantModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSave={addPlant} />
         <PlantDetailsModal isOpen={!!selectedPlant} plant={selectedPlant} onClose={() => setSelectedPlant(null)} />
-        <QrScannerModal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} onScanSuccess={handleScanSuccess} />
 
         {/* M3 PAGE HEADER */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-4 md:px-10 pt-6 pb-2">
