@@ -46,7 +46,7 @@ export const InventoryItemCard: React.FC<{
   const associatedPlant = item.associatedPlantId ? plants.find(p => p.id === item.associatedPlantId) : null;
 
   const getStepSize = () => {
-    const unit = item.unit.toLowerCase();
+    const unit = (item.unit || '').toLowerCase();
     if (['l', 'gal', 'kg'].includes(unit)) return 0.1;
     if (['ml', 'g'].includes(unit)) return 10;
     return 1;

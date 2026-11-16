@@ -30,8 +30,8 @@ export const InventoryView: React.FC = () => {
 
   const filteredByProperty = inventory.filter(i => {
     // --- STRICT INVENTORY VISIBILITY ---
+    if (isAdmin) return true;
     if (user?.houseId) return i.houseId === user.houseId;
-    if (isAdmin) return true; // Global admins with no property see everything
     return false;
   });
 
