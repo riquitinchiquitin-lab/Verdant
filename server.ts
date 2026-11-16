@@ -20,6 +20,8 @@ import {
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
 } from '@simplewebauthn/server';
+import { GoogleGenAI } from '@google/genai';
+import argon2 from 'argon2';
 
 console.log('[CORE] Bootstrap sequence initiated');
 
@@ -167,7 +169,7 @@ app.use(cors({
 }));
 
 const authRateBuckets = new Map<string, { count: number; resetAt: number }>();
-app.use('/api/auth/webauthn', (req, res, next) => {
+app.use('/api/auth', (req, res, next) => {
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
   const now = Date.now();
   const bucket = authRateBuckets.get(ip);
@@ -193,13 +195,32 @@ app.use((req, res, next) => {
     "connect-src 'self' ws: wss: https://*;"
   );
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  if (process.env.STRICT_FRAME_OPTIONS === 'true') {
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  }
   next();
 });
 
 app.use(express.json({ limit: '100mb' }));
 
-// --- SESSION TOKEN & FIDO2 / WEBAUTHN HELPERS ---
+// --- SESSION TOKEN, ARGON2ID & FIDO2 / WEBAUTHN HELPERS ---
+const hashPassword = async (password: string): Promise<string> => {
+  return argon2.hash(password, {
+    type: argon2.argon2id,
+    memoryCost: 65536, // 64 MiB
+    timeCost: 3,
+    parallelism: 1,
+  });
+};
+
+const verifyPassword = async (hash: string, password: string): Promise<boolean> => {
+  try {
+    return await argon2.verify(hash, password);
+  } catch {
+    return false;
+  }
+};
+
 const getSessionSecret = () => currentVaultKey || process.env.MASTER_KEY || 'verdant-local-session-secret';
 
 const createSessionToken = (user: any): string => {
@@ -234,6 +255,9 @@ const verifySessionToken = (token: string): any | null => {
 const parseUserRecord = (row: any) => {
   if (!row) return row;
   const user = { ...row };
+  const hasPassword = Boolean(user.passwordHash);
+  delete user.passwordHash;
+  user.hasPassword = hasPassword;
   if (user.name && typeof user.name === 'string' && (user.name.startsWith('{') || user.name.startsWith('['))) {
     try { user.name = JSON.parse(user.name); } catch (e) {}
   }
@@ -274,20 +298,143 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: "ok", uptime: process.uptime() });
 });
 
-// PUBLIC FIDO2 / WEBAUTHN STATUS
+// PUBLIC AUTH STATUS (Argon2id + FIDO2)
 app.get('/api/auth/webauthn/status', async (req, res) => {
   try {
     const usersCount = await query('SELECT COUNT(*) as count FROM users WHERE deletedAt IS NULL');
     const credsCount = await query('SELECT COUNT(*) as count FROM webauthn_credentials');
+    const pwCount = await query("SELECT COUNT(*) as count FROM users WHERE deletedAt IS NULL AND passwordHash IS NOT NULL AND passwordHash != ''");
     const { rpID, rpName } = getRpConfig(req);
     res.json({
       hasUsers: (usersCount.rows[0]?.count || 0) > 0,
       hasCredentials: (credsCount.rows[0]?.count || 0) > 0,
+      hasPasswords: (pwCount.rows[0]?.count || 0) > 0,
       rpID,
       rpName,
     });
   } catch (e) {
     res.status(500).json({ error: "AUTH_STATUS_FAULT" });
+  }
+});
+
+// ARGON2ID FIRST-TIME PASSWORD SETUP (Root owner bootstrap or invited user without a password yet)
+app.post('/api/auth/password/setup', async (req, res) => {
+  try {
+    const email = (req.body?.email || '').trim().toLowerCase();
+    const password = req.body?.password || '';
+    const displayNameInput = (req.body?.name || '').trim();
+
+    if (!email) return res.status(400).json({ error: "EMAIL_REQUIRED" });
+    if (typeof password !== 'string' || password.length < 10) {
+      return res.status(400).json({ error: "PASSWORD_TOO_SHORT" });
+    }
+
+    const rootOwnerEmail = (process.env.VITE_ROOT_OWNER_EMAIL || process.env.ROOT_OWNER_EMAIL || '').trim().toLowerCase();
+    let userRes = await query('SELECT * FROM users WHERE LOWER(email) = ? AND deletedAt IS NULL', [email]);
+    let rawUser = userRes.rows[0] || null;
+
+    if (!rawUser) {
+      const totalUsersRes = await query('SELECT COUNT(*) as count FROM users WHERE deletedAt IS NULL');
+      const hasAnyUsers = (totalUsersRes.rows[0]?.count || 0) > 0;
+      if ((rootOwnerEmail && email === rootOwnerEmail) || !hasAnyUsers) {
+        const newId = `u-${crypto.randomUUID()}`;
+        const ownerName = displayNameInput || 'System Founder';
+        const pwHash = await hashPassword(password);
+        await query(
+          'INSERT INTO users (id, email, name, role, houseId, passwordHash) VALUES (?, ?, ?, ?, ?, ?)',
+          [newId, email, ownerName, 'OWNER', null, pwHash]
+        );
+        const createdRes = await query('SELECT * FROM users WHERE id = ?', [newId]);
+        const user = parseUserRecord(createdRes.rows[0]);
+        const token = createSessionToken(user);
+        await logSystemEvent('ARGON2ID_OWNER_BOOTSTRAPPED', `Owner ${email} initialized with Argon2id`, 'INFO');
+        return res.json({ verified: true, token, user });
+      }
+      return res.status(404).json({ error: "USER_NOT_FOUND" });
+    }
+
+    if (rawUser.passwordHash) {
+      return res.status(403).json({ error: "PASSWORD_ALREADY_SET" });
+    }
+
+    const seasonalCheck = checkSeasonalAccess(rawUser);
+    if (!seasonalCheck.ok) {
+      return res.status(403).json({ error: seasonalCheck.reason });
+    }
+
+    const pwHash = await hashPassword(password);
+    await query('UPDATE users SET passwordHash = ? WHERE id = ?', [pwHash, rawUser.id]);
+    const updatedRes = await query('SELECT * FROM users WHERE id = ?', [rawUser.id]);
+    const user = parseUserRecord(updatedRes.rows[0]);
+    const token = createSessionToken(user);
+
+    await logSystemEvent('ARGON2ID_PASSWORD_SET', `Argon2id password enrolled for ${user.email}`, 'INFO');
+    res.json({ verified: true, token, user });
+  } catch (e: any) {
+    console.error('[ARGON2ID] Setup error:', e);
+    res.status(500).json({ error: "PASSWORD_SETUP_FAULT" });
+  }
+});
+
+// ARGON2ID PASSWORD LOGIN (With optional FIDO2 2nd factor when user has FIDO2 enrolled & mfaMode is requested)
+app.post('/api/auth/password/login', async (req, res) => {
+  try {
+    const email = (req.body?.email || '').trim().toLowerCase();
+    const password = req.body?.password || '';
+    const requireFido2 = Boolean(req.body?.requireFido2);
+
+    if (!email || !password) return res.status(400).json({ error: "CREDENTIALS_REQUIRED" });
+
+    const userRes = await query('SELECT * FROM users WHERE LOWER(email) = ? AND deletedAt IS NULL', [email]);
+    if (userRes.rows.length === 0) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
+
+    const rawUser = userRes.rows[0];
+    if (!rawUser.passwordHash) {
+      return res.status(404).json({ error: "PASSWORD_NOT_SET" });
+    }
+
+    const valid = await verifyPassword(rawUser.passwordHash, password);
+    if (!valid) {
+      await logSystemEvent('ARGON2ID_LOGIN_FAILED', `Invalid password attempt for ${email}`, 'WARN');
+      return res.status(401).json({ error: "INVALID_CREDENTIALS" });
+    }
+
+    const seasonalCheck = checkSeasonalAccess(rawUser);
+    if (!seasonalCheck.ok) {
+      return res.status(403).json({ error: seasonalCheck.reason });
+    }
+
+    // If FIDO2 2FA step is requested and user has passkeys, return WebAuthn challenge
+    if (requireFido2) {
+      const credsRes = await query('SELECT * FROM webauthn_credentials WHERE userId = ?', [rawUser.id]);
+      if (credsRes.rows.length > 0) {
+        const { rpID } = getRpConfig(req);
+        const options = await generateAuthenticationOptions({
+          rpID,
+          allowCredentials: credsRes.rows.map((c: any) => ({
+            id: c.id,
+            transports: c.transports ? JSON.parse(c.transports) : undefined,
+          })),
+          userVerification: 'preferred',
+        });
+        const challengeId = crypto.randomUUID();
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+        await query('DELETE FROM webauthn_challenges WHERE expiresAt < ?', [new Date().toISOString()]);
+        await query(
+          'INSERT INTO webauthn_challenges (id, challenge, userId, email, type, expiresAt) VALUES (?, ?, ?, ?, ?, ?)',
+          [challengeId, options.challenge, rawUser.id, rawUser.email, 'authentication', expiresAt]
+        );
+        return res.json({ mfaRequired: true, challengeId, options });
+      }
+    }
+
+    const user = parseUserRecord(rawUser);
+    const token = createSessionToken(user);
+    await logSystemEvent('ARGON2ID_LOGIN', `User ${user.email} authenticated via Argon2id`, 'INFO');
+    res.json({ verified: true, token, user });
+  } catch (e: any) {
+    console.error('[ARGON2ID] Login error:', e);
+    res.status(500).json({ error: "PASSWORD_LOGIN_FAULT" });
   }
 });
 
@@ -1352,7 +1499,7 @@ app.get('/env-config.js', async (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
   
   res.send(`window._ENV_ = ${JSON.stringify({
-    AUTH_MODE: 'WEBAUTHN',
+    AUTH_MODE: 'ARGON2ID_FIDO2',
     ROOT_OWNER_EMAIL: (process.env.VITE_ROOT_OWNER_EMAIL || process.env.ROOT_OWNER_EMAIL || '').trim(),
   })};`);
 });
@@ -1401,7 +1548,7 @@ async function initializeDatabase() {
   console.log('[DB] Initializing Schema...');
   const tables = [
     `CREATE TABLE IF NOT EXISTS vault_key (id INTEGER PRIMARY KEY CHECK (id = 1), encrypted_key TEXT NOT NULL)`,
-    `CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT, role TEXT DEFAULT 'OWNER', houseId TEXT, personalAiKey TEXT, personalAiKeyTestedAt TEXT, deletedAt TEXT, caretakerStart TEXT, caretakerEnd TEXT)`,
+    `CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT, role TEXT DEFAULT 'OWNER', houseId TEXT, personalAiKey TEXT, personalAiKeyTestedAt TEXT, deletedAt TEXT, caretakerStart TEXT, caretakerEnd TEXT, passwordHash TEXT)`,
     `CREATE TABLE IF NOT EXISTS webauthn_credentials (id TEXT PRIMARY KEY, userId TEXT NOT NULL, publicKey TEXT NOT NULL, counter INTEGER DEFAULT 0, transports TEXT, deviceType TEXT, backedUp INTEGER DEFAULT 0, label TEXT, createdAt TEXT, lastUsedAt TEXT)`,
     `CREATE TABLE IF NOT EXISTS webauthn_challenges (id TEXT PRIMARY KEY, challenge TEXT NOT NULL, userId TEXT, email TEXT, type TEXT NOT NULL, expiresAt TEXT NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS plants (id TEXT PRIMARY KEY, houseId TEXT, species TEXT, nickname TEXT, images TEXT, logs TEXT, lastWatered TEXT, updatedAt TEXT, data TEXT)`,
@@ -1429,6 +1576,7 @@ async function initializeDatabase() {
   // Migrations
   try { await query(`ALTER TABLE users ADD COLUMN caretakerStart TEXT`); } catch(e) {}
   try { await query(`ALTER TABLE users ADD COLUMN caretakerEnd TEXT`); } catch(e) {}
+  try { await query(`ALTER TABLE users ADD COLUMN passwordHash TEXT`); } catch(e) {}
   try { await query(`ALTER TABLE api_usage ADD COLUMN gemini_tokens INTEGER DEFAULT 0`); } catch(e) {}
 
   console.log('[DB] Schema Synchronized');

@@ -9,6 +9,7 @@ import { User } from '../types';
 export interface WebAuthnStatus {
   hasUsers: boolean;
   hasCredentials: boolean;
+  hasPasswords?: boolean;
   rpID: string;
   rpName: string;
 }
@@ -28,6 +29,67 @@ export async function getWebAuthnStatus(): Promise<WebAuthnStatus> {
   const res = await fetch(`${API_URL}/api/auth/webauthn/status`);
   if (!res.ok) throw new Error('AUTH_STATUS_FAULT');
   return res.json();
+}
+
+export async function setupPassword(params: {
+  email: string;
+  password: string;
+  name?: string;
+}): Promise<{ verified: boolean; token: string; user: User }> {
+  const res = await fetch(`${API_URL}/api/auth/password/setup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: params.email.trim().toLowerCase(),
+      password: params.password,
+      name: params.name?.trim(),
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'PASSWORD_SETUP_FAULT');
+  }
+  return res.json();
+}
+
+export async function loginWithPassword(params: {
+  email: string;
+  password: string;
+  requireFido2?: boolean;
+}): Promise<{ verified: boolean; token: string; user: User }> {
+  const res = await fetch(`${API_URL}/api/auth/password/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: params.email.trim().toLowerCase(),
+      password: params.password,
+      requireFido2: Boolean(params.requireFido2),
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'PASSWORD_LOGIN_FAULT');
+  }
+
+  const data = await res.json();
+  if (data.mfaRequired && data.options && data.challengeId) {
+    const authResp = await startAuthentication({ optionsJSON: data.options });
+    const verifyRes = await fetch(`${API_URL}/api/auth/webauthn/login/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        challengeId: data.challengeId,
+        response: authResp,
+      }),
+    });
+    if (!verifyRes.ok) {
+      const err = await verifyRes.json().catch(() => ({}));
+      throw new Error(err.error || 'WEBAUTHN_LOGIN_VERIFY_FAULT');
+    }
+    return verifyRes.json();
+  }
+
+  return data;
 }
 
 export async function registerPasskey(params: {

@@ -36,6 +36,7 @@ export interface User {
   name: string | null;
   role: UserRole; 
   passkeyCount?: number;
+  hasPassword?: boolean;
   houseId?: string | null;
   house?: House;
   caretakerStart?: string; // Access start for Seasonal

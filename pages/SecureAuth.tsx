@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Fingerprint, KeyRound, ShieldCheck, UserPlus, AlertTriangle } from 'lucide-react';
+import { Fingerprint, KeyRound, ShieldCheck, UserPlus, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useSystem } from '../context/SystemContext';
@@ -13,6 +13,8 @@ import {
   getWebAuthnStatus,
   authenticateWithPasskey,
   registerPasskey,
+  loginWithPassword,
+  setupPassword,
   WebAuthnStatus,
 } from '../services/webauthn';
 
@@ -24,6 +26,9 @@ export const SecureAuth: React.FC = () => {
 
   const [mode, setMode] = useState<'LOGIN' | 'ENROLL'>('LOGIN');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [requireFido2, setRequireFido2] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [deviceLabel, setDeviceLabel] = useState('');
   const [loading, setLoading] = useState(false);
@@ -38,12 +43,12 @@ export const SecureAuth: React.FC = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Check server WebAuthn status on mount
+  // Check server auth status on mount
   useEffect(() => {
     getWebAuthnStatus()
       .then((s) => {
         setStatus(s);
-        if (!s.hasCredentials) {
+        if (!s.hasCredentials && !s.hasPasswords) {
           setMode('ENROLL');
           const rootEmail = (window as any)._ENV_?.ROOT_OWNER_EMAIL || import.meta.env.VITE_ROOT_OWNER_EMAIL || '';
           if (rootEmail) setEmail(rootEmail);
@@ -59,9 +64,47 @@ export const SecureAuth: React.FC = () => {
     if (err?.name === 'NotAllowedError') return 'Passkey prompt was cancelled or timed out.';
     if (msg === 'USER_NOT_FOUND') return t('msg_access_denied');
     if (msg === 'ACCESS_EXPIRED') return t('msg_access_expired');
-    if (msg === 'NO_PASSKEY_REGISTERED') return 'No passkey enrolled for this account yet. Switch to "Enroll Passkey" below.';
-    if (msg === 'CREDENTIAL_ALREADY_REGISTERED') return 'This account already has a passkey enrolled. Sign in with your existing passkey to add another.';
+    if (msg === 'INVALID_CREDENTIALS') return 'Invalid email or password.';
+    if (msg === 'PASSWORD_TOO_SHORT') return 'Password must be at least 10 characters.';
+    if (msg === 'PASSWORD_NOT_SET') return 'No password set for this account yet. Use "Setup / Enroll" to set one.';
+    if (msg === 'PASSWORD_ALREADY_SET') return 'Password is already configured. Sign in to change it in Admin > Security.';
+    if (msg === 'NO_PASSKEY_REGISTERED') return 'No passkey enrolled for this account yet. Use "Setup / Enroll" below.';
+    if (msg === 'CREDENTIAL_ALREADY_REGISTERED') return 'This account already has a passkey enrolled. Sign in first to add another.';
     return msg || 'PROTOCOL_FAULT';
+  };
+
+  const completeLogin = async (result: { token: string; user: any }) => {
+    await login(result.token, result.user);
+    const userName = typeof result.user.name === 'object' ? (result.user.name as any)?.en : result.user.name;
+    showNotification(`WELCOME ${(userName || result.user.email).toUpperCase()}`, 'SUCCESS');
+    navigate('/');
+  };
+
+  const handlePasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !password) {
+      setAuthError('Please enter your email and password.');
+      return;
+    }
+    setLoading(true);
+    setAuthError(null);
+    try {
+      const result = await loginWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+        requireFido2: requireFido2 && webAuthnSupported,
+      });
+      await completeLogin(result);
+    } catch (err: any) {
+      const friendly = mapAuthError(err);
+      setAuthError(friendly);
+      if (err?.message === 'PASSWORD_NOT_SET') {
+        setMode('ENROLL');
+      }
+      showNotification('AUTHENTICATION FAILED', 'ERROR');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePasskeyLogin = async (useEmail: boolean) => {
@@ -74,12 +117,8 @@ export const SecureAuth: React.FC = () => {
         setLoading(false);
         return;
       }
-
       const result = await authenticateWithPasskey(targetEmail);
-      await login(result.token, result.user);
-      const userName = typeof result.user.name === 'object' ? (result.user.name as any)?.en : result.user.name;
-      showNotification(`WELCOME ${(userName || result.user.email).toUpperCase()}`, 'SUCCESS');
-      navigate('/');
+      await completeLogin(result);
     } catch (e: any) {
       const friendly = mapAuthError(e);
       setAuthError(friendly);
@@ -92,13 +131,42 @@ export const SecureAuth: React.FC = () => {
     }
   };
 
-  const handleEnrollPasskey = async (e: React.FormEvent) => {
+  const handleSetupPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim()) {
+      setAuthError('Please enter your email address.');
+      return;
+    }
+    if (password.length < 10) {
+      setAuthError('Password must be at least 10 characters.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setAuthError('Passwords do not match.');
+      return;
+    }
+    setLoading(true);
+    setAuthError(null);
+    try {
+      const result = await setupPassword({
+        email: email.trim().toLowerCase(),
+        password,
+        name: displayName.trim() || undefined,
+      });
+      await completeLogin(result);
+    } catch (err: any) {
+      setAuthError(mapAuthError(err));
+      showNotification('SETUP FAILED', 'ERROR');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEnrollPasskey = async () => {
     if (!email.trim()) {
       setAuthError('Please enter your registered email address.');
       return;
     }
-
     setLoading(true);
     setAuthError(null);
     try {
@@ -107,9 +175,7 @@ export const SecureAuth: React.FC = () => {
         name: displayName.trim() || undefined,
         label: deviceLabel.trim() || undefined,
       });
-      await login(result.token, result.user);
-      showNotification('FIDO2 PASSKEY ENROLLED', 'SUCCESS');
-      navigate('/');
+      await completeLogin(result);
     } catch (err: any) {
       setAuthError(mapAuthError(err));
       showNotification('ENROLLMENT FAILED', 'ERROR');
@@ -138,10 +204,10 @@ export const SecureAuth: React.FC = () => {
       </div>
 
       <div className="max-w-md w-full z-10 space-y-8 md:space-y-10 py-12 md:py-0">
-        <div className="bg-white dark:bg-slate-900 border-2 border-emerald-500/30 rounded-[32px] md:rounded-[40px] shadow-xl dark:shadow-[0_0_100px_rgba(16,185,129,0.1)] p-8 md:p-10 space-y-7 relative overflow-hidden transition-all duration-700 hover:border-emerald-500/50">
+        <div className="bg-white dark:bg-slate-900 border-2 border-emerald-500/30 rounded-[32px] md:rounded-[40px] shadow-xl dark:shadow-[0_0_100px_rgba(16,185,129,0.1)] p-8 md:p-10 space-y-6 relative overflow-hidden transition-all duration-700 hover:border-emerald-500/50">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-emerald-500 to-transparent"></div>
 
-          <div className="text-center space-y-5">
+          <div className="text-center space-y-4">
             <div className="mx-auto h-20 w-20 drop-shadow-[0_0_15px_rgba(16,185,129,0.4)] hover:scale-110 transition-transform duration-500">
               <Logo />
             </div>
@@ -149,17 +215,17 @@ export const SecureAuth: React.FC = () => {
               <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-[0.15em] uppercase leading-none italic">
                 Verdant
                 <span className="text-[10px] md:text-xs font-black italic tracking-[0.2em] text-slate-400 dark:text-white/40 mt-2 block">
-                  Self-Hosted FIDO2 / WebAuthn
+                  Argon2id + FIDO2 Security
                 </span>
               </h2>
             </div>
           </div>
 
           {/* BIBLE VERSE SECTION */}
-          <div className="relative py-3 px-4 text-center">
+          <div className="relative py-2.5 px-4 text-center">
             <div className="absolute inset-0 bg-emerald-500/5 rounded-[24px] blur-xl"></div>
             <div className="relative">
-              <p className="text-sm md:text-base leading-relaxed text-slate-700 dark:text-slate-100 font-medium italic mb-1.5 tracking-tight">
+              <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-100 font-medium italic mb-1 tracking-tight">
                 "{t('genesis_quote')}"
               </p>
               <p className="text-[9px] text-emerald-600 dark:text-emerald-500 font-black uppercase tracking-[0.3em]">{t('genesis_ref')}</p>
@@ -168,17 +234,7 @@ export const SecureAuth: React.FC = () => {
 
           <div className="h-px w-full bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent"></div>
 
-          {!webAuthnSupported ? (
-            <div className="p-5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-center space-y-2">
-              <AlertTriangle className="w-6 h-6 text-amber-500 mx-auto" />
-              <p className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">
-                WebAuthn Unavailable
-              </p>
-              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                FIDO2 passkeys require a secure context (HTTPS or localhost) and a modern browser.
-              </p>
-            </div>
-          ) : loading ? (
+          {loading ? (
             <div className="flex flex-col items-center gap-4 py-6">
               <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
               <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-widest animate-pulse">
@@ -198,7 +254,7 @@ export const SecureAuth: React.FC = () => {
                       : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
                   }`}
                 >
-                  <Fingerprint className="w-3.5 h-3.5" />
+                  <Lock className="w-3.5 h-3.5" />
                   Sign In
                 </button>
                 <button
@@ -211,53 +267,89 @@ export const SecureAuth: React.FC = () => {
                   }`}
                 >
                   <UserPlus className="w-3.5 h-3.5" />
-                  Enroll Key
+                  Setup / Enroll
                 </button>
               </div>
 
               {mode === 'LOGIN' ? (
                 <div className="space-y-4">
-                  <Button
-                    type="button"
-                    onClick={() => handlePasskeyLogin(false)}
-                    className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-3"
-                  >
-                    <Fingerprint className="w-5 h-5" />
-                    Sign in with Passkey
-                  </Button>
-
-                  <div className="relative flex items-center py-1">
-                    <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-                    <span className="flex-shrink mx-3 text-[9px] font-black uppercase tracking-widest text-slate-400">
-                      Or use account email
-                    </span>
-                    <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-                  </div>
-
-                  <div className="space-y-3">
+                  <form onSubmit={handlePasswordLogin} className="space-y-3">
                     <input
                       type="email"
+                      required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="personnel@domain.com"
                       className="w-full h-12 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
                     />
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Password (Argon2id)"
+                      className="w-full h-12 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
+                    />
+                    {webAuthnSupported && (
+                      <label className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer px-1">
+                        <input
+                          type="checkbox"
+                          checked={requireFido2}
+                          onChange={(e) => setRequireFido2(e.target.checked)}
+                          className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        Require FIDO2 2nd Factor
+                      </label>
+                    )}
                     <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => handlePasskeyLogin(true)}
-                      className="w-full h-11 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
+                      type="submit"
+                      className="w-full h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
                     >
-                      <KeyRound className="w-4 h-4 text-emerald-500" />
-                      Verify with Security Key
+                      <Lock className="w-4 h-4" />
+                      Sign In with Password
                     </Button>
-                  </div>
+                  </form>
+
+                  {webAuthnSupported && (
+                    <>
+                      <div className="relative flex items-center py-1">
+                        <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+                        <span className="flex-shrink mx-3 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                          Or FIDO2 Passkey
+                        </span>
+                        <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => handlePasskeyLogin(false)}
+                          className="w-full h-11 rounded-xl border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
+                        >
+                          <Fingerprint className="w-4 h-4" />
+                          Sign in with Passkey
+                        </Button>
+                        {email.trim() && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => handlePasskeyLogin(true)}
+                            className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
+                          >
+                            <KeyRound className="w-3.5 h-3.5 text-emerald-500" />
+                            Verify Security Key for {email.trim()}
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
-                <form onSubmit={handleEnrollPasskey} className="space-y-3.5">
-                  {status && !status.hasCredentials && (
+                <form onSubmit={handleSetupPassword} className="space-y-3">
+                  {status && !status.hasPasswords && !status.hasCredentials && (
                     <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[10px] font-bold text-emerald-700 dark:text-emerald-400 leading-relaxed">
-                      First-time setup: Enroll a passkey or FIDO2 hardware key to initialize your Owner account.
+                      First-time setup: Initialize your Owner account with an Argon2id password or FIDO2 passkey.
                     </div>
                   )}
                   <div>
@@ -270,7 +362,7 @@ export const SecureAuth: React.FC = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="name@domain.com"
-                      className="w-full h-12 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
+                      className="w-full h-11 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
                     />
                   </div>
                   {status && !status.hasUsers && (
@@ -283,29 +375,69 @@ export const SecureAuth: React.FC = () => {
                         value={displayName}
                         onChange={(e) => setDisplayName(e.target.value)}
                         placeholder="System Founder"
-                        className="w-full h-12 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
+                        className="w-full h-11 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
                       />
                     </div>
                   )}
                   <div>
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">
-                      Device / Key Label (Optional)
+                      New Password (min 10 chars, Argon2id)
                     </label>
                     <input
-                      type="text"
-                      value={deviceLabel}
-                      onChange={(e) => setDeviceLabel(e.target.value)}
-                      placeholder="e.g. MacBook TouchID, YubiKey 5"
-                      className="w-full h-12 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••••"
+                      className="w-full h-11 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">
+                      Confirm Password
+                    </label>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••••"
+                      className="w-full h-11 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
                     />
                   </div>
                   <Button
                     type="submit"
-                    className="w-full h-13 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 mt-2"
+                    className="w-full h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
                   >
                     <ShieldCheck className="w-4 h-4" />
-                    Enroll FIDO2 Passkey
+                    Set Argon2id Password
                   </Button>
+
+                  {webAuthnSupported && (
+                    <>
+                      <div className="relative flex items-center py-1">
+                        <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+                        <span className="flex-shrink mx-3 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                          Or Enroll FIDO2 Key
+                        </span>
+                        <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+                      </div>
+                      <input
+                        type="text"
+                        value={deviceLabel}
+                        onChange={(e) => setDeviceLabel(e.target.value)}
+                        placeholder="Key label (e.g. MacBook TouchID, YubiKey 5)"
+                        className="w-full h-11 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={handleEnrollPasskey}
+                        className="w-full h-11 rounded-xl border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
+                      >
+                        <Fingerprint className="w-4 h-4" />
+                        Enroll FIDO2 Passkey
+                      </Button>
+                    </>
+                  )}
                 </form>
               )}
             </div>

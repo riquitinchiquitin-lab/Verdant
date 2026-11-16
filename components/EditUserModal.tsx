@@ -27,6 +27,8 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
   const [isRevoked, setIsRevoked] = useState(!!targetUser.deletedAt);
   const [passkeyCount, setPasskeyCount] = useState<number>(targetUser.passkeyCount ?? 0);
   const [resettingPasskeys, setResettingPasskeys] = useState(false);
+  const [hasPassword, setHasPassword] = useState<boolean>(!!targetUser.hasPassword);
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   const handleResetPasskeys = async () => {
     if (!token) return;
@@ -43,6 +45,24 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
       showNotification('FAILED TO RESET PASSKEYS', 'ERROR');
     } finally {
       setResettingPasskeys(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!token) return;
+    setResettingPassword(true);
+    try {
+      const res = await fetchWithAuth(`/api/users/${targetUser.id}/reset-password`, token, { method: 'POST' });
+      if (res.ok) {
+        setHasPassword(false);
+        showNotification('USER PASSWORD CLEARED', 'SUCCESS');
+      } else {
+        showNotification('FAILED TO RESET PASSWORD', 'ERROR');
+      }
+    } catch {
+      showNotification('FAILED TO RESET PASSWORD', 'ERROR');
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -138,6 +158,28 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
             )}
 
             <div className="pt-6 border-t border-gray-100 dark:border-slate-800 space-y-3">
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700">
+                    <div>
+                        <span className="block font-black uppercase tracking-widest text-xs text-gray-800 dark:text-white">
+                            Argon2id Password: {hasPassword ? 'Configured' : 'Not Set'}
+                        </span>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                            {hasPassword ? 'User can sign in with password' : 'User can set password on login'}
+                        </span>
+                    </div>
+                    {hasPassword && (
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={handleResetPassword}
+                            disabled={resettingPassword}
+                            className="h-9 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                        >
+                            {resettingPassword ? 'Clearing...' : 'Reset Password'}
+                        </Button>
+                    )}
+                </div>
+
                 <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700">
                     <div>
                         <span className="block font-black uppercase tracking-widest text-xs text-gray-800 dark:text-white">
