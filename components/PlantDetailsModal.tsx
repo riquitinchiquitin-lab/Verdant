@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Leaf, Camera, Edit3, Activity, QrCode, Droplets, FileText, Star, FlaskConical, Scissors, Sprout, Flower2, ArrowLeftRight } from 'lucide-react';
+import { Leaf, Camera, Edit3, Activity, QrCode, Droplets, FileText, Star, FlaskConical, Scissors, Sprout, Flower2, ArrowLeftRight, Globe, Ruler, Tag, Home, Sun, X } from 'lucide-react';
 import { Plant, Log, LogType, LocalizedString } from '../types';
 import { Button } from './ui/Button';
 import { usePlants } from '../context/PlantContext';
@@ -53,16 +53,18 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
   const { t, lv, lva, language } = useLanguage();
   const { user } = useAuth();
 
-  const PassportItem = ({ icon, label, value, subValue }: { icon: string, label: string, value: string, subValue?: string }) => (
+  const PassportItem = ({ icon, label, value, subValue }: { icon: React.ReactNode, label: string, value: string, subValue?: string }) => (
     <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <span className="text-lg">{icon}</span>
+      <div className="flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-xl bg-md-surface-container-highest text-md-primary flex items-center justify-center shrink-0">
+          {icon}
+        </div>
         <div className="flex flex-col">
-          <span className="text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{label}</span>
-          {subValue && <span className="text-[9px] font-serif text-verdant font-bold uppercase tracking-tighter">{subValue}</span>}
+          <span className="text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider">{label}</span>
+          {subValue && <span className="text-[10px] text-md-primary font-semibold">{subValue}</span>}
         </div>
       </div>
-      <p className="text-sm font-serif italic text-gray-900 dark:text-gray-100 leading-relaxed">{value || t('lbl_na')}</p>
+      <p className="text-sm font-medium text-md-on-surface leading-relaxed pl-[42px]">{value || t('lbl_na')}</p>
     </div>
   );
 
@@ -358,19 +360,11 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
     <div className={`fixed inset-0 z-50 flex items-center justify-center transition-opacity duration-500 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
       <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={onClose} />
       
-      <div className="relative w-full h-full lg:w-[90vw] lg:h-[90vh] lg:max-h-[96vh] bg-white dark:bg-slate-950 lg:rounded-[48px] shadow-2xl lg:m-4 animate-in zoom-in-95 duration-500 border border-gray-100 dark:border-white/10 overflow-hidden flex flex-col">
-        {/* CLOSE BUTTON - TOP RIGHT */}
-        <button 
-            onClick={onClose}
-            className="m3-state-layer absolute top-[calc(1rem+env(safe-area-inset-top))] right-[calc(1rem+env(safe-area-inset-right))] md:top-6 md:right-6 z-[100] w-11 h-11 bg-md-surface-container-high text-md-on-surface backdrop-blur-xl rounded-full flex items-center justify-center transition-all shadow-md border border-md-outline-variant/40 group"
-            title={t('btn_close')}
-        >
-            <svg className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
-        
-        <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col bg-md-surface text-md-on-surface">
-            {/* TOP NAVIGATION / TABS */}
-            <div className="flex justify-start md:justify-center items-center gap-2 md:gap-3 border-b border-md-outline-variant/30 bg-md-surface/90 backdrop-blur-md sticky top-0 z-50 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-4 md:py-5 overflow-x-auto pl-4 pr-20 md:px-6 flex-nowrap scroll-smooth no-scrollbar">
+      <div className="relative w-full h-full lg:w-[90vw] lg:h-[90vh] lg:max-h-[96vh] bg-md-surface text-md-on-surface lg:rounded-[28px] shadow-2xl lg:m-4 animate-in zoom-in-95 duration-300 border border-md-outline-variant/40 overflow-hidden flex flex-col">
+        {/* TOP NAVIGATION / TABS + CLOSE BUTTON */}
+        <div className="flex items-center justify-between gap-3 border-b border-md-outline-variant/30 bg-md-surface-container-low/95 backdrop-blur-md shrink-0 z-50 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3 px-4 md:px-6">
+            <div className="hidden md:block w-10 shrink-0" />
+            <div className="flex items-center gap-2 md:gap-3 overflow-x-auto no-scrollbar flex-nowrap">
                 {[
                     { id: 'DOSSIER', label: t('tab_dossier') }, 
                     { id: 'TECH', label: t('tab_tech') }, 
@@ -382,17 +376,28 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                         onClick={() => {
                             setActiveTab(tab.id as any);
                         }} 
-                        className={`m3-state-layer text-xs font-semibold transition-all relative px-5 h-10 rounded-full whitespace-nowrap flex items-center justify-center min-w-0 border ${
+                        className={`m3-state-layer text-xs font-semibold transition-all relative px-4 md:px-5 h-10 rounded-full whitespace-nowrap flex items-center justify-center min-w-0 border ${
                           activeTab === tab.id 
                             ? 'bg-md-secondary-container text-md-on-secondary-container border-transparent shadow-xs' 
-                            : 'bg-md-surface-container-low text-md-on-surface-variant hover:text-md-on-surface border-md-outline-variant/40'
+                            : 'bg-md-surface-container text-md-on-surface-variant hover:text-md-on-surface border-md-outline-variant/40'
                         }`}
                     >
                         {tab.label}
                     </button>
                 ))}
             </div>
-            <div className="max-w-5xl mx-auto w-full p-4 sm:p-6 lg:p-10 space-y-8">
+            <button 
+                onClick={onClose}
+                className="m3-state-layer w-10 h-10 shrink-0 bg-md-surface-container-high text-md-on-surface rounded-full flex items-center justify-center transition-all border border-md-outline-variant/40 group"
+                title={t('btn_close')}
+                aria-label={t('btn_close')}
+            >
+                <X className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+            </button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col bg-md-surface text-md-on-surface">
+            <div className="max-w-5xl mx-auto w-full p-4 sm:p-6 lg:p-8 space-y-8">
                 {/* HERO SECTION */}
                 <div className="relative rounded-[28px] overflow-hidden shadow-md border border-md-outline-variant/30">
                   <div className="relative h-[360px] md:h-[500px] w-full overflow-hidden bg-md-surface-container-highest">
@@ -608,24 +613,24 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                     <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">
                                         <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">{t('botanical_passport')}</h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <PassportItem icon="🌍" label={t('lbl_origin')} value={lv(plant.origin)} />
-                                            <PassportItem icon="🌿" label={t('lbl_family_genus')} value={`${plant.family} / ${plant.genus}`} />
-                                            <PassportItem icon="📏" label={t('lbl_growth_size')} value={`${t('lbl_max_height')}: ${plant.maxHeight} cm (${lv(plant.growthRate as any) || t('lbl_standard')})`} />
-                                            <PassportItem icon="🏷️" label={t('lbl_category')} value={lv(plant.category as any) || t('lbl_na')} />
-                                            <PassportItem icon="🏠" label={t('lbl_room')} value={lv(plant.room as any) || t('lbl_unassigned')} />
-                                            <PassportItem icon="☀️" label={t('lbl_light_advice')} value={lv(plant.lightAdvice)} />
+                                            <PassportItem icon={<Globe className="w-4 h-4" />} label={t('lbl_origin')} value={lv(plant.origin)} />
+                                            <PassportItem icon={<Sprout className="w-4 h-4" />} label={t('lbl_family_genus')} value={`${plant.family} / ${plant.genus}`} />
+                                            <PassportItem icon={<Ruler className="w-4 h-4" />} label={t('lbl_growth_size')} value={`${t('lbl_max_height')}: ${plant.maxHeight} cm (${lv(plant.growthRate as any) || t('lbl_standard')})`} />
+                                            <PassportItem icon={<Tag className="w-4 h-4" />} label={t('lbl_category')} value={lv(plant.category as any) || t('lbl_na')} />
+                                            <PassportItem icon={<Home className="w-4 h-4" />} label={t('lbl_room')} value={lv(plant.room as any) || t('lbl_unassigned')} />
+                                            <PassportItem icon={<Sun className="w-4 h-4" />} label={t('lbl_light_advice')} value={lv(plant.lightAdvice)} />
                                         </div>
                                     </section>
 
                                 </div>
 
                                 <div className="space-y-6">
-                                    <div className="bg-md-primary-container/50 rounded-[28px] p-6 border border-md-primary/25 space-y-3">
-                                        <h3 className="text-xs font-semibold text-md-primary uppercase tracking-wider flex items-center gap-2">
-                                            <span className="w-2 h-2 rounded-full bg-md-primary animate-pulse" />
+                                    <div className={`rounded-[28px] p-6 border space-y-3 ${plant.isPetSafe ? 'bg-md-primary-container/40 border-md-primary/25' : 'bg-md-error-container/40 border-md-error/30'}`}>
+                                        <h3 className={`text-xs font-semibold uppercase tracking-wider flex items-center gap-2 ${plant.isPetSafe ? 'text-md-primary' : 'text-md-error'}`}>
+                                            <span className={`w-2 h-2 rounded-full animate-pulse ${plant.isPetSafe ? 'bg-md-primary' : 'bg-md-error'}`} />
                                             {t('lbl_toxicity')}
                                         </h3>
-                                        <p className="text-sm italic text-md-on-surface leading-relaxed">"{lv(plant.petSafety)}"</p>
+                                        <p className="text-sm text-md-on-surface leading-relaxed">"{lv(plant.petSafety)}"</p>
                                     </div>
 
                                     {plant.soilComposition && plant.soilComposition.length > 0 && (
