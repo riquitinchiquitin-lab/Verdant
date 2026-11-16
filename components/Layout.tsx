@@ -235,7 +235,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 className="w-full flex flex-col items-center justify-center p-6 rounded-[32px] bg-blue-600 hover:bg-blue-700 text-white shadow-2xl shadow-blue-500/30 transition-all group relative overflow-hidden border border-blue-400/50"
               >
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-transform">
-                   <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 24 24"><path d="M19h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                   <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
                 </div>
                 <span className="text-2xl mb-2">📲</span>
                 <span className="text-[10px] font-black uppercase tracking-[0.3em] leading-none mb-1">{t('sys_install_app')}</span>
