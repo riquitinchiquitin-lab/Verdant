@@ -65,7 +65,11 @@ export const PersonnelProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   useEffect(() => {
     if (!isPersistenceReady) return;
-    localStorage.setItem('verdant_personnel_v8', JSON.stringify(users));
+    try {
+      localStorage.setItem('verdant_personnel_v8', JSON.stringify(users));
+    } catch {
+      // Ignore storage quota errors
+    }
   }, [users, isPersistenceReady]);
 
   const addUser = async (newUser: User) => {

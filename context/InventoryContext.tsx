@@ -65,7 +65,11 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   useEffect(() => {
     if (!isPersistenceReady) return;
-    localStorage.setItem('verdant_inventory_v8', JSON.stringify(inventory));
+    try {
+      localStorage.setItem('verdant_inventory_v8', JSON.stringify(inventory));
+    } catch {
+      // Ignore storage quota errors
+    }
   }, [inventory, isPersistenceReady]);
 
   const addItem = (item: InventoryItem) => {

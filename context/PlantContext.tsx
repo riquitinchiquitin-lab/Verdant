@@ -153,9 +153,23 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   useEffect(() => {
     if (!isPersistenceReady) return;
-    localStorage.setItem('verdant_plants_v8', JSON.stringify(plants));
-    localStorage.setItem('verdant_houses_v8', JSON.stringify(houses));
-    localStorage.setItem('verdant_tasks_v8', JSON.stringify(tasks));
+    try {
+      localStorage.setItem('verdant_plants_v8', JSON.stringify(plants));
+    } catch {
+      try {
+        localStorage.removeItem('verdant_plants_v8');
+        const lightPlants = plants.map((p) => ({ ...p, images: [] }));
+        localStorage.setItem('verdant_plants_v8', JSON.stringify(lightPlants));
+      } catch {
+        // Ignore storage quota errors; server DB remains authoritative
+      }
+    }
+    try {
+      localStorage.setItem('verdant_houses_v8', JSON.stringify(houses));
+      localStorage.setItem('verdant_tasks_v8', JSON.stringify(tasks));
+    } catch {
+      // Ignore storage quota errors
+    }
   }, [plants, houses, tasks, isPersistenceReady]);
 
   // Automated Thirsty Plant Notifications
