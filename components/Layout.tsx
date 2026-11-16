@@ -321,20 +321,20 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="flex-1 max-w-2xl relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-md-on-surface-variant pointer-events-none" />
+          <div className="flex-1 max-w-2xl h-12 pl-4 pr-1.5 bg-md-surface-container-high rounded-full flex items-center gap-3 focus-within:ring-2 focus-within:ring-md-primary/40 transition-all">
+            <Search className="w-4 h-4 text-md-on-surface-variant shrink-0 pointer-events-none" />
             <input
               type="text"
               placeholder={t('search_placeholder') || "Search plants, inventory, tasks..."}
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
-              className="w-full h-12 pl-11 pr-12 bg-md-surface-container-high text-md-on-surface placeholder:text-md-on-surface-variant/70 rounded-full text-sm font-medium outline-none focus:ring-2 focus:ring-md-primary/40 transition-all"
+              className="flex-1 min-w-0 h-full bg-transparent text-md-on-surface placeholder:text-md-on-surface-variant/70 text-sm font-medium outline-none"
             />
             {can('create_plants') && (
               <button
                 onClick={() => setIsScannerOpen(true)}
                 disabled={isSyncing}
-                className="m3-state-layer absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center text-md-on-surface-variant hover:text-md-primary rounded-full transition-colors"
+                className="m3-state-layer w-9 h-9 shrink-0 flex items-center justify-center text-md-on-surface-variant hover:text-md-primary rounded-full transition-colors"
                 title={t('scan_sync')}
                 aria-label={t('scan_sync')}
               >
