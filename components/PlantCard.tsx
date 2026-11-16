@@ -5,6 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { usePlants } from '../context/PlantContext';
 import { compressImage } from '../services/imageUtils';
 import { generateUUID } from '../services/crypto';
+import { Droplets, Star, Check } from 'lucide-react';
 
 interface PlantCardProps {
   plant: Partial<Plant>;
@@ -106,9 +107,9 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
 
     if (!plant.lastWatered) {
       if (!showActions) {
-        return { label: t('lbl_new_specimen'), color: 'bg-blue-600 text-white border-blue-400', percent: 0, daysLeft: '?' };
+        return { label: t('lbl_new_specimen'), color: 'bg-md-tertiary-container text-md-on-tertiary-container border-md-tertiary/20', percent: 0, daysLeft: '?' };
       }
-      return { label: t('status_data_needed'), color: 'bg-slate-700 text-white border-slate-600', percent: 0, daysLeft: '?' };
+      return { label: t('status_data_needed'), color: 'bg-md-secondary-container text-md-on-secondary-container border-md-outline-variant/40', percent: 0, daysLeft: '?' };
     }
 
     const lastDate = new Date(plant.lastWatered);
@@ -135,9 +136,9 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
       }
     }
 
-    if (daysLeftNum <= 0) return { label: t('status_thirsty'), color: 'bg-red-600 text-white border-red-400', percent: 0, daysLeft: 0 };
-    if (daysLeftNum <= 2) return { label: t('status_soon'), color: 'bg-amber-500 text-white border-amber-400', percent, daysLeft: daysLeftNum };
-    return { label: t('status_stable'), color: 'bg-emerald-600 text-white border-emerald-400', percent, daysLeft: daysLeftNum };
+    if (daysLeftNum <= 0) return { label: t('status_thirsty'), color: 'bg-md-error-container text-md-on-error-container border-md-error/20', percent: 0, daysLeft: 0 };
+    if (daysLeftNum <= 2) return { label: t('status_soon'), color: 'bg-amber-100 text-amber-950 dark:bg-amber-900/60 dark:text-amber-200 border-amber-500/20', percent, daysLeft: daysLeftNum };
+    return { label: t('status_stable'), color: 'bg-md-primary-container text-md-on-primary-container border-md-primary/20', percent, daysLeft: daysLeftNum };
   }, [plant.lastWatered, plant.wateringInterval, plant.logs, t, showActions]);
 
   const getAdvice = (type: 'moisture' | 'light' | 'temp' | 'humidity') => {
@@ -172,8 +173,8 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
                 
                 <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1.5">
                     {plant.isPriority && (
-                        <div className="bg-amber-400 text-amber-950 px-2 py-0.5 rounded-full shadow-sm text-xs font-bold">
-                            ⭐
+                        <div className="bg-amber-300 text-amber-950 p-1.5 rounded-full shadow-sm">
+                            <Star className="w-3.5 h-3.5 fill-current" />
                         </div>
                     )}
                     <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-xs border ${status.color}`}>
@@ -230,7 +231,7 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
                                 setTimeout(() => setAlertMessage(null), 4000);
                             }}
                         >
-                            <span>💧</span>
+                            {lastLoggedAction === 'WATER' ? <Check className="w-4 h-4" /> : <Droplets className="w-4 h-4" />}
                             <span>{t('log_action_watered') || 'Water'}</span>
                         </Button>
                     </div>

@@ -210,7 +210,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     <div className="min-h-screen bg-md-surface text-md-on-surface flex transition-colors duration-300 overflow-hidden">
       <NotificationToast />
       {alertMessage && (
-        <div className="fixed bottom-24 lg:bottom-8 left-1/2 -translate-x-1/2 z-[200] bg-md-on-surface text-md-surface text-sm font-medium px-5 py-3 rounded-xl shadow-lg animate-in fade-in slide-in-from-bottom-4">
+        <div className="fixed bottom-24 lg:bottom-8 left-1/2 -translate-x-1/2 z-[200] bg-md-inverse-surface text-md-inverse-on-surface text-sm font-medium px-5 py-3 rounded-xl shadow-lg animate-in fade-in slide-in-from-bottom-4">
           {alertMessage}
         </div>
       )}

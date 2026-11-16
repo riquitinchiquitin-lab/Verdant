@@ -42,6 +42,9 @@
   --md-sys-color-on-surface-variant: #43483F;
   --md-sys-color-outline: #73796E;
   --md-sys-color-outline-variant: #C3C8BC;
+  --md-sys-color-inverse-surface: #2E322B;
+  --md-sys-color-inverse-on-surface: #EFF2E9;
+  --md-sys-color-inverse-primary: #AAD28F;
 }
 
 .dark {
@@ -79,6 +82,9 @@
   --md-sys-color-on-surface-variant: #C3C8BC;
   --md-sys-color-outline: #8D9387;
   --md-sys-color-outline-variant: #43483F;
+  --md-sys-color-inverse-surface: #E1E4DC;
+  --md-sys-color-inverse-on-surface: #2E322B;
+  --md-sys-color-inverse-primary: #456834;
 }
 
 @theme {
@@ -153,6 +159,9 @@
   --color-md-on-surface-variant: var(--md-sys-color-on-surface-variant);
   --color-md-outline: var(--md-sys-color-outline);
   --color-md-outline-variant: var(--md-sys-color-outline-variant);
+  --color-md-inverse-surface: var(--md-sys-color-inverse-surface);
+  --color-md-inverse-on-surface: var(--md-sys-color-inverse-on-surface);
+  --color-md-inverse-primary: var(--md-sys-color-inverse-primary);
 }
 
 body {

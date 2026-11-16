@@ -9,6 +9,7 @@ import { Button } from '../components/ui/Button';
 import { generateUUID } from '../services/crypto';
 import { PotRotationIcon } from '../components/ui/Icons';
 import { useDraggableScroll } from '../hooks/useDraggableScroll';
+import { Droplets } from 'lucide-react';
 
 const getDaysDue = (plant: Plant): number | null => {
     let effectiveInterval = plant.wateringInterval;
@@ -95,8 +96,9 @@ const CareActionItem: React.FC<{
                     {type === 'WATER' ? t('lbl_watering_schedule') : t('lbl_rotation_schedule')}
                 </p>
                 <div className="flex items-center gap-2 mt-1.5">
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${isOverdue ? 'bg-md-error-container text-md-on-error-container' : type === 'WATER' ? 'bg-md-tertiary-container text-md-on-tertiary-container' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200'}`}>
-                        {type === 'WATER' ? '💧' : '🔄'} {isOverdue ? (daysDue === 0 ? t('due_today') : t('care_days_overdue', { days: Math.abs(daysDue).toString() })) : t('care_due_in', { days: daysDue.toString() })}
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${isOverdue ? 'bg-md-error-container text-md-on-error-container' : type === 'WATER' ? 'bg-md-tertiary-container text-md-on-tertiary-container' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200'}`}>
+                        {type === 'WATER' ? <Droplets className="w-3.5 h-3.5" /> : <PotRotationIcon className="w-3.5 h-3.5" />}
+                        {isOverdue ? (daysDue === 0 ? t('due_today') : t('care_days_overdue', { days: Math.abs(daysDue).toString() })) : t('care_due_in', { days: daysDue.toString() })}
                     </span>
                 </div>
             </div>
@@ -109,7 +111,7 @@ const CareActionItem: React.FC<{
                     className={`m3-state-layer w-11 h-11 rounded-full flex items-center justify-center transition-all shadow-sm ${lastLoggedAction === actionKey ? 'bg-md-primary text-md-on-primary' : isOverdue ? 'bg-md-error text-md-on-error' : type === 'WATER' ? 'bg-md-tertiary text-md-on-tertiary' : 'bg-md-secondary-container text-md-on-secondary-container'}`}
                 >
                     {type === 'WATER' ? (
-                        <span className="text-base">💧</span>
+                        <Droplets className="w-5 h-5" />
                     ) : (
                         <PotRotationIcon className="w-5 h-5" />
                     )}
