@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Leaf, Camera, Edit3, Activity, ScanBarcode, Droplets, FileText, Star, FlaskConical, Scissors, Sprout, Flower2, ArrowLeftRight, Globe, Ruler, Tag, Home, Sun, X, RefreshCw, Calendar, Dna, Wheat, Snowflake, Trash2, ShieldCheck, ShieldAlert, Sparkles, Bug, Plus } from 'lucide-react';
+import { Leaf, Camera, Edit3, Activity, ScanBarcode, Droplets, FileText, Star, FlaskConical, Scissors, Sprout, Flower2, ArrowLeftRight, Globe, Ruler, Tag, Home, Sun, X, RefreshCw, Calendar, Dna, Wheat, Snowflake, Trash2, ShieldCheck, ShieldAlert, Sparkles, Bug, Plus, SlidersHorizontal, AlertTriangle } from 'lucide-react';
 import { Plant, Log, LogType, LocalizedString } from '../types';
 import { Button } from './ui/Button';
 import { usePlants } from '../context/PlantContext';
@@ -92,54 +92,51 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
 
     let leftPct = 0;
     let widthPct = 0;
+    let dotPct = 50;
     let isSingleTarget = false;
 
     if (hasMin && hasMax) {
       const clampedMin = Math.max(scaleMin, Math.min(scaleMax, min!));
       const clampedMax = Math.max(clampedMin, Math.min(scaleMax, max!));
       leftPct = ((clampedMin - scaleMin) / span) * 100;
-      widthPct = Math.max(((clampedMax - clampedMin) / span) * 100, 8);
+      widthPct = Math.max(((clampedMax - clampedMin) / span) * 100, 10);
     } else if (hasMin || hasMax) {
       isSingleTarget = true;
       const val = (hasMin ? min! : max!);
       const clamped = Math.max(scaleMin, Math.min(scaleMax, val));
-      widthPct = Math.max(((clamped - scaleMin) / span) * 100, 6);
+      dotPct = ((clamped - scaleMin) / span) * 100;
     }
 
     return (
-      <div className="relative space-y-3.5 p-6 m3-card-elevated rounded-[24px] border border-md-outline-variant/30 overflow-hidden group hover:border-md-primary/40 transition-all duration-300">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider">{label}</p>
-          {hasMin && hasMax && (
-            <span className="text-[10px] font-mono text-md-on-surface-variant/70">
-              {scaleMin}–{scaleMax} {unit}
-            </span>
-          )}
-        </div>
+      <div className="relative space-y-3 p-5 bg-md-surface-container rounded-[20px] border border-md-outline-variant/25 hover:border-md-primary/40 transition-all duration-300" title={advice}>
+        <p className="text-xs font-medium text-md-on-surface-variant">{label}</p>
         <div className="flex items-baseline gap-1.5">
-          <span className="text-3xl font-bold text-md-on-surface tracking-tight">
+          <span className="text-2xl sm:text-3xl font-bold text-md-on-surface tracking-tight">
             {hasMin && hasMax ? `${min}–${max}` : (min ?? max ?? t('lbl_na'))}
           </span>
-          <span className="text-xs font-semibold text-md-primary uppercase tracking-wider">{unit}</span>
+          <span className="text-xs font-medium text-md-on-surface-variant">{unit}</span>
         </div>
-        <div className="relative h-2 w-full bg-md-surface-container-highest rounded-full overflow-hidden">
-          {hasMin || hasMax ? (
-            isSingleTarget ? (
-              <div
-                className="h-full bg-md-primary/75 rounded-full transition-all duration-500"
-                style={{ width: `${widthPct}%` }}
-              />
-            ) : (
-              <div
-                className="absolute top-0 bottom-0 bg-md-primary rounded-full transition-all duration-500"
-                style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-              />
-            )
-          ) : (
-            <div className="h-full w-0" />
-          )}
+        <div className="space-y-1.5 pt-1">
+          <div className="relative h-2 w-full bg-md-surface-container-highest rounded-full overflow-visible">
+            {hasMin || hasMax ? (
+              isSingleTarget ? (
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-md-primary shadow-sm ring-4 ring-md-primary/20 transition-all duration-500"
+                  style={{ left: `${dotPct}%` }}
+                />
+              ) : (
+                <div
+                  className="absolute top-0 bottom-0 bg-md-primary rounded-full shadow-xs transition-all duration-500"
+                  style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                />
+              )
+            ) : null}
+          </div>
+          <div className="flex justify-between text-[10px] font-medium text-md-on-surface-variant/70">
+            <span>{isSingleTarget ? `${min ?? max}` : 'min'}</span>
+            <span>{isSingleTarget ? unit : 'max'}</span>
+          </div>
         </div>
-        <p className="text-[13px] text-md-on-surface-variant leading-relaxed">{advice}</p>
       </div>
     );
   };
@@ -172,6 +169,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
   const [lastLoggedAction, setLastLoggedAction] = useState<LogType | null>(null);
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
   const [isTogglingPriority, setIsTogglingPriority] = useState(false);
+  const [showMoreActions, setShowMoreActions] = useState(false);
   
   
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -416,10 +414,10 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
       <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={onClose} />
       
       <div className="relative w-full h-full lg:w-[90vw] lg:h-[90vh] lg:max-h-[96vh] bg-md-surface text-md-on-surface lg:rounded-[28px] shadow-2xl lg:m-4 animate-in zoom-in-95 duration-300 border border-md-outline-variant/40 overflow-hidden flex flex-col">
-        {/* TOP NAVIGATION / TABS + CLOSE BUTTON */}
-        <div className="flex items-center justify-between gap-3 border-b border-md-outline-variant/30 bg-md-surface-container-low/95 backdrop-blur-md shrink-0 z-50 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3 px-4 md:px-6">
+        {/* TOP NAVIGATION / SEGMENTED PILL TABS + CLOSE BUTTON */}
+        <div className="flex items-center justify-between gap-3 border-b border-md-outline-variant/25 bg-md-surface-container-low/95 backdrop-blur-md shrink-0 z-50 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3 px-4 md:px-6">
             <div className="hidden md:block w-10 shrink-0" />
-            <div className="flex items-center gap-2 md:gap-3 overflow-x-auto no-scrollbar flex-nowrap">
+            <div className="flex items-center p-1 rounded-full bg-md-surface-container-highest/80 border border-md-outline-variant/25 overflow-x-auto no-scrollbar flex-nowrap">
                 {[
                     { id: 'DOSSIER', label: t('tab_dossier') }, 
                     { id: 'TECH', label: t('tab_tech') }, 
@@ -428,13 +426,11 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                 ].map(tab => (
                     <button 
                         key={tab.id} 
-                        onClick={() => {
-                            setActiveTab(tab.id as any);
-                        }} 
-                        className={`m3-state-layer text-xs font-semibold transition-all relative px-4 md:px-5 h-10 rounded-full whitespace-nowrap flex items-center justify-center min-w-0 border ${
+                        onClick={() => setActiveTab(tab.id as any)} 
+                        className={`m3-state-layer text-xs font-semibold transition-all relative px-4 md:px-6 h-9 rounded-full whitespace-nowrap flex items-center justify-center min-w-0 ${
                           activeTab === tab.id 
-                            ? 'bg-md-secondary-container text-md-on-secondary-container border-transparent shadow-xs' 
-                            : 'bg-md-surface-container text-md-on-surface-variant hover:text-md-on-surface border-md-outline-variant/40'
+                            ? 'bg-md-primary-container text-md-on-primary-container shadow-xs' 
+                            : 'text-md-on-surface-variant hover:text-md-on-surface'
                         }`}
                     >
                         {tab.label}
@@ -452,327 +448,273 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
         </div>
         
         <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col bg-md-surface text-md-on-surface">
-            <div className="max-w-5xl mx-auto w-full p-4 sm:p-6 lg:p-8 space-y-8">
+            <div className="max-w-5xl mx-auto w-full p-4 sm:p-6 lg:p-8 space-y-5">
                 {/* HERO SECTION */}
-                <div className="relative rounded-[28px] overflow-hidden shadow-md border border-md-outline-variant/30">
-                  <div className="relative h-[360px] md:h-[500px] w-full overflow-hidden bg-md-surface-container-highest">
-                    {/* Editorial Background Text */}
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-                      <span className="text-[20vw] font-display text-md-on-surface/5 uppercase select-none tracking-tighter">
-                        {t('tab_dossier_caps')}
-                      </span>
-                    </div>
-
+                <div className="relative rounded-[24px] overflow-hidden shadow-md border border-md-outline-variant/25">
+                  <div className="relative h-[260px] sm:h-[320px] md:h-[380px] w-full overflow-hidden bg-md-surface-container-highest">
                     {plant.images?.[0] ? (
                       <motion.img
-                        initial={{ scale: 1.06, opacity: 0 }}
+                        initial={{ scale: 1.04, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         src={plant.images[0]}
                         alt={lv(plant.nickname)}
-                        className="h-full w-full object-cover relative z-10"
+                        className="h-full w-full object-cover relative z-10 cursor-pointer"
+                        onClick={() => setEnlargedImageIndex(0)}
                         referrerPolicy="no-referrer"
                       />
                     ) : (
                       <div className="h-full w-full flex items-center justify-center relative z-10">
-                        <Leaf className="h-24 w-24 text-md-on-surface-variant/40" />
+                        <Leaf className="h-20 w-20 text-md-on-surface-variant/40" />
                       </div>
                     )}
 
-                    {/* Hardware Telemetry & Barcode Overlay */}
-                    <div className="absolute top-5 left-5 z-20 flex flex-wrap items-center gap-2">
-                      <div className="flex items-center gap-2 bg-black/55 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/15">
-                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="text-[11px] font-medium text-white tracking-wide">{t('status_uplink_active')}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[11px] font-mono font-semibold text-white/90 px-3 py-1.5 rounded-full bg-black/55 backdrop-blur-md border border-white/15">
+                    {/* Top Barcode Pill + Priority Star */}
+                    <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between gap-2 pointer-events-none">
+                      <div className="flex items-center gap-1.5 text-[11px] font-mono font-semibold text-white/95 px-3 py-1.5 rounded-full bg-black/55 backdrop-blur-md border border-white/15 pointer-events-auto">
                         <ScanBarcode className="w-3.5 h-3.5 text-emerald-300" />
                         <span>{getShortBarcodeId(plant.id)}</span>
                       </div>
+                      {plant.isPriority && (
+                        <div className="flex items-center gap-1 bg-amber-400/25 backdrop-blur-md px-2.5 py-1 rounded-full border border-amber-300/35">
+                          <Star className="w-3.5 h-3.5 text-amber-300 fill-current" />
+                          <span className="text-[11px] font-semibold text-amber-100">{t('lbl_priority_specimen')}</span>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent z-10" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent z-10 pointer-events-none" />
                     
-                    <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10 z-20">
+                    <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-7 md:p-8 z-20 pointer-events-none">
                       <motion.div
-                        initial={{ y: 20, opacity: 0 }}
+                        initial={{ y: 16, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
-                        transition={{ delay: 0.15, duration: 0.6 }}
+                        transition={{ delay: 0.1, duration: 0.45 }}
                       >
-                        <div className="flex items-center gap-2.5 mb-2">
-                          <span className="h-0.5 w-7 bg-emerald-300 rounded-full" />
-                          <p className="text-xs font-semibold text-emerald-200 uppercase tracking-widest">{t('lbl_specimen_profile')}</p>
-                        </div>
-                        <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white tracking-tight leading-none mb-2">
+                        <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-tight leading-tight">
                           {lv(plant.nickname)}
                         </h2>
-                        <p className="text-base md:text-xl italic font-serif text-white/85 mb-4">
+                        <p className="text-sm sm:text-base md:text-lg italic font-serif text-white/85 mt-0.5">
                           {plant.species || t('unclassified_specimen')}
-                          {plant.scientificAuthor ? <span className="not-italic text-xs font-sans text-white/60 ml-2">{plant.scientificAuthor}</span> : null}
+                          {plant.variety ? <span className="not-italic font-sans text-xs text-white/70 ml-2">· {plant.variety}</span> : null}
                         </p>
-                        <div className="flex flex-wrap items-center gap-4 text-white/85">
-                          {plant.isPriority && (
-                            <div className="flex items-center gap-1.5 bg-amber-400/20 backdrop-blur-md px-3 py-1 rounded-full border border-amber-300/30">
-                              <Star className="w-3.5 h-3.5 text-amber-300 fill-current" />
-                              <span className="text-xs font-semibold text-amber-200">{t('lbl_priority_specimen')}</span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10">
-                            <span className="text-[10px] font-mono uppercase tracking-wider text-white/65">{t('lbl_variety')}</span>
-                            <span className="text-xs font-semibold text-white">{plant.variety || t('lbl_standard')}</span>
-                          </div>
-                          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10">
-                            <span className="text-[10px] font-mono uppercase tracking-wider text-white/65">{t('lbl_status')}</span>
-                            <span className="text-xs font-semibold text-white">{plant.healthStatus || t('sys_stable')}</span>
-                          </div>
-                        </div>
                       </motion.div>
                     </div>
                   </div>
                 </div>
 
-                {/* CARE PULSE STRIP */}
+                {/* UNIFIED CARE PULSE BAR */}
                 {(() => {
                   const interval = plant.wateringInterval || 7;
-                  let waterPulseText = `${t('lbl_every')} ${interval}d`;
+                  let waterPulseText = `${interval}d`;
                   let waterOverdue = false;
                   if (plant.lastWatered) {
                     const nextWaterMs = new Date(plant.lastWatered).getTime() + interval * 86400000;
                     const daysAway = Math.ceil((nextWaterMs - Date.now()) / 86400000);
-                    if (daysAway > 0) waterPulseText = t('care_due_in', { days: daysAway.toString() });
+                    if (daysAway > 0) waterPulseText = `${daysAway}d`;
                     else if (daysAway === 0) { waterPulseText = t('due_today'); waterOverdue = true; }
-                    else { waterPulseText = t('care_days_overdue', { days: Math.abs(daysAway).toString() }); waterOverdue = true; }
+                    else { waterPulseText = `-${Math.abs(daysAway)}d`; waterOverdue = true; }
                   }
 
                   const potDisplay = plant.lastPotSizeCm || plant.lastPotSizeInches
-                    ? `${plant.lastPotSizeCm || '--'} cm`
+                    ? `${plant.lastPotSizeCm || '--'}cm`
                     : (plant.lastPotSize ? String(plant.lastPotSize) : t('lbl_na'));
                   const potMat = lv(plant.potMaterial as any);
                   const exposureDisplay = lv(plant.windowExposure as any)
                     || (plant.minLightLux && plant.maxLightLux ? `${plant.minLightLux}–${plant.maxLightLux} Lux` : (plant.minLightLux ? `${plant.minLightLux}+ Lux` : t('lbl_na')));
 
                   return (
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                      <div className={`flex items-center gap-3 p-3.5 rounded-2xl border ${waterOverdue ? 'bg-md-error-container/40 border-md-error/30' : 'bg-md-tertiary-container/35 border-md-outline-variant/30'}`}>
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${waterOverdue ? 'bg-md-error text-md-on-error' : 'bg-md-tertiary-container text-md-on-tertiary-container'}`}>
-                          <Droplets className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_watering_schedule')}</p>
-                          <p className={`text-xs font-bold truncate ${waterOverdue ? 'text-md-error' : 'text-md-on-surface'}`}>{waterPulseText}</p>
-                        </div>
+                    <div className="bg-md-surface-container rounded-[20px] border border-md-outline-variant/25 grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-md-outline-variant/25">
+                      <div className="px-4 py-3 space-y-0.5">
+                        <p className="text-[11px] font-medium text-md-on-surface-variant">{t('lbl_next_water') || 'Next Water'}:</p>
+                        <p className={`text-sm font-bold truncate ${waterOverdue ? 'text-md-error' : 'text-md-on-surface'}`}>{waterPulseText}</p>
                       </div>
-
-                      <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-md-secondary-container/35 border border-md-outline-variant/30">
-                        <div className="w-10 h-10 rounded-xl bg-md-secondary-container text-md-on-secondary-container flex items-center justify-center shrink-0">
-                          <Sun className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_illuminance')}</p>
-                          <p className="text-xs font-bold text-md-on-surface truncate">{exposureDisplay}</p>
-                        </div>
+                      <div className="px-4 py-3 space-y-0.5">
+                        <p className="text-[11px] font-medium text-md-on-surface-variant">{t('lbl_light') || 'Light'}:</p>
+                        <p className="text-sm font-bold text-md-on-surface truncate">{exposureDisplay}</p>
                       </div>
-
-                      <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-md-surface-container-high/60 border border-md-outline-variant/30">
-                        <div className="w-10 h-10 rounded-xl bg-md-surface-container-highest text-md-primary flex items-center justify-center shrink-0">
-                          <Sprout className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_last_pot_size')}</p>
-                          <p className="text-xs font-bold text-md-on-surface truncate">{potMat ? `${potDisplay} · ${potMat}` : potDisplay}</p>
-                        </div>
+                      <div className="px-4 py-3 space-y-0.5">
+                        <p className="text-[11px] font-medium text-md-on-surface-variant">{t('lbl_pot') || 'Pot'}:</p>
+                        <p className="text-sm font-bold text-md-on-surface truncate">{potMat ? `${potDisplay} ${potMat}` : potDisplay}</p>
                       </div>
-
-                      <div className={`flex items-center gap-3 p-3.5 rounded-2xl border ${plant.isPetSafe ? 'bg-md-primary-container/40 border-md-primary/25' : 'bg-md-error-container/40 border-md-error/30'}`}>
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${plant.isPetSafe ? 'bg-md-primary text-md-on-primary' : 'bg-md-error text-md-on-error'}`}>
-                          {plant.isPetSafe ? <ShieldCheck className="w-5 h-5" /> : <ShieldAlert className="w-5 h-5" />}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_toxicity')}</p>
-                          <p className={`text-xs font-bold truncate ${plant.isPetSafe ? 'text-md-primary' : 'text-md-error'}`}>
-                            {plant.isPetSafe ? t('lbl_pet_safe') || 'Pet Safe' : t('lbl_toxic_pets') || 'Toxic to Pets'}
-                          </p>
-                        </div>
+                      <div className="px-4 py-3 space-y-0.5">
+                        <p className="text-[11px] font-medium text-md-on-surface-variant">{t('lbl_pet_safety_short') || 'Pet Safety'}:</p>
+                        <p className={`text-sm font-bold truncate ${plant.isPetSafe ? 'text-md-primary' : 'text-md-error'}`}>
+                          {plant.isPetSafe ? (t('lbl_pet_safe') || 'Pet Safe') : (t('lbl_toxic_short') || 'Toxic')}
+                        </p>
                       </div>
                     </div>
                   );
                 })()}
 
-                <div className="flex flex-col lg:flex-row gap-8">
-                  <div className="w-full lg:w-1/3 space-y-6">
-                      <div className="grid grid-cols-3 gap-3">
-                        <motion.button 
-                          whileTap={{ scale: 0.96 }}
-                          onClick={() => setIsAddingPhoto(true)} 
-                          className="m3-state-layer flex flex-col items-center justify-center gap-2.5 p-4 m3-card-elevated rounded-[24px] border border-md-outline-variant/30 hover:border-md-primary/50 transition-all group"
-                        >
-                          <div className="w-11 h-11 bg-md-surface-container-highest rounded-2xl flex items-center justify-center group-hover:bg-md-primary-container group-hover:text-md-on-primary-container transition-colors">
-                            <Camera className="w-5 h-5 text-md-on-surface-variant group-hover:text-md-on-primary-container" />
-                          </div>
-                          <span className="text-[11px] font-semibold text-md-on-surface-variant text-center leading-tight">{t('btn_add_image')}</span>
-                        </motion.button>
-                        <motion.button 
-                          whileTap={{ scale: 0.96 }}
-                          onClick={() => setIsEditOpen(true)} 
-                          className="m3-state-layer flex flex-col items-center justify-center gap-2.5 p-4 m3-card-elevated rounded-[24px] border border-md-outline-variant/30 hover:border-md-primary/50 transition-all group"
-                        >
-                          <div className="w-11 h-11 bg-md-surface-container-highest rounded-2xl flex items-center justify-center group-hover:bg-md-primary-container group-hover:text-md-on-primary-container transition-colors">
-                            <Edit3 className="w-5 h-5 text-md-on-surface-variant group-hover:text-md-on-primary-container" />
-                          </div>
-                          <span className="text-[11px] font-semibold text-md-on-surface-variant text-center leading-tight">{t('btn_edit_data')}</span>
-                        </motion.button>
-                        <motion.button 
-                          whileTap={{ scale: 0.96 }}
-                          onClick={handleTogglePriority} 
-                          disabled={isTogglingPriority}
-                          className={`m3-state-layer flex flex-col items-center justify-center gap-2.5 p-4 rounded-[24px] border transition-all group col-span-3 md:col-span-1 ${
-                            plant.isPriority 
-                              ? 'bg-amber-100/80 dark:bg-amber-900/30 border-amber-400/40' 
-                              : 'm3-card-elevated border-md-outline-variant/30 hover:border-md-primary/50'
-                          }`}
-                        >
-                          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-colors ${
-                            plant.isPriority 
-                              ? 'bg-amber-300 text-amber-950' 
-                              : 'bg-md-surface-container-highest text-md-on-surface-variant group-hover:bg-md-primary-container group-hover:text-md-on-primary-container'
-                          }`}>
-                            <Star className={`w-5 h-5 ${plant.isPriority ? 'fill-current' : ''}`} />
-                          </div>
-                          <span className={`text-[11px] font-semibold text-center leading-tight ${
-                            plant.isPriority ? 'text-amber-800 dark:text-amber-300' : 'text-md-on-surface-variant'
-                          }`}>
-                            {plant.isPriority ? t('btn_remove_priority') : t('btn_set_priority')}
-                          </span>
-                        </motion.button>
-                      </div>
+                {/* COMPACT PILL ACTION ROW */}
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <motion.button
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => handleLogAction('WATER')}
+                      className={`m3-state-layer h-11 px-4 sm:px-5 rounded-full text-xs font-semibold flex items-center gap-2 transition-all ${lastLoggedAction === 'WATER' ? 'bg-md-primary text-md-on-primary' : 'bg-md-primary-container text-md-on-primary-container'}`}
+                    >
+                      <Droplets className="w-4 h-4" />
+                      <span>{t('btn_hydrate')}</span>
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => setIsMoistureOpen(true)}
+                      className={`m3-state-layer h-11 px-4 sm:px-5 rounded-full text-xs font-semibold flex items-center gap-2 transition-all ${lastLoggedAction === 'MOISTURE' ? 'bg-md-primary text-md-on-primary' : 'bg-md-secondary-container text-md-on-secondary-container'}`}
+                    >
+                      <MoistureProbeIcon className="w-4 h-4" />
+                      <span>{t('btn_probe')}</span>
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => setIsNoteOpen(true)}
+                      className={`m3-state-layer h-11 px-4 sm:px-5 rounded-full text-xs font-semibold flex items-center gap-2 transition-all ${lastLoggedAction === 'NOTE' ? 'bg-md-primary text-md-on-primary' : 'bg-md-tertiary-container text-md-on-tertiary-container'}`}
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span>{t('btn_log_caps')}</span>
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => setIsHealthOpen(true)}
+                      className="m3-state-layer h-11 px-4 sm:px-5 rounded-full bg-md-error-container text-md-on-error-container text-xs font-semibold flex items-center gap-2 transition-all"
+                    >
+                      <Activity className="w-4 h-4" />
+                      <span>{t('lbl_health')}</span>
+                    </motion.button>
 
-                    <div className="space-y-3">
-                      <h4 className="text-xs font-semibold text-md-on-surface-variant px-1">{t('lbl_image_archive')}</h4>
-                      <div className="grid grid-cols-3 gap-2.5">
-                        {plant.images?.map((img, idx) => (
-                          <motion.div
-                            key={idx}
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.96 }}
-                            className="aspect-square rounded-2xl overflow-hidden border border-md-outline-variant/40 shadow-xs cursor-pointer bg-md-surface-container-highest"
-                            onClick={() => setEnlargedImageIndex(idx)}
+                    <div className="flex items-center gap-2 ml-auto">
+                      <motion.button
+                        whileTap={{ scale: 0.94 }}
+                        onClick={() => setIsAddingPhoto(true)}
+                        title={t('btn_add_image')}
+                        className="m3-state-layer w-11 h-11 rounded-full bg-md-surface-container-high border border-md-outline-variant/30 text-md-on-surface-variant hover:text-md-primary flex items-center justify-center transition-colors"
+                      >
+                        <Camera className="w-4 h-4" />
+                      </motion.button>
+                      <motion.button
+                        whileTap={{ scale: 0.94 }}
+                        onClick={() => setIsEditOpen(true)}
+                        title={t('btn_edit_data')}
+                        className="m3-state-layer w-11 h-11 rounded-full bg-md-surface-container-high border border-md-outline-variant/30 text-md-on-surface-variant hover:text-md-primary flex items-center justify-center transition-colors"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </motion.button>
+                      <motion.button
+                        whileTap={{ scale: 0.94 }}
+                        onClick={handleTogglePriority}
+                        disabled={isTogglingPriority}
+                        title={plant.isPriority ? t('btn_remove_priority') : t('btn_set_priority')}
+                        className={`m3-state-layer w-11 h-11 rounded-full border flex items-center justify-center transition-colors ${
+                          plant.isPriority
+                            ? 'bg-amber-300/90 text-amber-950 border-amber-400/50'
+                            : 'bg-md-surface-container-high border-md-outline-variant/30 text-md-on-surface-variant hover:text-md-primary'
+                        }`}
+                      >
+                        <Star className={`w-4 h-4 ${plant.isPriority ? 'fill-current' : ''}`} />
+                      </motion.button>
+                      <motion.button
+                        whileTap={{ scale: 0.94 }}
+                        onClick={() => setShowMoreActions(prev => !prev)}
+                        title={t('btn_more_actions') || 'More Actions & Photos'}
+                        className={`m3-state-layer w-11 h-11 rounded-full border flex items-center justify-center transition-colors ${
+                          showMoreActions
+                            ? 'bg-md-primary text-md-on-primary border-transparent'
+                            : 'bg-md-surface-container-high border-md-outline-variant/30 text-md-on-surface-variant hover:text-md-primary'
+                        }`}
+                      >
+                        <SlidersHorizontal className="w-4 h-4" />
+                      </motion.button>
+                    </div>
+                  </div>
+
+                  {showMoreActions && (
+                    <div className="p-4 rounded-[22px] bg-md-surface-container border border-md-outline-variant/25 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
+                        {[
+                          { type: 'FERTILIZED', icon: <FlaskConical className="w-4 h-4" />, label: t('btn_feed') },
+                          { type: 'PRUNED', icon: <Scissors className="w-4 h-4" />, label: t('btn_prune_caps') },
+                          { type: 'REPOTTED', icon: <Sprout className="w-4 h-4" />, label: t('btn_repot_caps') },
+                          { type: 'NEW_LEAF', icon: <Leaf className="w-4 h-4" />, label: t('btn_growth') },
+                          ...(plant.flowers ? [{ type: 'FLOWER', icon: <Flower2 className="w-4 h-4" />, label: t('btn_bloom') }] : []),
+                          { type: 'ROTATED', icon: <PotRotationIcon className="w-4 h-4" />, label: t('btn_rotate_caps') },
+                          { type: 'TRANSFER', icon: <ArrowLeftRight className="w-4 h-4" />, label: t('btn_transfer') }
+                        ].map(action => (
+                          <button
+                            key={action.type}
+                            onClick={() => handleLogAction(action.type as any)}
+                            className={`m3-state-layer h-16 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all border ${
+                              lastLoggedAction === action.type
+                                ? 'bg-md-primary-container text-md-on-primary-container border-md-primary/40'
+                                : 'bg-md-surface-container-low text-md-on-surface-variant hover:text-md-on-surface border-md-outline-variant/25'
+                            }`}
                           >
-                            <img src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                          </motion.div>
+                            <span>{action.icon}</span>
+                            <span className="text-[10px] font-semibold text-center leading-tight px-1">{action.label}</span>
+                          </button>
                         ))}
                       </div>
-                    </div>
-                  </div>
 
-                  <div className="w-full lg:w-2/3 space-y-6">
-                    {/* M3 ACTION GRID */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-                      <motion.button
-                        whileTap={{ scale: 0.97 }}
-                        className={`m3-state-layer rounded-[24px] h-24 shadow-sm text-xs font-semibold flex flex-col items-center justify-center gap-2 transition-all ${lastLoggedAction === 'WATER' ? 'bg-md-primary text-md-on-primary' : 'bg-md-tertiary-container text-md-on-tertiary-container'}`}
-                        onClick={() => handleLogAction('WATER')}
-                      >
-                        <Droplets className="w-7 h-7" />
-                        <span>{t('btn_hydrate')}</span>
-                      </motion.button>
-                      <motion.button
-                        whileTap={{ scale: 0.97 }}
-                        className={`m3-state-layer rounded-[24px] h-24 shadow-sm text-xs font-semibold flex flex-col items-center justify-center gap-2 transition-all ${lastLoggedAction === 'MOISTURE' ? 'bg-md-primary text-md-on-primary' : 'bg-md-secondary-container text-md-on-secondary-container'}`}
-                        onClick={() => setIsMoistureOpen(true)}
-                      >
-                        <MoistureProbeIcon className="w-7 h-7" />
-                        <span>{t('btn_probe')}</span>
-                      </motion.button>
-                      <motion.button
-                        whileTap={{ scale: 0.97 }}
-                        className={`m3-state-layer rounded-[24px] h-24 shadow-sm text-xs font-semibold flex flex-col items-center justify-center gap-2 transition-all ${lastLoggedAction === 'NOTE' ? 'bg-md-primary text-md-on-primary' : 'bg-md-primary-container text-md-on-primary-container'}`}
-                        onClick={() => setIsNoteOpen(true)}
-                      >
-                        <FileText className="w-7 h-7" />
-                        <span>{t('btn_log_caps')}</span>
-                      </motion.button>
-                      <motion.button
-                        whileTap={{ scale: 0.97 }}
-                        className="m3-state-layer rounded-[24px] h-24 shadow-sm bg-md-error-container text-md-on-error-container text-xs font-semibold flex flex-col items-center justify-center gap-2 transition-all"
-                        onClick={() => setIsHealthOpen(true)}
-                      >
-                        <Activity className="w-7 h-7" />
-                        <span>{t('lbl_health')}</span>
-                      </motion.button>
+                      {plant.images && plant.images.length > 0 && (
+                        <div className="space-y-2 pt-2 border-t border-md-outline-variant/20">
+                          <h4 className="text-[11px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_image_archive')}</h4>
+                          <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
+                            {plant.images.map((img, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => setEnlargedImageIndex(idx)}
+                                className="w-16 h-16 rounded-xl overflow-hidden border border-md-outline-variant/40 shrink-0 hover:scale-105 transition-transform bg-md-surface-container-highest"
+                              >
+                                <img src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-3">
-                      {[
-                        { type: 'FERTILIZED', icon: <FlaskConical className="w-5 h-5" />, label: t('btn_feed') },
-                        { type: 'PRUNED', icon: <Scissors className="w-5 h-5" />, label: t('btn_prune_caps') },
-                        { type: 'REPOTTED', icon: <Sprout className="w-5 h-5" />, label: t('btn_repot_caps') },
-                        { type: 'NEW_LEAF', icon: <Leaf className="w-5 h-5" />, label: t('btn_growth') },
-                        ...(plant.flowers ? [{ type: 'FLOWER', icon: <Flower2 className="w-5 h-5" />, label: t('btn_bloom') }] : []),
-                        { type: 'ROTATED', icon: <PotRotationIcon className="w-5 h-5 group-hover:animate-[spin_3s_linear_infinite]" />, label: t('btn_rotate_caps') },
-                        { type: 'TRANSFER', icon: <ArrowLeftRight className="w-5 h-5" />, label: t('btn_transfer') }
-                      ].map(action => (
-                        <motion.button 
-                          key={action.type}
-                          whileTap={{ scale: 0.94 }}
-                          onClick={() => handleLogAction(action.type as any)}
-                          className={`m3-state-layer h-20 rounded-[20px] flex flex-col items-center justify-center gap-1.5 transition-all duration-200 group border ${lastLoggedAction === action.type ? 'bg-md-primary-container text-md-on-primary-container border-md-primary/40' : 'bg-md-surface-container-low text-md-on-surface-variant hover:text-md-on-surface border-md-outline-variant/30'}`}
-                        >
-                          <span>{action.icon}</span>
-                          <span className="text-[10px] font-semibold text-center leading-tight px-1">{action.label}</span>
-                        </motion.button>
-                      ))}
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* TAB CONTENT */}
                 <div className="animate-in fade-in duration-500">
                     {activeTab === 'DOSSIER' && (
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                <div className="lg:col-span-2 space-y-6">
-                                    <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">
-                                        <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">{t('botanical_passport')}</h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <PassportItem icon={<Globe className="w-4 h-4" />} label={t('lbl_origin')} value={lv(plant.origin)} />
-                                            <PassportItem icon={<Sprout className="w-4 h-4" />} label={t('lbl_family_genus')} value={`${plant.family || t('lbl_na')} / ${plant.genus || t('lbl_na')}`} />
-                                            <PassportItem icon={<Ruler className="w-4 h-4" />} label={t('lbl_growth_size')} value={plant.maxHeight ? `${t('lbl_max_height')}: ${plant.maxHeight} cm (${lv(plant.growthRate as any) || t('lbl_standard')})` : (lv(plant.growthRate as any) || t('lbl_na'))} />
-                                            <PassportItem icon={<Tag className="w-4 h-4" />} label={t('lbl_category')} value={lv(plant.category as any) || t('lbl_na')} />
-                                            <PassportItem icon={<Home className="w-4 h-4" />} label={t('lbl_room')} value={lv(plant.room as any) || t('lbl_unassigned')} />
-                                            <PassportItem
-                                              icon={<Sun className="w-4 h-4" />}
-                                              label={t('lbl_window_exposure') || 'Exposure & Light'}
-                                              value={lv(plant.windowExposure as any) || lv(plant.lightAdvice)}
-                                            />
-                                            {(lv(plant.careDifficulty as any) || plant.droughtTolerant) && (
-                                              <PassportItem
-                                                icon={<Sparkles className="w-4 h-4" />}
-                                                label={t('lbl_care_difficulty') || 'Care Difficulty'}
-                                                value={lv(plant.careDifficulty as any) || t('lbl_standard')}
-                                                subValue={plant.droughtTolerant ? (t('lbl_drought_tolerant') || 'Drought Tolerant') : undefined}
-                                              />
-                                            )}
-                                            {lv(plant.dormancyPeriod as any) && (
-                                              <PassportItem
-                                                icon={<Snowflake className="w-4 h-4" />}
-                                                label={t('lbl_dormancy') || 'Dormancy'}
-                                                value={lv(plant.dormancyPeriod as any)}
-                                              />
-                                            )}
-                                            {(plant.hardinessZoneMin || plant.hardinessZoneMax) && (
-                                              <PassportItem
-                                                icon={<Globe className="w-4 h-4" />}
-                                                label={t('lbl_hardiness_zones') || 'USDA Hardiness'}
-                                                value={
-                                                  plant.hardinessZoneMin && plant.hardinessZoneMax
-                                                    ? `Zones ${plant.hardinessZoneMin}–${plant.hardinessZoneMax}`
-                                                    : `Zone ${plant.hardinessZoneMin || plant.hardinessZoneMax}`
-                                                }
-                                              />
-                                            )}
+                        <div className="space-y-5">
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                                {/* LEFT: BOTANICAL PASSPORT & MICROCLIMATE (KEY-VALUE LIST) */}
+                                <div className="lg:col-span-7 space-y-5">
+                                    <section className="bg-md-surface-container rounded-[24px] p-6 border border-md-outline-variant/25 space-y-4">
+                                        <h3 className="text-lg font-bold text-md-on-surface tracking-tight">{t('botanical_passport')}</h3>
+                                        <div className="divide-y divide-md-outline-variant/20">
+                                            {[
+                                              { label: t('lbl_origin'), value: lv(plant.origin) },
+                                              { label: t('lbl_family_genus'), value: `${plant.family || t('lbl_na')} / ${plant.genus || t('lbl_na')}` },
+                                              { label: t('lbl_growth_size'), value: plant.maxHeight ? `${plant.maxHeight} cm (${lv(plant.growthRate as any) || t('lbl_standard')})` : (lv(plant.growthRate as any) || t('lbl_na')) },
+                                              { label: t('lbl_category'), value: lv(plant.category as any) || t('lbl_na') },
+                                              { label: t('lbl_room'), value: lv(plant.room as any) || t('lbl_unassigned') },
+                                              { label: t('lbl_window_exposure') || 'Window Exposure', value: lv(plant.windowExposure as any) || lv(plant.lightAdvice) },
+                                              ...(lv(plant.careDifficulty as any) || plant.droughtTolerant ? [{
+                                                label: t('lbl_care_difficulty') || 'Care Difficulty',
+                                                value: `${lv(plant.careDifficulty as any) || t('lbl_standard')}${plant.droughtTolerant ? ` · ${t('lbl_drought_tolerant') || 'Drought Tolerant'}` : ''}`
+                                              }] : []),
+                                              ...(lv(plant.dormancyPeriod as any) ? [{
+                                                label: t('lbl_dormancy') || 'Seasonal Dormancy',
+                                                value: lv(plant.dormancyPeriod as any)
+                                              }] : []),
+                                              ...((plant.hardinessZoneMin || plant.hardinessZoneMax) ? [{
+                                                label: t('lbl_hardiness_zones') || 'USDA Hardiness',
+                                                value: plant.hardinessZoneMin && plant.hardinessZoneMax
+                                                  ? `Zones ${plant.hardinessZoneMin}–${plant.hardinessZoneMax}`
+                                                  : `Zone ${plant.hardinessZoneMin || plant.hardinessZoneMax}`
+                                              }] : [])
+                                            ].map((row, idx) => (
+                                              <div key={idx} className="flex items-center justify-between gap-4 py-3 first:pt-1 last:pb-1">
+                                                <span className="text-xs font-medium text-md-on-surface-variant shrink-0">{row.label}</span>
+                                                <span className="text-xs sm:text-sm font-semibold text-md-on-surface text-right">{row.value || t('lbl_na')}</span>
+                                              </div>
+                                            ))}
                                         </div>
 
                                         {(plant.trefleId || plant.opbId || plant.gbifId || plant.powoId) && (
-                                          <div className="pt-4 border-t border-md-outline-variant/25 flex flex-wrap items-center gap-2">
+                                          <div className="pt-3 border-t border-md-outline-variant/20 flex flex-wrap items-center gap-2">
                                             <span className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant mr-1">
                                               {t('lbl_taxon_links') || 'Archives'}:
                                             </span>
@@ -811,8 +753,8 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                     </section>
 
                                     {(lv(plant.foliageTraits as any) || lv(plant.flowerTraits as any) || (lva(plant.nativeRegions as any)?.length > 0) || (lva(plant.attracts as any)?.length > 0) || (plant.ecologicalFlags && Object.values(plant.ecologicalFlags).some(Boolean))) && (
-                                      <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-5">
-                                        <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">
+                                      <section className="bg-md-surface-container rounded-[24px] p-6 border border-md-outline-variant/25 space-y-4">
+                                        <h3 className="text-base font-bold text-md-on-surface tracking-tight">
                                           {t('lbl_morphology_ecology') || 'Morphology & Ecology'}
                                         </h3>
 
@@ -828,15 +770,15 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                         )}
 
                                         {(lv(plant.foliageTraits as any) || lv(plant.flowerTraits as any)) && (
-                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                             {lv(plant.foliageTraits as any) && (
-                                              <div className="p-4 rounded-2xl bg-md-surface-container-low border border-md-outline-variant/25 space-y-1">
+                                              <div className="p-3.5 rounded-2xl bg-md-surface-container-low border border-md-outline-variant/20 space-y-1">
                                                 <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_foliage') || 'Foliage'}</p>
                                                 <p className="text-xs text-md-on-surface leading-relaxed">{lv(plant.foliageTraits as any)}</p>
                                               </div>
                                             )}
                                             {lv(plant.flowerTraits as any) && (
-                                              <div className="p-4 rounded-2xl bg-md-surface-container-low border border-md-outline-variant/25 space-y-1">
+                                              <div className="p-3.5 rounded-2xl bg-md-surface-container-low border border-md-outline-variant/20 space-y-1">
                                                 <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_flowers') || 'Flowers'}</p>
                                                 <p className="text-xs text-md-on-surface leading-relaxed">{lv(plant.flowerTraits as any)}</p>
                                               </div>
@@ -845,7 +787,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                         )}
 
                                         {lva(plant.nativeRegions as any)?.length > 0 && (
-                                          <div className="space-y-2">
+                                          <div className="space-y-1.5">
                                             <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_native_regions') || 'Native Distribution'}</p>
                                             <div className="flex flex-wrap gap-1.5">
                                               {lva(plant.nativeRegions as any).slice(0, 12).map((region, idx) => (
@@ -858,7 +800,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                         )}
 
                                         {lva(plant.attracts as any)?.length > 0 && (
-                                          <div className="space-y-2">
+                                          <div className="space-y-1.5">
                                             <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_attracts') || 'Attracts Wildlife'}</p>
                                             <div className="flex flex-wrap gap-1.5">
                                               {lva(plant.attracts as any).map((item, idx) => (
@@ -871,25 +813,22 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                         )}
                                       </section>
                                     )}
-
-                                    {lv(plant.aiInsight) && (
-                                      <section className="rounded-[28px] p-6 md:p-7 bg-md-secondary-container/30 border border-md-outline-variant/30 space-y-2.5">
-                                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-md-primary">
-                                          <Sparkles className="w-4 h-4" />
-                                          <span>{t('lbl_botanical_insight') || 'Botanical Insight'}</span>
-                                        </div>
-                                        <p className="text-sm text-md-on-surface leading-relaxed">{lv(plant.aiInsight)}</p>
-                                      </section>
-                                    )}
                                 </div>
 
-                                <div className="space-y-6">
-                                    <div className={`rounded-[28px] p-6 border space-y-3 ${plant.isPetSafe ? 'bg-md-primary-container/40 border-md-primary/25' : 'bg-md-error-container/40 border-md-error/30'}`}>
-                                        <h3 className={`text-xs font-semibold uppercase tracking-wider flex items-center gap-2 ${plant.isPetSafe ? 'text-md-primary' : 'text-md-error'}`}>
-                                            <span className={`w-2 h-2 rounded-full animate-pulse ${plant.isPetSafe ? 'bg-md-primary' : 'bg-md-error'}`} />
-                                            {t('lbl_toxicity')}
-                                        </h3>
-                                        <p className="text-sm text-md-on-surface leading-relaxed">"{lv(plant.petSafety)}"</p>
+                                {/* RIGHT: TOXICITY ALERT + SOIL RECIPE PILL BARS + AI INSIGHT */}
+                                <div className="lg:col-span-5 space-y-5">
+                                    <div className={`rounded-[24px] p-5 border space-y-2.5 ${plant.isPetSafe ? 'bg-md-primary-container/40 border-md-primary/25' : 'bg-md-error-container/50 border-md-error/30'}`}>
+                                        <div className="flex items-center justify-between gap-2">
+                                          <h3 className={`text-base font-bold ${plant.isPetSafe ? 'text-md-primary' : 'text-md-error'}`}>
+                                              {t('lbl_toxicity')}
+                                          </h3>
+                                          {plant.isPetSafe ? (
+                                            <ShieldCheck className="w-5 h-5 text-md-primary shrink-0" />
+                                          ) : (
+                                            <AlertTriangle className="w-5 h-5 text-md-error shrink-0" />
+                                          )}
+                                        </div>
+                                        <p className="text-xs sm:text-sm text-md-on-surface leading-relaxed">{lv(plant.petSafety)}</p>
                                         {lv(plant.humanSafety as any) && (
                                           <p className="text-xs text-md-on-surface-variant pt-2 border-t border-md-outline-variant/20">
                                             <span className="font-semibold uppercase tracking-wider mr-1.5">{t('lbl_human_safety') || 'Humans'}:</span>
@@ -899,33 +838,44 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                     </div>
 
                                     {plant.soilComposition && plant.soilComposition.length > 0 && (
-                                    <section className="m3-card-elevated rounded-[28px] p-6 border border-md-outline-variant/30 space-y-5">
-                                            <h3 className="text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider">{t('lbl_soil_recipe')}</h3>
-                                            <div className="space-y-4">
-                                                {plant.soilComposition.map((item, idx) => (
-                                                    <div key={idx} className="space-y-1.5">
-                                                        <div className="flex justify-between text-xs font-semibold">
-                                                            <span className="text-md-on-surface">{lv(item.component)}</span>
-                                                            <span className="text-md-primary">{item.percent}%</span>
+                                    <section className="bg-md-surface-container rounded-[24px] p-5 border border-md-outline-variant/25 space-y-4">
+                                            <h3 className="text-base font-bold text-md-on-surface tracking-tight">{t('lbl_soil_recipe')}</h3>
+                                            <div className="space-y-2.5">
+                                                {plant.soilComposition.map((item, idx) => {
+                                                  const barColors = [
+                                                    'bg-md-primary-container text-md-on-primary-container',
+                                                    'bg-md-secondary-container text-md-on-secondary-container',
+                                                    'bg-md-tertiary-container text-md-on-tertiary-container',
+                                                    'bg-md-surface-container-highest text-md-on-surface'
+                                                  ];
+                                                  const barStyle = barColors[idx % barColors.length];
+                                                  return (
+                                                    <div key={idx} className="flex items-center gap-3">
+                                                        <div className="flex-1 h-9 bg-md-surface-container-low rounded-xl overflow-hidden flex items-center">
+                                                          <div
+                                                            className={`h-full rounded-xl px-3 flex items-center text-xs font-bold ${barStyle}`}
+                                                            style={{ width: `${Math.max(item.percent, 18)}%` }}
+                                                          >
+                                                            {item.percent}%
+                                                          </div>
                                                         </div>
-                                                        <div className="h-1.5 w-full bg-md-surface-container-highest rounded-full overflow-hidden">
-                                                            <div className="h-full bg-md-primary rounded-full" style={{ width: `${item.percent}%` }} />
-                                                        </div>
+                                                        <span className="text-xs font-medium text-md-on-surface w-28 truncate">{lv(item.component)}</span>
                                                     </div>
-                                                ))}
+                                                  );
+                                                })}
                                             </div>
                                         </section>
                                     )}
 
-                                    <Button 
-                                        variant="outlined" 
-                                        size="lg"
-                                        className="w-full"
-                                        onClick={() => setIsNoteOpen(true)}
-                                    >
-                                        <FileText className="w-4 h-4" />
-                                        <span>{t('btn_add_log')}</span>
-                                    </Button>
+                                    {lv(plant.aiInsight) && (
+                                      <section className="rounded-[24px] p-5 bg-md-secondary-container/30 border border-md-outline-variant/25 space-y-2">
+                                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-md-primary">
+                                          <Sparkles className="w-4 h-4" />
+                                          <span>{t('lbl_botanical_insight') || 'Botanical Insight'}</span>
+                                        </div>
+                                        <p className="text-xs sm:text-sm text-md-on-surface leading-relaxed">{lv(plant.aiInsight)}</p>
+                                      </section>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -933,181 +883,142 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
 
                     {activeTab === 'TECH' && (
                         <div className="space-y-6">
-                            <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">
-                                <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">{t('lbl_atmospheric_soil_bounds')}</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {/* ENVIRONMENTAL OPTIMAL RANGES */}
+                            <section className="space-y-3">
+                                <h3 className="text-base font-bold text-md-on-surface px-1">{t('lbl_atmospheric_soil_bounds')}</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                     <TechMetric label={t('lbl_moisture')} min={plant.minSoilMoist} max={plant.maxSoilMoist} unit="%" advice={lv(plant.moistureAdvice)} scaleMin={0} scaleMax={100} />
                                     <TechMetric label={t('lbl_temperature')} min={plant.minTemp} max={plant.maxTemp} unit="°C" advice={lv(plant.tempAdvice)} scaleMin={0} scaleMax={45} />
-                                    <TechMetric label={t('lbl_illuminance')} min={plant.minLightLux} max={plant.maxLightLux} unit="Lux" advice={lv(plant.lightAdvice)} scaleMin={0} scaleMax={Math.max(25000, plant.maxLightLux || 25000)} />
-                                    <TechMetric label={t('lbl_soil_ec')} min={plant.minSoilEc} max={plant.maxSoilEc} unit="mS/cm" advice={lv(plant.nutritionAdvice)} scaleMin={0} scaleMax={4} />
+                                    <TechMetric
+                                      label={t('lbl_illuminance')}
+                                      min={plant.minLightLux}
+                                      max={plant.maxLightLux}
+                                      unit={plant.targetDli ? `Lux / ${plant.targetDli} DLI` : 'Lux'}
+                                      advice={lv(plant.lightAdvice)}
+                                      scaleMin={0}
+                                      scaleMax={Math.max(25000, plant.maxLightLux || 25000)}
+                                    />
                                     <TechMetric label={t('lbl_humidity')} min={plant.minEnvHumid} max={plant.maxEnvHumid} unit="%" advice={lv(plant.humidityAdvice)} scaleMin={0} scaleMax={100} />
                                     <TechMetric label={t('lbl_target_ph')} min={plant.minPh ?? plant.targetPh} max={plant.maxPh} unit="pH" advice={t('lbl_target_ph_desc')} scaleMin={3} scaleMax={9} />
-                                    <TechMetric label={t('lbl_target_ec')} min={plant.targetEc} unit="mS/cm" advice={t('lbl_target_ec_desc')} scaleMin={0} scaleMax={4} />
                                     <TechMetric label={t('lbl_target_vpd')} min={plant.targetVpd} unit="kPa" advice={t('lbl_target_vpd_desc')} scaleMin={0} scaleMax={3} />
+                                    <TechMetric label={t('lbl_soil_ec')} min={plant.minSoilEc} max={plant.maxSoilEc} unit="mS/cm" advice={lv(plant.nutritionAdvice)} scaleMin={0} scaleMax={4} />
+                                    <TechMetric label={t('lbl_target_ec')} min={plant.targetEc} unit="mS/cm" advice={t('lbl_target_ec_desc')} scaleMin={0} scaleMax={4} />
                                     <TechMetric label={t('lbl_target_dli')} min={plant.targetDli} unit="mol/m²/d" advice={t('lbl_target_dli_desc')} scaleMin={0} scaleMax={40} />
                                 </div>
                             </section>
 
-                            <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">
-                                <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">{t('lbl_seasonal_cadence') || 'Seasonal Cadence & Nutrition'}</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="p-5 bg-md-surface-container-highest/50 rounded-2xl border border-md-outline-variant/30 space-y-1.5">
-                                        <div className="flex items-center gap-2 text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider">
-                                            <Sun className="w-3.5 h-3.5 text-amber-500" />
-                                            <span>{t('lbl_summer_cadence') || 'Summer Watering'}</span>
+                            {/* SEASONAL CADENCE & NUTRITION + SUSCEPTIBLE PESTS */}
+                            <section className="space-y-3">
+                                <h3 className="text-base font-bold text-md-on-surface px-1">{t('lbl_seasonal_cadence') || 'Seasonal Cadence & Nutrition'}</h3>
+                                <div className="bg-md-surface-container rounded-[24px] p-5 sm:p-6 border border-md-outline-variant/25 space-y-5">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-md-outline-variant/25">
+                                        <div className="pb-4 md:pb-0 md:pr-6 space-y-1">
+                                            <p className="text-sm font-bold text-md-on-surface flex items-center gap-2">
+                                              <Sun className="w-4 h-4 text-amber-500" />
+                                              <span>{t('lbl_summer_cadence') || 'Summer Active'}</span>
+                                            </p>
+                                            <p className="text-xs sm:text-sm text-md-on-surface-variant">
+                                              {plant.summerWateringInterval || plant.wateringInterval}d {t('lbl_water_short') || 'water'}
+                                              {plant.npkRatio ? `, ${plant.npkRatio} ${t('lbl_feed_short') || 'feed'}` : ''}
+                                            </p>
                                         </div>
-                                        <p className="text-2xl font-bold text-md-on-surface">
-                                            {plant.summerWateringInterval || plant.wateringInterval} {t('days').toUpperCase()}
-                                        </p>
-                                    </div>
-                                    <div className="p-5 bg-md-surface-container-highest/50 rounded-2xl border border-md-outline-variant/30 space-y-1.5">
-                                        <div className="flex items-center gap-2 text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider">
-                                            <Snowflake className="w-3.5 h-3.5 text-sky-500" />
-                                            <span>{t('lbl_winter_cadence') || 'Winter Watering'}</span>
+                                        <div className="pt-4 md:pt-0 md:pl-6 space-y-1">
+                                            <p className="text-sm font-bold text-md-on-surface flex items-center gap-2">
+                                              <Snowflake className="w-4 h-4 text-sky-500" />
+                                              <span>{t('lbl_winter_cadence') || 'Winter Dormant'}</span>
+                                            </p>
+                                            <p className="text-xs sm:text-sm text-md-on-surface-variant">
+                                              {plant.winterWateringInterval || Math.round((plant.wateringInterval || 7) * 1.6)}d {t('lbl_water_short') || 'water'}
+                                              {lv(plant.dormancyPeriod as any) ? `, ${lv(plant.dormancyPeriod as any)}` : ''}
+                                            </p>
                                         </div>
-                                        <p className="text-2xl font-bold text-md-on-surface">
-                                            {plant.winterWateringInterval || Math.round((plant.wateringInterval || 7) * 1.6)} {t('days').toUpperCase()}
-                                        </p>
                                     </div>
-                                    <div className="p-5 bg-md-surface-container-highest/50 rounded-2xl border border-md-outline-variant/30 space-y-1.5">
-                                        <div className="flex items-center gap-2 text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider">
-                                            <FlaskConical className="w-3.5 h-3.5 text-md-primary" />
-                                            <span>{t('lbl_npk_ratio') || 'Target NPK'}</span>
-                                        </div>
-                                        <p className="text-xl font-bold text-md-on-surface">
-                                            {plant.npkRatio || t('lbl_balanced') || 'Balanced'}
-                                        </p>
-                                    </div>
-                                </div>
 
-                                {(lv(plant.bloomSeason as any) || lv(plant.pruningMonths as any) || (lva(plant.susceptiblePests as any)?.length > 0)) && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                                        {(lv(plant.bloomSeason as any) || lv(plant.pruningMonths as any)) && (
-                                            <div className="space-y-3">
-                                                {lv(plant.bloomSeason as any) && (
-                                                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-md-surface-container-low border border-md-outline-variant/25">
-                                                        <span className="text-xs font-semibold text-md-on-surface-variant flex items-center gap-2">
-                                                            <Flower2 className="w-4 h-4 text-md-primary" />
-                                                            {t('lbl_bloom_season') || 'Bloom Window'}
-                                                        </span>
-                                                        <span className="text-xs font-semibold text-md-on-surface">{lv(plant.bloomSeason as any)}</span>
-                                                    </div>
-                                                )}
-                                                {lv(plant.pruningMonths as any) && (
-                                                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-md-surface-container-low border border-md-outline-variant/25">
-                                                        <span className="text-xs font-semibold text-md-on-surface-variant flex items-center gap-2">
-                                                            <Scissors className="w-4 h-4 text-md-primary" />
-                                                            {t('lbl_pruning_months') || 'Pruning Window'}
-                                                        </span>
-                                                        <span className="text-xs font-semibold text-md-on-surface">{lv(plant.pruningMonths as any)}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-
+                                    {(lva(plant.susceptiblePests as any)?.length > 0 || lv(plant.bloomSeason as any) || lv(plant.pruningMonths as any)) && (
+                                      <div className="pt-4 border-t border-md-outline-variant/20 space-y-3">
                                         {lva(plant.susceptiblePests as any)?.length > 0 && (
-                                            <div className="space-y-2.5">
-                                                <p className="text-[11px] font-semibold uppercase tracking-wider text-md-on-surface-variant flex items-center gap-1.5">
-                                                    <Bug className="w-3.5 h-3.5 text-md-error" />
-                                                    <span>{t('lbl_susceptible_pests') || 'Watch For (Pests & Risks)'}</span>
-                                                </p>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {lva(plant.susceptiblePests as any).map((pest, idx) => (
-                                                        <span key={idx} className="px-3 py-1 rounded-full text-xs font-medium bg-md-error-container/50 text-md-on-error-container border border-md-error/20">
-                                                            {pest}
-                                                        </span>
-                                                    ))}
-                                                </div>
+                                          <div className="space-y-2">
+                                            <p className="text-xs font-bold text-md-on-surface flex items-center gap-1.5">
+                                              <Bug className="w-3.5 h-3.5 text-md-error" />
+                                              <span>{t('lbl_susceptible_pests') || 'Susceptible Pests'}</span>
+                                            </p>
+                                            <div className="flex flex-wrap gap-2">
+                                              {lva(plant.susceptiblePests as any).map((pest, idx) => (
+                                                <span key={idx} className="px-3.5 py-1.5 rounded-full text-xs font-medium bg-md-surface-container-highest text-md-on-surface border border-md-outline-variant/25">
+                                                  {pest}
+                                                </span>
+                                              ))}
                                             </div>
+                                          </div>
                                         )}
-                                    </div>
-                                )}
+
+                                        {(lv(plant.bloomSeason as any) || lv(plant.pruningMonths as any)) && (
+                                          <div className="flex flex-wrap gap-2 pt-1">
+                                            {lv(plant.bloomSeason as any) && (
+                                              <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-md-primary-container/40 text-md-on-primary-container flex items-center gap-1.5">
+                                                <Flower2 className="w-3.5 h-3.5" />
+                                                {lv(plant.bloomSeason as any)}
+                                              </span>
+                                            )}
+                                            {lv(plant.pruningMonths as any) && (
+                                              <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-md-secondary-container/50 text-md-on-secondary-container flex items-center gap-1.5">
+                                                <Scissors className="w-3.5 h-3.5" />
+                                                {lv(plant.pruningMonths as any)}
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                </div>
                             </section>
 
-                            <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">
-                                <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">{t('lbl_environmental_guards')}</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="p-6 bg-md-surface-container-highest/50 rounded-2xl border border-md-outline-variant/30">
-                                        <p className="text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider mb-3">{t('lbl_watering_delta')}</p>
-                                        <p className="text-2xl font-bold text-md-on-surface">{plant.wateringInterval} {t('days').toUpperCase()}</p>
-                                        <p className="text-xs text-md-on-surface-variant mt-2">{t('lbl_watering_delta_desc')}</p>
-                                    </div>
-                                    <div className="p-6 bg-md-surface-container-highest/50 rounded-2xl border border-md-outline-variant/30">
-                                        <p className="text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider mb-3">{t('lbl_last_observed_action')}</p>
-                                        <p className="text-2xl font-bold text-md-on-surface uppercase">{lastWateredDate}</p>
-                                        <p className="text-xs text-md-on-surface-variant mt-2">{t('lbl_last_observed_action_desc')}</p>
-                                    </div>
+                            {/* UPCOMING CARE TIMELINE PILLS */}
+                            <section className="space-y-3">
+                                <h3 className="text-base font-bold text-md-on-surface px-1">{t('lbl_upcoming_care_schedule')}</h3>
+                                <div className="bg-md-surface-container rounded-[24px] p-5 border border-md-outline-variant/25 flex flex-wrap gap-2.5">
+                                    {plant.wateringInterval && [1, 2, 3].map(i => {
+                                      const lastDate = plant.lastWatered ? new Date(plant.lastWatered) : new Date();
+                                      const nextDate = new Date(lastDate.getTime() + i * (plant.wateringInterval || 7) * 86400000);
+                                      const daysAway = Math.ceil((nextDate.getTime() - Date.now()) / 86400000);
+                                      const dateStr = nextDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                                      return (
+                                        <span key={`w-${i}`} className={`px-3.5 py-2 rounded-full text-xs font-semibold flex items-center gap-2 border ${daysAway <= 0 ? 'bg-md-error-container/50 text-md-on-error-container border-md-error/30' : 'bg-md-surface-container-highest text-md-on-surface border-md-outline-variant/25'}`}>
+                                          <Droplets className="w-3.5 h-3.5 text-md-primary" />
+                                          <span>{t('log_water')} {dateStr}</span>
+                                          <span className="text-[11px] opacity-75">
+                                            {daysAway > 0 ? `(${daysAway}d)` : (daysAway === 0 ? `(${t('due_today')})` : `(-${Math.abs(daysAway)}d)`)}
+                                          </span>
+                                        </span>
+                                      );
+                                    })}
+                                    {plant.npkRatio && (
+                                      <span className="px-3.5 py-2 rounded-full text-xs font-semibold bg-md-surface-container-highest text-md-on-surface border border-md-outline-variant/25 flex items-center gap-2">
+                                        <FlaskConical className="w-3.5 h-3.5 text-md-secondary" />
+                                        <span>{t('btn_feed')} {plant.npkRatio}</span>
+                                      </span>
+                                    )}
+                                    {plant.rotationFrequency && [1, 2].map(i => {
+                                      const lastDate = plant.lastRotated ? new Date(plant.lastRotated) : new Date();
+                                      const nextDate = new Date(lastDate.getTime() + i * (plant.rotationFrequency || 30) * 86400000);
+                                      const dateStr = nextDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                                      return (
+                                        <span key={`r-${i}`} className="px-3.5 py-2 rounded-full text-xs font-semibold bg-md-surface-container-highest text-md-on-surface border border-md-outline-variant/25 flex items-center gap-2">
+                                          <PotRotationIcon className="w-3.5 h-3.5 text-md-tertiary" />
+                                          <span>{t('btn_rotate_caps')} {dateStr}</span>
+                                        </span>
+                                      );
+                                    })}
                                     {plant.minRootDepthCm ? (
-                                      <div className="p-6 bg-md-surface-container-highest/50 rounded-2xl border border-md-outline-variant/30">
-                                        <p className="text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider mb-3">{t('lbl_min_root_depth') || 'Min Root Depth'}</p>
-                                        <p className="text-2xl font-bold text-md-on-surface">{plant.minRootDepthCm} cm</p>
-                                      </div>
+                                      <span className="px-3.5 py-2 rounded-full text-xs font-semibold bg-md-surface-container-highest text-md-on-surface-variant border border-md-outline-variant/25">
+                                        {t('lbl_min_root_depth') || 'Min Root Depth'}: {plant.minRootDepthCm} cm
+                                      </span>
                                     ) : null}
                                     {plant.frostFreeDaysMin ? (
-                                      <div className="p-6 bg-md-surface-container-highest/50 rounded-2xl border border-md-outline-variant/30">
-                                        <p className="text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider mb-3">{t('lbl_frost_free_days') || 'Frost-Free Days'}</p>
-                                        <p className="text-2xl font-bold text-md-on-surface">{plant.frostFreeDaysMin} {t('days').toUpperCase()}</p>
-                                      </div>
+                                      <span className="px-3.5 py-2 rounded-full text-xs font-semibold bg-md-surface-container-highest text-md-on-surface-variant border border-md-outline-variant/25">
+                                        {t('lbl_frost_free_days') || 'Frost-Free'}: {plant.frostFreeDaysMin}d
+                                      </span>
                                     ) : null}
-                                </div>
-                            </section>
-
-                            <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">
-                                <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">{t('lbl_upcoming_care_schedule')}</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* Watering Schedule */}
-                                    {plant.wateringInterval && (
-                                        <div className="space-y-3">
-                                            <p className="text-[11px] font-semibold text-md-tertiary uppercase tracking-wider px-1">{t('lbl_watering_schedule')}</p>
-                                            {[1, 2, 3].map(i => {
-                                                const lastDate = plant.lastWatered ? new Date(plant.lastWatered) : new Date();
-                                                const nextDate = new Date(lastDate.getTime() + i * (plant.wateringInterval || 7) * 86400000);
-                                                const daysAway = Math.ceil((nextDate.getTime() - Date.now()) / 86400000);
-                                                return (
-                                                    <div key={i} className="flex items-center gap-3 p-3.5 bg-md-surface-container-highest/50 rounded-2xl border border-md-outline-variant/30">
-                                                        <div className="w-9 h-9 rounded-xl bg-md-tertiary-container text-md-on-tertiary-container flex items-center justify-center shrink-0">
-                                                            <Droplets className="w-4 h-4" />
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <p className="text-xs font-semibold text-md-on-surface">
-                                                                {nextDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                                                            </p>
-                                                        </div>
-                                                        <div className={`text-[10px] font-semibold uppercase tracking-wider ${daysAway < 0 ? 'text-md-error' : 'text-md-tertiary'}`}>
-                                                            {daysAway > 0 ? t('care_due_in', { days: daysAway.toString() }) : (daysAway === 0 ? t('due_today') : t('care_days_overdue', { days: Math.abs(daysAway).toString() }))}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-
-                                    {/* Rotation Schedule */}
-                                    {plant.rotationFrequency && (
-                                        <div className="space-y-3">
-                                            <p className="text-[11px] font-semibold text-md-secondary uppercase tracking-wider px-1">{t('lbl_rotation_schedule')}</p>
-                                            {[1, 2, 3].map(i => {
-                                                const lastDate = plant.lastRotated ? new Date(plant.lastRotated) : new Date();
-                                                const nextDate = new Date(lastDate.getTime() + i * (plant.rotationFrequency || 30) * 86400000);
-                                                const daysAway = Math.ceil((nextDate.getTime() - Date.now()) / 86400000);
-                                                return (
-                                                    <div key={i} className="flex items-center gap-3 p-3.5 bg-md-surface-container-highest/50 rounded-2xl border border-md-outline-variant/30">
-                                                        <div className="w-9 h-9 rounded-xl bg-md-secondary-container text-md-on-secondary-container flex items-center justify-center shrink-0">
-                                                            <PotRotationIcon className="w-4 h-4" />
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <p className="text-xs font-semibold text-md-on-surface">
-                                                                {nextDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                                                            </p>
-                                                        </div>
-                                                        <div className={`text-[10px] font-semibold uppercase tracking-wider ${daysAway < 0 ? 'text-md-error' : 'text-md-secondary'}`}>
-                                                            {daysAway > 0 ? t('care_due_in', { days: daysAway.toString() }) : (daysAway === 0 ? t('due_today') : t('care_days_overdue', { days: Math.abs(daysAway).toString() }))}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
                                 </div>
                             </section>
                         </div>
