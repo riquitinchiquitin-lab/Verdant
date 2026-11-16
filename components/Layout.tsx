@@ -7,11 +7,12 @@ import { usePlants } from '../context/PlantContext';
 import { Logo } from './ui/Logo';
 import { LanguageSelector } from './ui/LanguageSelector';
 import { AddPlantModal } from './AddPlantModal';
-import { QrScannerModal } from './QrScannerModal';
-import { generatePlantDetails } from '../services/plantAi';
-import { generateUUID } from '../services/crypto';
+import { BarcodeScannerModal } from './BarcodeScannerModal';
+import { PlantDetailsModal } from './PlantDetailsModal';
+import { getShortBarcodeId } from '../services/barcodeService';
+import { Plant } from '../types';
 import {
-  QrCode,
+  ScanBarcode,
   Sprout,
   Droplets,
   ClipboardList,
@@ -116,7 +117,7 @@ const QuotaBar: React.FC = () => {
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { logout, user, can } = useAuth();
-  const { alertMessage, searchFilter, setSearchFilter, addPlant, getEffectiveApiKey } = usePlants();
+  const { plants, alertMessage, searchFilter, setSearchFilter, addPlant } = usePlants();
   const { t, lv } = useLanguage();
   const { showNotification } = useSystem();
   const location = useLocation();
@@ -124,38 +125,33 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const [showInstallBtn, setShowInstallBtn] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [scannedPlantId, setScannedPlantId] = useState<string | null>(null);
 
-  const handleScanSuccess = async (data: string) => {
+  const scannedPlant: Plant | null = scannedPlantId
+    ? plants.find((p) => p.id === scannedPlantId) || null
+    : null;
+
+  const handleScanSuccess = (rawCode: string) => {
     setIsScannerOpen(false);
-    const parts = data.split('|');
-    if (parts.length >= 3) {
-      const [, , species, family] = parts;
-      setIsSyncing(true);
-      showNotification("SYNCING SPECIMEN...", "INFO");
-      try {
-        const details = await generatePlantDetails(species, undefined, undefined, getEffectiveApiKey());
-        const syncedPlant = {
-          ...details,
-          id: `p-synced-${generateUUID()}`,
-          species: species,
-          family: family || details.family,
-          houseId: user?.houseId || null,
-          createdAt: new Date().toISOString(),
-          nickname: details.nickname || { en: species },
-          images: details.images?.length ? details.images : ['https://images.unsplash.com/photo-1545239351-ef35f43d514b?q=80&w=1000&auto=format&fit=crop'],
-          edible: details.edible || false,
-          logs: []
-        };
-        await addPlant(syncedPlant as any);
-        showNotification("SYNC SUCCESS", "SUCCESS");
-      } catch (err) {
-        showNotification("SYNC FAILED", "ERROR");
-      } finally {
-        setIsSyncing(false);
-      }
+    const cleaned = rawCode.trim();
+    if (!cleaned) return;
+
+    // Support compact V-XXXXXXXX Code 128 IDs, full plant IDs, or legacy pipe-delimited codes
+    const parts = cleaned.split('|');
+    const candidateId = parts.length >= 2 ? parts[1].trim() : cleaned;
+    const upper = candidateId.toUpperCase();
+    const lower = candidateId.toLowerCase();
+
+    const matched = plants.find(
+      (p) =>
+        p.id.toLowerCase() === lower ||
+        getShortBarcodeId(p.id).toUpperCase() === upper
+    );
+
+    if (matched) {
+      setScannedPlantId(matched.id);
     } else {
-      showNotification("INVALID SYNC ID", "WARNING");
+      showNotification(`No plant found for barcode "${candidateId}"`, 'WARNING');
     }
   };
 
@@ -226,7 +222,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       {/* M3 Navigation Drawer */}
       <aside className={`fixed lg:static inset-y-0 left-0 w-72 bg-md-surface-container-low border-r border-md-outline-variant/30 z-50 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform duration-300 flex flex-col no-print pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]`}>
         <AddPlantModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSave={addPlant} />
-        <QrScannerModal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} onScanSuccess={handleScanSuccess} />
+        <BarcodeScannerModal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} onScanSuccess={handleScanSuccess} />
+        <PlantDetailsModal isOpen={!!scannedPlant} plant={scannedPlant} onClose={() => setScannedPlantId(null)} />
 
         <div className="px-6 pt-7 pb-5">
           <Link to="/" className="flex items-center gap-3.5 group" onClick={() => setIsSidebarOpen(false)}>
@@ -377,21 +374,15 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               onChange={(e) => setSearchFilter(e.target.value)}
               className="flex-1 min-w-0 h-full bg-transparent text-md-on-surface placeholder:text-md-on-surface-variant/70 text-sm font-medium outline-none"
             />
-            {can('create_plants') && (
-              <button
-                onClick={() => setIsScannerOpen(true)}
-                disabled={isSyncing}
-                className="m3-state-layer w-9 h-9 shrink-0 flex items-center justify-center text-md-on-surface-variant hover:text-md-primary rounded-full transition-colors"
-                title={t('scan_sync')}
-                aria-label={t('scan_sync')}
-              >
-                {isSyncing ? (
-                  <div className="w-4 h-4 border-2 border-md-primary border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <QrCode className="w-5 h-5" />
-                )}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setIsScannerOpen(true)}
+              className="m3-state-layer w-9 h-9 shrink-0 flex items-center justify-center text-md-on-surface-variant hover:text-md-primary rounded-full transition-colors"
+              title="Scan plant barcode"
+              aria-label="Scan plant barcode"
+            >
+              <ScanBarcode className="w-5 h-5" />
+            </button>
           </div>
 
           <div className="flex items-center gap-2 md:gap-3 shrink-0">
