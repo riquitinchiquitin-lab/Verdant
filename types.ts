@@ -37,6 +37,8 @@ export interface User {
   role: UserRole; 
   passkeyCount?: number;
   hasPassword?: boolean;
+  totpEnabled?: boolean;
+  recoveryCodesRemaining?: number;
   houseId?: string | null;
   house?: House;
   caretakerStart?: string; // Access start for Seasonal

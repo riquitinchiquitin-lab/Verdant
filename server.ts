@@ -22,6 +22,15 @@ import {
 } from '@simplewebauthn/server';
 import { GoogleGenAI } from '@google/genai';
 import argon2 from 'argon2';
+import { validatePasswordNist, normalizeUnicode } from './services/nistPasswordValidator';
+import { nistRateLimiter } from './services/nistRateLimiter';
+import {
+  generateTotpSecret,
+  verifyTotpCode,
+  generateOtpAuthUri,
+  generateRecoveryCodes,
+  hashRecoveryCode,
+} from './services/totpService';
 
 console.log('[CORE] Bootstrap sequence initiated');
 
@@ -205,7 +214,7 @@ app.use(express.json({ limit: '100mb' }));
 
 // --- SESSION TOKEN, ARGON2ID & FIDO2 / WEBAUTHN HELPERS ---
 const hashPassword = async (password: string): Promise<string> => {
-  return argon2.hash(password, {
+  return argon2.hash(normalizeUnicode(password), {
     type: argon2.argon2id,
     memoryCost: 65536, // 64 MiB
     timeCost: 3,
@@ -215,7 +224,7 @@ const hashPassword = async (password: string): Promise<string> => {
 
 const verifyPassword = async (hash: string, password: string): Promise<boolean> => {
   try {
-    return await argon2.verify(hash, password);
+    return await argon2.verify(hash, normalizeUnicode(password));
   } catch {
     return false;
   }
@@ -256,8 +265,20 @@ const parseUserRecord = (row: any) => {
   if (!row) return row;
   const user = { ...row };
   const hasPassword = Boolean(user.passwordHash);
+  const totpEnabled = Boolean(user.totpEnabled && user.totpSecret);
+  let recoveryCodesRemaining = 0;
+  if (user.recoveryCodes) {
+    try {
+      const parsed = JSON.parse(user.recoveryCodes);
+      if (Array.isArray(parsed)) recoveryCodesRemaining = parsed.length;
+    } catch {}
+  }
   delete user.passwordHash;
+  delete user.totpSecret;
+  delete user.recoveryCodes;
   user.hasPassword = hasPassword;
+  user.totpEnabled = totpEnabled;
+  user.recoveryCodesRemaining = recoveryCodesRemaining;
   if (user.name && typeof user.name === 'string' && (user.name.startsWith('{') || user.name.startsWith('['))) {
     try { user.name = JSON.parse(user.name); } catch (e) {}
   }
@@ -317,6 +338,18 @@ app.get('/api/auth/webauthn/status', async (req, res) => {
   }
 });
 
+// NIST SP 800-63B REAL-TIME PASSWORD VALIDATION ENDPOINT
+app.post('/api/auth/password/validate', async (req, res) => {
+  try {
+    const { password, email, name } = req.body || {};
+    const result = await validatePasswordNist(String(password || ''), { email, name });
+    const { normalized: _n, ...safeResult } = result;
+    res.json(safeResult);
+  } catch (e) {
+    res.status(500).json({ error: 'NIST_VALIDATION_FAULT' });
+  }
+});
+
 // ARGON2ID FIRST-TIME PASSWORD SETUP (Root owner bootstrap or invited user without a password yet)
 app.post('/api/auth/password/setup', async (req, res) => {
   try {
@@ -325,8 +358,19 @@ app.post('/api/auth/password/setup', async (req, res) => {
     const displayNameInput = (req.body?.name || '').trim();
 
     if (!email) return res.status(400).json({ error: "EMAIL_REQUIRED" });
-    if (typeof password !== 'string' || password.length < 10) {
-      return res.status(400).json({ error: "PASSWORD_TOO_SHORT" });
+
+    const nist = await validatePasswordNist(String(password), { name: displayNameInput, email });
+    if (!nist.isValid) {
+      return res.status(400).json({
+        error: nist.errors[0] || "PASSWORD_POLICY_VIOLATION",
+        details: nist.errors,
+        nist: {
+          errors: nist.errors,
+          warnings: nist.warnings,
+          entropyBits: nist.entropyBits,
+          isPwned: nist.isPwned,
+        },
+      });
     }
 
     const rootOwnerEmail = (process.env.VITE_ROOT_OWNER_EMAIL || process.env.ROOT_OWNER_EMAIL || '').trim().toLowerCase();
@@ -339,7 +383,7 @@ app.post('/api/auth/password/setup', async (req, res) => {
       if ((rootOwnerEmail && email === rootOwnerEmail) || !hasAnyUsers) {
         const newId = `u-${crypto.randomUUID()}`;
         const ownerName = displayNameInput || 'System Founder';
-        const pwHash = await hashPassword(password);
+        const pwHash = await hashPassword(nist.normalized);
         await query(
           'INSERT INTO users (id, email, name, role, houseId, passwordHash) VALUES (?, ?, ?, ?, ?, ?)',
           [newId, email, ownerName, 'OWNER', null, pwHash]
@@ -347,7 +391,7 @@ app.post('/api/auth/password/setup', async (req, res) => {
         const createdRes = await query('SELECT * FROM users WHERE id = ?', [newId]);
         const user = parseUserRecord(createdRes.rows[0]);
         const token = createSessionToken(user);
-        await logSystemEvent('ARGON2ID_OWNER_BOOTSTRAPPED', `Owner ${email} initialized with Argon2id`, 'INFO');
+        await logSystemEvent('ARGON2ID_OWNER_BOOTSTRAPPED', `Owner ${email} initialized with Argon2id (NIST SP 800-63B)`, 'INFO');
         return res.json({ verified: true, token, user });
       }
       return res.status(404).json({ error: "USER_NOT_FOUND" });
@@ -362,13 +406,13 @@ app.post('/api/auth/password/setup', async (req, res) => {
       return res.status(403).json({ error: seasonalCheck.reason });
     }
 
-    const pwHash = await hashPassword(password);
+    const pwHash = await hashPassword(nist.normalized);
     await query('UPDATE users SET passwordHash = ? WHERE id = ?', [pwHash, rawUser.id]);
     const updatedRes = await query('SELECT * FROM users WHERE id = ?', [rawUser.id]);
     const user = parseUserRecord(updatedRes.rows[0]);
     const token = createSessionToken(user);
 
-    await logSystemEvent('ARGON2ID_PASSWORD_SET', `Argon2id password enrolled for ${user.email}`, 'INFO');
+    await logSystemEvent('ARGON2ID_PASSWORD_SET', `Argon2id password enrolled for ${user.email} (NIST SP 800-63B)`, 'INFO');
     res.json({ verified: true, token, user });
   } catch (e: any) {
     console.error('[ARGON2ID] Setup error:', e);
@@ -376,17 +420,33 @@ app.post('/api/auth/password/setup', async (req, res) => {
   }
 });
 
-// ARGON2ID PASSWORD LOGIN (With optional FIDO2 2nd factor when user has FIDO2 enrolled & mfaMode is requested)
+// ARGON2ID PASSWORD LOGIN (With NIST progressive throttling, optional FIDO2, TOTP & Recovery Code 2FA)
 app.post('/api/auth/password/login', async (req, res) => {
   try {
     const email = (req.body?.email || '').trim().toLowerCase();
     const password = req.body?.password || '';
     const requireFido2 = Boolean(req.body?.requireFido2);
+    const totpCode = (req.body?.totpCode || '').trim();
+    const recoveryCode = (req.body?.recoveryCode || '').trim();
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
 
     if (!email || !password) return res.status(400).json({ error: "CREDENTIALS_REQUIRED" });
 
+    // NIST SP 800-63B Progressive Delay Throttler
+    const throttle = nistRateLimiter.check(clientIp, email);
+    if (throttle.throttled) {
+      return res.status(429).json({
+        error: "RATE_LIMITED",
+        message: throttle.message,
+        retryAfterMs: throttle.delayMs,
+      });
+    }
+
     const userRes = await query('SELECT * FROM users WHERE LOWER(email) = ? AND deletedAt IS NULL', [email]);
-    if (userRes.rows.length === 0) return res.status(401).json({ error: "INVALID_CREDENTIALS" });
+    if (userRes.rows.length === 0) {
+      nistRateLimiter.recordFailure(clientIp, email);
+      return res.status(401).json({ error: "INVALID_CREDENTIALS" });
+    }
 
     const rawUser = userRes.rows[0];
     if (!rawUser.passwordHash) {
@@ -395,7 +455,8 @@ app.post('/api/auth/password/login', async (req, res) => {
 
     const valid = await verifyPassword(rawUser.passwordHash, password);
     if (!valid) {
-      await logSystemEvent('ARGON2ID_LOGIN_FAILED', `Invalid password attempt for ${email}`, 'WARN');
+      const failState = nistRateLimiter.recordFailure(clientIp, email);
+      await logSystemEvent('ARGON2ID_LOGIN_FAILED', `Invalid password attempt #${failState.failedCount} for ${email}`, 'WARN');
       return res.status(401).json({ error: "INVALID_CREDENTIALS" });
     }
 
@@ -404,30 +465,68 @@ app.post('/api/auth/password/login', async (req, res) => {
       return res.status(403).json({ error: seasonalCheck.reason });
     }
 
+    const credsRes = await query('SELECT * FROM webauthn_credentials WHERE userId = ?', [rawUser.id]);
+    const hasPasskeys = credsRes.rows.length > 0;
+    const hasTotp = Boolean(rawUser.totpEnabled && rawUser.totpSecret);
+
+    // If recovery code is supplied, verify and consume it
+    if (recoveryCode) {
+      let storedCodes: string[] = [];
+      try { storedCodes = JSON.parse(rawUser.recoveryCodes || '[]'); } catch {}
+      const hashedInput = hashRecoveryCode(recoveryCode);
+      const matchIdx = storedCodes.findIndex((c) => c === hashedInput);
+      if (matchIdx === -1) {
+        nistRateLimiter.recordFailure(clientIp, email);
+        return res.status(401).json({ error: "INVALID_RECOVERY_CODE" });
+      }
+      storedCodes.splice(matchIdx, 1);
+      await query('UPDATE users SET recoveryCodes = ? WHERE id = ?', [JSON.stringify(storedCodes), rawUser.id]);
+      rawUser.recoveryCodes = JSON.stringify(storedCodes);
+      nistRateLimiter.recordSuccess(clientIp, email);
+      const user = parseUserRecord(rawUser);
+      const token = createSessionToken(user);
+      await logSystemEvent('RECOVERY_CODE_LOGIN', `User ${user.email} authenticated with one-time recovery code`, 'WARN');
+      return res.json({ verified: true, token, user, recoveryCodesRemaining: storedCodes.length });
+    }
+
     // If FIDO2 2FA step is requested and user has passkeys, return WebAuthn challenge
-    if (requireFido2) {
-      const credsRes = await query('SELECT * FROM webauthn_credentials WHERE userId = ?', [rawUser.id]);
-      if (credsRes.rows.length > 0) {
-        const { rpID } = getRpConfig(req);
-        const options = await generateAuthenticationOptions({
-          rpID,
-          allowCredentials: credsRes.rows.map((c: any) => ({
-            id: c.id,
-            transports: c.transports ? JSON.parse(c.transports) : undefined,
-          })),
-          userVerification: 'preferred',
+    if (requireFido2 && hasPasskeys) {
+      const { rpID } = getRpConfig(req);
+      const options = await generateAuthenticationOptions({
+        rpID,
+        allowCredentials: credsRes.rows.map((c: any) => ({
+          id: c.id,
+          transports: c.transports ? JSON.parse(c.transports) : undefined,
+        })),
+        userVerification: 'preferred',
+      });
+      const challengeId = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+      await query('DELETE FROM webauthn_challenges WHERE expiresAt < ?', [new Date().toISOString()]);
+      await query(
+        'INSERT INTO webauthn_challenges (id, challenge, userId, email, type, expiresAt) VALUES (?, ?, ?, ?, ?, ?)',
+        [challengeId, options.challenge, rawUser.id, rawUser.email, 'authentication', expiresAt]
+      );
+      nistRateLimiter.recordSuccess(clientIp, email);
+      return res.json({ mfaRequired: true, challengeId, options });
+    }
+
+    // If TOTP is enabled on this account, require 6-digit TOTP code
+    if (hasTotp) {
+      if (!totpCode) {
+        return res.json({
+          totpRequired: true,
+          hasPasskeys,
+          message: 'Enter your 6-digit authenticator code or a one-time recovery code.',
         });
-        const challengeId = crypto.randomUUID();
-        const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-        await query('DELETE FROM webauthn_challenges WHERE expiresAt < ?', [new Date().toISOString()]);
-        await query(
-          'INSERT INTO webauthn_challenges (id, challenge, userId, email, type, expiresAt) VALUES (?, ?, ?, ?, ?, ?)',
-          [challengeId, options.challenge, rawUser.id, rawUser.email, 'authentication', expiresAt]
-        );
-        return res.json({ mfaRequired: true, challengeId, options });
+      }
+      if (!verifyTotpCode(rawUser.totpSecret, totpCode)) {
+        nistRateLimiter.recordFailure(clientIp, email);
+        return res.status(401).json({ error: "INVALID_TOTP_CODE" });
       }
     }
 
+    nistRateLimiter.recordSuccess(clientIp, email);
     const user = parseUserRecord(rawUser);
     const token = createSessionToken(user);
     await logSystemEvent('ARGON2ID_LOGIN', `User ${user.email} authenticated via Argon2id`, 'INFO');
@@ -435,6 +534,29 @@ app.post('/api/auth/password/login', async (req, res) => {
   } catch (e: any) {
     console.error('[ARGON2ID] Login error:', e);
     res.status(500).json({ error: "PASSWORD_LOGIN_FAULT" });
+  }
+});
+
+// GLOBAL 2FA / FIDO2 SECURITY POLICY
+app.get('/api/auth/policy', async (req, res) => {
+  try {
+    const policyRes = await query('SELECT require2faAllUsers FROM security_policy WHERE id = 1');
+    const allUsersRequired = Boolean(policyRes.rows[0]?.require2faAllUsers);
+    const usersRes = await query('SELECT id, totpEnabled, totpSecret FROM users WHERE deletedAt IS NULL');
+    const credsRes = await query('SELECT DISTINCT userId FROM webauthn_credentials');
+    const passkeyUsers = new Set(credsRes.rows.map((r: any) => r.userId));
+    const totalUsers = usersRes.rows.length;
+    const compliantUsers = usersRes.rows.filter(
+      (u: any) => passkeyUsers.has(u.id) || Boolean(u.totpEnabled && u.totpSecret)
+    ).length;
+    res.json({
+      allUsersRequired,
+      totalUsers,
+      compliantUsers,
+      nonCompliantUsers: totalUsers - compliantUsers,
+    });
+  } catch (e) {
+    res.status(500).json({ error: "POLICY_FAULT" });
   }
 });
 
@@ -789,6 +911,155 @@ app.post('/api/users/:id/reset-passkeys', checkAuth, async (req, res) => {
     res.json({ status: "ok" });
   } catch (e) {
     res.status(500).json({ error: "DB_FAULT" });
+  }
+});
+
+// AUTHENTICATED PASSWORD SET / CHANGE (NIST SP 800-63B + Argon2id)
+app.post('/api/auth/password/change', checkAuth, async (req, res) => {
+  try {
+    const userId = (req as any).userId;
+    const { currentPassword, newPassword } = req.body || {};
+
+    const userRes = await query('SELECT * FROM users WHERE id = ? AND deletedAt IS NULL', [userId]);
+    if (userRes.rows.length === 0) return res.status(404).json({ error: "USER_NOT_FOUND" });
+    const rawUser = userRes.rows[0];
+
+    if (rawUser.passwordHash) {
+      if (!currentPassword) return res.status(400).json({ error: "CURRENT_PASSWORD_REQUIRED" });
+      const valid = await verifyPassword(rawUser.passwordHash, String(currentPassword));
+      if (!valid) return res.status(401).json({ error: "INVALID_CURRENT_PASSWORD" });
+    }
+
+    const nameStr = typeof rawUser.name === 'string' ? rawUser.name : '';
+    const nist = await validatePasswordNist(String(newPassword || ''), {
+      email: rawUser.email,
+      name: nameStr,
+    });
+    if (!nist.isValid) {
+      return res.status(400).json({
+        error: nist.errors[0] || "PASSWORD_POLICY_VIOLATION",
+        details: nist.errors,
+        nist: { errors: nist.errors, warnings: nist.warnings, entropyBits: nist.entropyBits, isPwned: nist.isPwned },
+      });
+    }
+
+    const pwHash = await hashPassword(nist.normalized);
+    await query('UPDATE users SET passwordHash = ? WHERE id = ?', [pwHash, userId]);
+    await logSystemEvent('ARGON2ID_PASSWORD_CHANGED', `Password updated for ${rawUser.email}`, 'INFO');
+    res.json({ status: "ok", hasPassword: true });
+  } catch (e) {
+    console.error('[ARGON2ID] Password change error:', e);
+    res.status(500).json({ error: "PASSWORD_CHANGE_FAULT" });
+  }
+});
+
+// ADMIN PASSWORD RESET (Clears passwordHash so user can re-enroll)
+app.post('/api/users/:id/reset-password', checkAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const role = (req as any).userRole;
+    const houseId = (req as any).userHouseId;
+
+    if (!['OWNER', 'CO_CEO', 'LEAD_HAND'].includes(role)) {
+      return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    }
+
+    if (role === 'LEAD_HAND') {
+      const targetRes = await query('SELECT houseId, role FROM users WHERE id = ?', [id]);
+      const target = targetRes.rows[0];
+      if (!target || target.houseId !== houseId || !['GARDENER', 'SEASONAL'].includes(target.role)) {
+        return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+      }
+    }
+
+    await query('UPDATE users SET passwordHash = NULL WHERE id = ?', [id]);
+    await logSystemEvent('PASSWORD_RESET', `Password cleared for user ${id} by ${(req as any).userId}`, 'WARN');
+    res.json({ status: "ok" });
+  } catch (e) {
+    res.status(500).json({ error: "DB_FAULT" });
+  }
+});
+
+// ADMIN: UPDATE GLOBAL 2FA / FIDO2 POLICY
+app.post('/api/auth/policy', checkAuth, async (req, res) => {
+  try {
+    const role = (req as any).userRole;
+    if (!['OWNER', 'CO_CEO'].includes(role)) {
+      return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    }
+    const requireAll = req.body?.allUsersRequired ? 1 : 0;
+    await query(
+      'INSERT OR REPLACE INTO security_policy (id, require2faAllUsers, updatedAt) VALUES (1, ?, ?)',
+      [requireAll, new Date().toISOString()]
+    );
+    await logSystemEvent('SECURITY_POLICY_UPDATED', `Global 2FA/FIDO2 requirement set to ${Boolean(requireAll)} by ${(req as any).userId}`, 'WARN');
+    res.json({ status: "ok", allUsersRequired: Boolean(requireAll) });
+  } catch (e) {
+    res.status(500).json({ error: "POLICY_UPDATE_FAULT" });
+  }
+});
+
+// TOTP (RFC 6238 AUTHENTICATOR APP) SETUP
+app.post('/api/auth/totp/setup', checkAuth, async (req, res) => {
+  try {
+    const userId = (req as any).userId;
+    const userRes = await query('SELECT email FROM users WHERE id = ? AND deletedAt IS NULL', [userId]);
+    if (userRes.rows.length === 0) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+    const secret = generateTotpSecret();
+    const otpauthUri = generateOtpAuthUri(userRes.rows[0].email, 'Verdant', secret);
+    await query('UPDATE users SET totpSecret = ?, totpEnabled = 0 WHERE id = ?', [secret, userId]);
+
+    res.json({ secret, otpauthUri });
+  } catch (e) {
+    res.status(500).json({ error: "TOTP_SETUP_FAULT" });
+  }
+});
+
+// TOTP VERIFY & ENABLE + GENERATE RECOVERY CODES
+app.post('/api/auth/totp/verify', checkAuth, async (req, res) => {
+  try {
+    const userId = (req as any).userId;
+    const code = String(req.body?.code || '').trim();
+    const userRes = await query('SELECT email, totpSecret FROM users WHERE id = ? AND deletedAt IS NULL', [userId]);
+    if (userRes.rows.length === 0) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+    const secret = userRes.rows[0].totpSecret;
+    if (!secret || !verifyTotpCode(secret, code)) {
+      return res.status(400).json({ error: "INVALID_TOTP_CODE" });
+    }
+
+    const { plain, hashed } = generateRecoveryCodes(8);
+    await query('UPDATE users SET totpEnabled = 1, recoveryCodes = ? WHERE id = ?', [JSON.stringify(hashed), userId]);
+    await logSystemEvent('TOTP_ENABLED', `TOTP 2FA enabled for ${userRes.rows[0].email}`, 'INFO');
+    res.json({ verified: true, totpEnabled: true, recoveryCodes: plain });
+  } catch (e) {
+    res.status(500).json({ error: "TOTP_VERIFY_FAULT" });
+  }
+});
+
+// TOTP DISABLE
+app.post('/api/auth/totp/disable', checkAuth, async (req, res) => {
+  try {
+    const userId = (req as any).userId;
+    await query('UPDATE users SET totpEnabled = 0, totpSecret = NULL WHERE id = ?', [userId]);
+    await logSystemEvent('TOTP_DISABLED', `TOTP 2FA disabled for user ${userId}`, 'WARN');
+    res.json({ status: "ok", totpEnabled: false });
+  } catch (e) {
+    res.status(500).json({ error: "TOTP_DISABLE_FAULT" });
+  }
+});
+
+// REGENERATE ONE-TIME RECOVERY CODES
+app.post('/api/auth/recovery/regenerate', checkAuth, async (req, res) => {
+  try {
+    const userId = (req as any).userId;
+    const { plain, hashed } = generateRecoveryCodes(8);
+    await query('UPDATE users SET recoveryCodes = ? WHERE id = ?', [JSON.stringify(hashed), userId]);
+    await logSystemEvent('RECOVERY_CODES_REGENERATED', `Recovery codes regenerated for user ${userId}`, 'INFO');
+    res.json({ recoveryCodes: plain });
+  } catch (e) {
+    res.status(500).json({ error: "RECOVERY_FAULT" });
   }
 });
 
@@ -1548,7 +1819,8 @@ async function initializeDatabase() {
   console.log('[DB] Initializing Schema...');
   const tables = [
     `CREATE TABLE IF NOT EXISTS vault_key (id INTEGER PRIMARY KEY CHECK (id = 1), encrypted_key TEXT NOT NULL)`,
-    `CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT, role TEXT DEFAULT 'OWNER', houseId TEXT, personalAiKey TEXT, personalAiKeyTestedAt TEXT, deletedAt TEXT, caretakerStart TEXT, caretakerEnd TEXT, passwordHash TEXT)`,
+    `CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT, role TEXT DEFAULT 'OWNER', houseId TEXT, personalAiKey TEXT, personalAiKeyTestedAt TEXT, deletedAt TEXT, caretakerStart TEXT, caretakerEnd TEXT, passwordHash TEXT, totpSecret TEXT, totpEnabled INTEGER DEFAULT 0, recoveryCodes TEXT)`,
+    `CREATE TABLE IF NOT EXISTS security_policy (id INTEGER PRIMARY KEY CHECK (id = 1), require2faAllUsers INTEGER DEFAULT 0, updatedAt TEXT)`,
     `CREATE TABLE IF NOT EXISTS webauthn_credentials (id TEXT PRIMARY KEY, userId TEXT NOT NULL, publicKey TEXT NOT NULL, counter INTEGER DEFAULT 0, transports TEXT, deviceType TEXT, backedUp INTEGER DEFAULT 0, label TEXT, createdAt TEXT, lastUsedAt TEXT)`,
     `CREATE TABLE IF NOT EXISTS webauthn_challenges (id TEXT PRIMARY KEY, challenge TEXT NOT NULL, userId TEXT, email TEXT, type TEXT NOT NULL, expiresAt TEXT NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS plants (id TEXT PRIMARY KEY, houseId TEXT, species TEXT, nickname TEXT, images TEXT, logs TEXT, lastWatered TEXT, updatedAt TEXT, data TEXT)`,
@@ -1577,6 +1849,9 @@ async function initializeDatabase() {
   try { await query(`ALTER TABLE users ADD COLUMN caretakerStart TEXT`); } catch(e) {}
   try { await query(`ALTER TABLE users ADD COLUMN caretakerEnd TEXT`); } catch(e) {}
   try { await query(`ALTER TABLE users ADD COLUMN passwordHash TEXT`); } catch(e) {}
+  try { await query(`ALTER TABLE users ADD COLUMN totpSecret TEXT`); } catch(e) {}
+  try { await query(`ALTER TABLE users ADD COLUMN totpEnabled INTEGER DEFAULT 0`); } catch(e) {}
+  try { await query(`ALTER TABLE users ADD COLUMN recoveryCodes TEXT`); } catch(e) {}
   try { await query(`ALTER TABLE api_usage ADD COLUMN gemini_tokens INTEGER DEFAULT 0`); } catch(e) {}
 
   console.log('[DB] Schema Synchronized');

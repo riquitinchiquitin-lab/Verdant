@@ -52,11 +52,23 @@ export async function setupPassword(params: {
   return res.json();
 }
 
+export interface PasswordLoginResult {
+  verified?: boolean;
+  token?: string;
+  user?: User;
+  totpRequired?: boolean;
+  hasPasskeys?: boolean;
+  message?: string;
+  recoveryCodesRemaining?: number;
+}
+
 export async function loginWithPassword(params: {
   email: string;
   password: string;
   requireFido2?: boolean;
-}): Promise<{ verified: boolean; token: string; user: User }> {
+  totpCode?: string;
+  recoveryCode?: string;
+}): Promise<PasswordLoginResult> {
   const res = await fetch(`${API_URL}/api/auth/password/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -64,11 +76,13 @@ export async function loginWithPassword(params: {
       email: params.email.trim().toLowerCase(),
       password: params.password,
       requireFido2: Boolean(params.requireFido2),
+      totpCode: params.totpCode?.trim() || undefined,
+      recoveryCode: params.recoveryCode?.trim() || undefined,
     }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || 'PASSWORD_LOGIN_FAULT');
+    throw new Error(err.message || err.error || 'PASSWORD_LOGIN_FAULT');
   }
 
   const data = await res.json();
@@ -90,6 +104,76 @@ export async function loginWithPassword(params: {
   }
 
   return data;
+}
+
+export async function setupTotp(token: string): Promise<{ secret: string; otpauthUri: string }> {
+  const res = await fetch(`${API_URL}/api/auth/totp/setup`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('TOTP_SETUP_FAULT');
+  return res.json();
+}
+
+export async function verifyTotpSetup(
+  token: string,
+  code: string
+): Promise<{ verified: boolean; totpEnabled: boolean; recoveryCodes: string[] }> {
+  const res = await fetch(`${API_URL}/api/auth/totp/verify`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ code }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'INVALID_TOTP_CODE');
+  }
+  return res.json();
+}
+
+export async function disableTotp(token: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/auth/totp/disable`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('TOTP_DISABLE_FAULT');
+}
+
+export async function regenerateRecoveryCodes(token: string): Promise<{ recoveryCodes: string[] }> {
+  const res = await fetch(`${API_URL}/api/auth/recovery/regenerate`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('RECOVERY_FAULT');
+  return res.json();
+}
+
+export interface SecurityPolicyStatus {
+  allUsersRequired: boolean;
+  totalUsers: number;
+  compliantUsers: number;
+  nonCompliantUsers: number;
+}
+
+export async function getSecurityPolicy(): Promise<SecurityPolicyStatus> {
+  const res = await fetch(`${API_URL}/api/auth/policy`);
+  if (!res.ok) throw new Error('POLICY_FAULT');
+  return res.json();
+}
+
+export async function updateSecurityPolicy(token: string, allUsersRequired: boolean): Promise<void> {
+  const res = await fetch(`${API_URL}/api/auth/policy`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ allUsersRequired }),
+  });
+  if (!res.ok) throw new Error('POLICY_UPDATE_FAULT');
 }
 
 export async function registerPasskey(params: {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Fingerprint, KeyRound, ShieldCheck, UserPlus, Lock } from 'lucide-react';
+import { Fingerprint, KeyRound, ShieldCheck, UserPlus, Lock, Smartphone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useSystem } from '../context/SystemContext';
@@ -8,6 +8,7 @@ import { Logo } from '../components/ui/Logo';
 import { Button } from '../components/ui/Button';
 import { LanguageSelector } from '../components/ui/LanguageSelector';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { NistPasswordMeter } from '../components/NistPasswordMeter';
 import {
   isWebAuthnSupported,
   getWebAuthnStatus,
@@ -29,6 +30,10 @@ export const SecureAuth: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [requireFido2, setRequireFido2] = useState(false);
+  const [totpStep, setTotpStep] = useState(false);
+  const [totpCode, setTotpCode] = useState('');
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [deviceLabel, setDeviceLabel] = useState('');
   const [loading, setLoading] = useState(false);
@@ -65,7 +70,9 @@ export const SecureAuth: React.FC = () => {
     if (msg === 'USER_NOT_FOUND') return t('msg_access_denied');
     if (msg === 'ACCESS_EXPIRED') return t('msg_access_expired');
     if (msg === 'INVALID_CREDENTIALS') return 'Invalid email or password.';
-    if (msg === 'PASSWORD_TOO_SHORT') return 'Password must be at least 10 characters.';
+    if (msg === 'INVALID_TOTP_CODE') return 'Invalid 6-digit authenticator code.';
+    if (msg === 'INVALID_RECOVERY_CODE') return 'Invalid or already used recovery code.';
+    if (msg === 'PASSWORD_TOO_SHORT') return 'Password must be at least 8 characters (NIST SP 800-63B).';
     if (msg === 'PASSWORD_NOT_SET') return 'No password set for this account yet. Use "Setup / Enroll" to set one.';
     if (msg === 'PASSWORD_ALREADY_SET') return 'Password is already configured. Sign in to change it in Admin > Security.';
     if (msg === 'NO_PASSKEY_REGISTERED') return 'No passkey enrolled for this account yet. Use "Setup / Enroll" below.';
@@ -93,8 +100,17 @@ export const SecureAuth: React.FC = () => {
         email: email.trim().toLowerCase(),
         password,
         requireFido2: requireFido2 && webAuthnSupported,
+        totpCode: totpStep && !useRecoveryCode ? totpCode : undefined,
+        recoveryCode: totpStep && useRecoveryCode ? recoveryCode : undefined,
       });
-      await completeLogin(result);
+      if (result.totpRequired) {
+        setTotpStep(true);
+        setAuthError(null);
+        return;
+      }
+      if (result.token && result.user) {
+        await completeLogin({ token: result.token, user: result.user });
+      }
     } catch (err: any) {
       const friendly = mapAuthError(err);
       setAuthError(friendly);
@@ -137,8 +153,8 @@ export const SecureAuth: React.FC = () => {
       setAuthError('Please enter your email address.');
       return;
     }
-    if (password.length < 10) {
-      setAuthError('Password must be at least 10 characters.');
+    if (password.length < 8) {
+      setAuthError('Password must be at least 8 characters (NIST SP 800-63B).');
       return;
     }
     if (password !== confirmPassword) {
@@ -290,7 +306,46 @@ export const SecureAuth: React.FC = () => {
                       placeholder="Password (Argon2id)"
                       className="w-full h-12 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
                     />
-                    {webAuthnSupported && (
+                    {totpStep && (
+                      <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2.5 animate-in fade-in duration-200">
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                            <Smartphone className="w-3.5 h-3.5" />
+                            {useRecoveryCode ? 'One-Time Recovery Code' : '2FA Authenticator Code'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => { setUseRecoveryCode(!useRecoveryCode); setAuthError(null); }}
+                            className="text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-emerald-600 underline"
+                          >
+                            {useRecoveryCode ? 'Use 6-digit TOTP' : 'Use Recovery Code'}
+                          </button>
+                        </div>
+                        {useRecoveryCode ? (
+                          <input
+                            type="text"
+                            required
+                            value={recoveryCode}
+                            onChange={(e) => setRecoveryCode(e.target.value)}
+                            placeholder="XXXX-XXXX"
+                            className="w-full h-11 bg-white dark:bg-slate-900 rounded-xl px-4 text-sm font-mono font-bold tracking-widest outline-none border border-emerald-500/30 dark:text-white"
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]{6}"
+                            maxLength={6}
+                            required
+                            value={totpCode}
+                            onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            placeholder="000000"
+                            className="w-full h-11 bg-white dark:bg-slate-900 rounded-xl px-4 text-center text-lg font-mono font-black tracking-[0.4em] outline-none border border-emerald-500/30 dark:text-white"
+                          />
+                        )}
+                      </div>
+                    )}
+                    {webAuthnSupported && !totpStep && (
                       <label className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer px-1">
                         <input
                           type="checkbox"
@@ -306,7 +361,7 @@ export const SecureAuth: React.FC = () => {
                       className="w-full h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
                     >
                       <Lock className="w-4 h-4" />
-                      Sign In with Password
+                      {totpStep ? 'Verify 2FA & Sign In' : 'Sign In with Password'}
                     </Button>
                   </form>
 
@@ -381,16 +436,17 @@ export const SecureAuth: React.FC = () => {
                   )}
                   <div>
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">
-                      New Password (min 10 chars, Argon2id)
+                      New Password (NIST SP 800-63B, Argon2id)
                     </label>
                     <input
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••••"
+                      placeholder="•••••••••••••••"
                       className="w-full h-11 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
                     />
                   </div>
+                  <NistPasswordMeter password={password} email={email} name={displayName} />
                   <div>
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">
                       Confirm Password
