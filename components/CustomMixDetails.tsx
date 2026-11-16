@@ -21,27 +21,26 @@ export const CustomMixDetails: React.FC<CustomMixDetailsProps> = ({ item }) => {
   const mixUnit = item.unit;
 
   return (
-    <div className="space-y-6 w-full animate-in fade-in duration-500">
+    <div className="space-y-5 w-full animate-in fade-in duration-300 font-sans">
       <div className="flex items-center gap-4 mb-2">
         <div 
-          className="p-5 rounded-[28px] shadow-sm border border-gray-100 dark:border-slate-800 flex items-center justify-center transition-all bg-white dark:bg-slate-900"
-          style={{ color: item.containerColor || '#5E8F47' }}
+          className="p-4 rounded-2xl shadow-xs border border-md-outline-variant/30 flex items-center justify-center bg-md-surface-container-high"
+          style={{ color: item.containerColor || '#456834' }}
         >
           <ContainerIcon 
             type={item.containerType || 'hdpe_jug'} 
-            color={item.containerColor || '#5E8F47'} 
+            color={item.containerColor || '#456834'} 
             className="w-10 h-10" 
           />
         </div>
-        <div className="flex-1">
-          {/* Fix: Wrapped item.name in lv() to fix LocalizedString to ReactNode assignment error */}
-          <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight leading-none mb-1">{lv(item.name)}</h2>
-          <div className="flex items-center gap-2">
-            <p className="text-[10px] text-gray-400 dark:text-slate-500 font-black uppercase tracking-widest">{t('cat_custom_mix')}</p>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl md:text-2xl font-bold text-md-on-surface tracking-tight leading-snug truncate">{lv(item.name)}</h2>
+          <div className="flex items-center gap-2 mt-0.5">
+            <p className="text-xs text-md-on-surface-variant font-semibold">{t('cat_custom_mix')}</p>
             {item.mixType && item.mixType !== 'general' && (
               <>
-                <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-slate-700"></span>
-                <p className="text-[10px] font-black uppercase tracking-widest text-verdant">{item.mixType}</p>
+                <span className="w-1 h-1 rounded-full bg-md-outline-variant" />
+                <p className="text-xs font-semibold text-md-primary uppercase">{item.mixType}</p>
               </>
             )}
           </div>
@@ -49,27 +48,25 @@ export const CustomMixDetails: React.FC<CustomMixDetailsProps> = ({ item }) => {
       </div>
 
       {item.description && (
-        <div className="p-5 bg-gray-50 dark:bg-slate-800/30 rounded-2xl border border-gray-100 dark:border-slate-800">
-          <p className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-2">{t('lbl_desc')}</p>
-          {/* Fix: Wrapped item.description in lv() to fix LocalizedString to ReactNode assignment error */}
-          <p className="text-sm text-gray-600 dark:text-slate-400 font-medium">
+        <div className="p-4 bg-md-surface-container rounded-2xl border border-md-outline-variant/30">
+          <p className="text-xs font-semibold text-md-on-surface-variant mb-1">{t('lbl_desc')}</p>
+          <p className="text-sm text-md-on-surface">
             {lv(item.description)}
           </p>
         </div>
       )}
 
-      <div className="bg-gray-50 dark:bg-slate-800/50 p-6 rounded-[28px] border border-gray-100 dark:border-slate-800 flex justify-between items-center">
+      <div className="bg-md-surface-container p-5 rounded-[24px] border border-md-outline-variant/30 flex justify-between items-center">
         <div>
-          <label className="block text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-1 px-1">{t('lbl_total_volume')}</label>
+          <label className="block text-xs font-semibold text-md-on-surface-variant mb-1">{t('lbl_total_volume')}</label>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-black text-gray-900 dark:text-white">{item.quantity}</span>
-            <span className="text-lg font-bold text-gray-400 uppercase">{item.unit}</span>
+            <span className="text-3xl font-bold text-md-on-surface">{item.quantity}</span>
+            <span className="text-base font-semibold text-md-on-surface-variant uppercase">{item.unit}</span>
           </div>
         </div>
-        
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         {ingredients.map((ing, idx) => {
           const ingredientVolumeMl = convertValue(ing.quantity, ing.unit, 'ml');
           const ratio = totalVolumeMl > 0 ? (ingredientVolumeMl / totalVolumeMl) * 100 : 0;
@@ -80,21 +77,20 @@ export const CustomMixDetails: React.FC<CustomMixDetailsProps> = ({ item }) => {
           const formatted = formatVolume(amountInTargetUnit, targetUnit);
           
           return (
-            <div key={idx} className="group flex flex-col p-5 bg-white dark:bg-slate-900 rounded-[28px] border border-gray-100 dark:border-slate-800 hover:border-verdant/30 transition-all shadow-sm">
-              <div className="flex justify-between items-start mb-4">
-                {/* Fix: Wrapped ing.name in lv() to fix LocalizedString to ReactNode assignment error */}
-                <span className="font-black text-gray-800 dark:text-slate-200 truncate pr-2">
+            <div key={idx} className="m3-card-elevated flex flex-col p-4 rounded-[20px] border border-md-outline-variant/30">
+              <div className="flex justify-between items-start mb-3">
+                <span className="font-bold text-sm text-md-on-surface truncate pr-2">
                   {lv(ing.name)}
                 </span>
-                <span className="text-[9px] bg-gray-50 dark:bg-slate-800 px-2 py-1 rounded-lg font-black text-gray-400 uppercase tracking-tighter shrink-0">
-                  {ratio.toFixed(2)}%
+                <span className="text-[11px] bg-md-secondary-container text-md-on-secondary-container px-2 py-0.5 rounded-full font-semibold shrink-0">
+                  {ratio.toFixed(1)}%
                 </span>
               </div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-black text-amber-600 dark:text-amber-400">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-bold text-md-primary">
                   {formatted.value}
                 </span>
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{formatted.unit}</span>
+                <span className="text-xs font-semibold text-md-on-surface-variant">{formatted.unit}</span>
               </div>
             </div>
           );

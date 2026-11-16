@@ -15,6 +15,7 @@ import { generateSecure50CharKey } from '../services/security';
 import { generateUUID } from '../services/crypto';
 import { useDraggableScroll } from '../hooks/useDraggableScroll';
 import { PasskeyManager } from '../components/PasskeyManager';
+import { exportCombinedLogsToExcel } from '../services/exportService';
 
 export const AdminView: React.FC = () => {
   const { user, token } = useAuth();
@@ -374,7 +375,6 @@ export const AdminView: React.FC = () => {
   };
 
   const handleExportCareLogs = async () => {
-    const { exportCombinedLogsToExcel } = await import('../services/exportService');
     setIsExportingLogs(true);
     try {
       await exportCombinedLogsToExcel(combinedLogs);

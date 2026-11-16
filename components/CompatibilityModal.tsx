@@ -42,27 +42,27 @@ export const CompatibilityModal: React.FC<CompatibilityModalProps> = ({ item, on
       title={t('btn_compatibility')}
       size="2xl"
     >
-      <div className="space-y-6 py-4">
-        <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700">
-          <div className="w-16 h-16 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shrink-0 border border-gray-100 dark:border-slate-800">
+      <div className="space-y-5 py-2 font-sans">
+        <div className="flex items-center gap-4 p-4 bg-md-surface-container rounded-2xl border border-md-outline-variant/30">
+          <div className="w-16 h-16 rounded-xl overflow-hidden bg-md-surface-container-highest shrink-0 border border-md-outline-variant/30">
             {item.images && item.images[0] ? (
               <img src={item.images[0]} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-200 dark:text-slate-700">
-                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+              <div className="w-full h-full flex items-center justify-center text-md-on-surface-variant/40">
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.25} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
               </div>
             )}
           </div>
           <div>
-            <h3 className="font-black text-gray-900 dark:text-white uppercase tracking-tight leading-none">{lv(item.name)}</h3>
-            <p className="text-[10px] font-black text-verdant uppercase tracking-widest mt-1">
+            <h3 className="font-bold text-md-on-surface tracking-tight leading-snug">{lv(item.name)}</h3>
+            <p className="text-xs font-semibold text-md-primary mt-0.5">
               {item.sizeCm}cm {item.sizeInches ? `(${item.sizeInches}")` : ''}
             </p>
           </div>
         </div>
 
-        <div className="space-y-4">
-          <h4 className="text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-[0.2em]">
+        <div className="space-y-3">
+          <h4 className="text-xs font-bold text-md-on-surface-variant uppercase tracking-wider">
             {isPot ? t('lbl_compatible_saucers') : t('lbl_compatible_pots')}
           </h4>
           
@@ -76,8 +76,8 @@ export const CompatibilityModal: React.FC<CompatibilityModalProps> = ({ item, on
               ))}
             </div>
           ) : (
-            <div className="py-12 text-center bg-gray-50 dark:bg-slate-900/50 rounded-[32px] border-2 border-dashed border-gray-200 dark:border-slate-800">
-              <p className="text-gray-400 dark:text-slate-500 text-[10px] font-black uppercase tracking-widest">
+            <div className="py-12 text-center bg-md-surface-container rounded-[24px] border border-dashed border-md-outline-variant">
+              <p className="text-md-on-surface-variant text-xs font-semibold">
                 {t('msg_no_compatible_items_found')}
               </p>
             </div>

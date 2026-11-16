@@ -289,70 +289,70 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
       <div className="space-y-6 max-h-[85vh] overflow-y-auto no-scrollbar px-2 pb-4">
         
         {addMode === 'CHOICE' && (
-          <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
-            <div className="text-center py-6">
-                <h3 className="text-sm font-black text-slate-600 dark:text-slate-300 uppercase tracking-[0.4em] mb-3">{t('lbl_inventory_source')}</h3>
-                <p className="text-xs text-gray-700 dark:text-slate-200 font-medium italic px-6 leading-relaxed">{t('msg_choose_input_method')}</p>
-                {isAiDisabled && (
-                    <div className="mt-4 flex flex-col items-center gap-3">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 rounded-full border border-red-200 dark:border-red-800/50">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-600 dark:bg-red-400 animate-pulse"></span>
-                            <p className="text-[8px] font-black uppercase tracking-[0.2em]">{t('msg_scanner_offline')}</p>
-                        </div>
-                        <button 
-                            onClick={handleKeySelection}
-                            className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline border border-blue-100 dark:border-blue-900/30 px-3 py-1 rounded-lg"
-                        >
-                            {t('btn_select_api_key')}
-                        </button>
-                    </div>
-                )}
+          <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+            <div className="text-center py-4">
+              <h3 className="text-sm font-bold text-md-on-surface-variant uppercase tracking-widest mb-2">{t('lbl_inventory_source')}</h3>
+              <p className="text-xs text-md-on-surface-variant font-medium px-6 leading-relaxed">{t('msg_choose_input_method')}</p>
+              {isAiDisabled && (
+                <div className="mt-4 flex flex-col items-center gap-3">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-md-error-container text-md-on-error-container rounded-full border border-md-error/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-md-error animate-pulse"></span>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider">{t('msg_scanner_offline')}</p>
+                  </div>
+                  <button
+                    onClick={handleKeySelection}
+                    className="text-xs font-semibold text-md-primary uppercase tracking-wider hover:underline border border-md-outline-variant/50 px-3 py-1 rounded-lg"
+                  >
+                    {t('btn_select_api_key')}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 gap-4">
-                <button 
-                  disabled={isAiDisabled}
-                  onClick={() => setAddMode('CAMERA')} 
-                  className={`group relative flex items-center p-8 bg-verdant/5 border-2 border-dashed border-verdant/20 rounded-[40px] hover:border-emerald-500 hover:bg-verdant/10 transition-all duration-500 text-left ${isAiDisabled ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
-                >
-                  <div className="w-16 h-16 bg-white dark:bg-slate-900 rounded-3xl shadow-xl flex items-center justify-center text-emerald-600 shrink-0 group-hover:scale-110 transition-all">
-                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                      <circle cx="12" cy="13" r="3" />
-                    </svg>
-                  </div>
-                  <div className="ml-6">
-                    <span className="block text-[11px] font-black uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-400 mb-1">{t('lbl_live_product_sync')}</span>
-                    <h4 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">{t('btn_use_camera')}</h4>
-                  </div>
-                </button>
+              <button
+                disabled={isAiDisabled}
+                onClick={() => setAddMode('CAMERA')}
+                className={`group relative flex items-center p-6 sm:p-8 bg-md-primary-container/25 border-2 border-dashed border-md-primary/30 rounded-3xl hover:border-md-primary hover:bg-md-primary-container/40 transition-all duration-300 text-left ${isAiDisabled ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
+              >
+                <div className="w-14 h-14 bg-md-surface-container-lowest rounded-2xl shadow-sm flex items-center justify-center text-md-primary shrink-0 group-hover:scale-105 transition-transform">
+                  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                    <path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <circle cx="12" cy="13" r="3" />
+                  </svg>
+                </div>
+                <div className="ml-5">
+                  <span className="block text-[11px] font-semibold uppercase tracking-wider text-md-primary mb-0.5">{t('lbl_live_product_sync')}</span>
+                  <h4 className="text-lg font-bold text-md-on-surface tracking-tight">{t('btn_use_camera')}</h4>
+                </div>
+              </button>
 
-                <button 
-                  disabled={isAiDisabled}
-                  onClick={() => fileInputRef.current?.click()} 
-                  className={`group relative flex items-center p-8 bg-blue-50/50 dark:bg-blue-950/10 border-2 border-dashed border-blue-200/50 dark:border-blue-800/30 rounded-[40px] hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all duration-500 text-left ${isAiDisabled ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
-                >
-                  <div className="w-16 h-16 bg-white dark:bg-slate-900 rounded-3xl shadow-xl flex items-center justify-center text-blue-600 shrink-0 group-hover:scale-110 transition-all">
-                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div className="ml-6">
-                    <span className="block text-[11px] font-black uppercase tracking-[0.2em] text-blue-700 dark:text-blue-400 mb-1">{t('lbl_library_match')}</span>
-                    <h4 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">{t('btn_upload_picture')}</h4>
-                  </div>
-                </button>
+              <button
+                disabled={isAiDisabled}
+                onClick={() => fileInputRef.current?.click()}
+                className={`group relative flex items-center p-6 sm:p-8 bg-md-secondary-container/25 border-2 border-dashed border-md-secondary/30 rounded-3xl hover:border-md-secondary hover:bg-md-secondary-container/40 transition-all duration-300 text-left ${isAiDisabled ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
+              >
+                <div className="w-14 h-14 bg-md-surface-container-lowest rounded-2xl shadow-sm flex items-center justify-center text-md-secondary shrink-0 group-hover:scale-105 transition-transform">
+                  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                    <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div className="ml-5">
+                  <span className="block text-[11px] font-semibold uppercase tracking-wider text-md-secondary mb-0.5">{t('lbl_library_match')}</span>
+                  <h4 className="text-lg font-bold text-md-on-surface tracking-tight">{t('btn_upload_picture')}</h4>
+                </div>
+              </button>
             </div>
 
-            <div className="pt-8 border-t border-gray-100 dark:border-slate-800 flex justify-center">
-                <button 
-                  onClick={() => setAddMode('MANUAL')}
-                  className="text-[9px] font-black text-slate-600 dark:text-slate-300 hover:text-verdant uppercase tracking-[0.4em] transition-colors border border-gray-100 dark:border-slate-800 px-4 py-2 rounded-xl"
-                >
-                    &mdash; {t('btn_skip_to_manual')} &mdash;
-                </button>
+            <div className="pt-6 border-t border-md-outline-variant/30 flex justify-center">
+              <button
+                onClick={() => setAddMode('MANUAL')}
+                className="text-xs font-semibold text-md-on-surface-variant hover:text-md-primary uppercase tracking-wider transition-colors border border-md-outline-variant/40 px-4 py-2 rounded-xl"
+              >
+                &mdash; {t('btn_skip_to_manual')} &mdash;
+              </button>
             </div>
-            
+
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpload} />
           </div>
         )}
@@ -360,58 +360,54 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
         {addMode === 'CAMERA' && <CameraCapture onCapture={processImage} onCancel={() => setAddMode('CHOICE')} />}
 
         {addMode === 'PROCESSING' && (
-          <div className="space-y-12 animate-in fade-in duration-500 py-10 px-4">
+          <div className="space-y-10 animate-in fade-in duration-300 py-8 px-4">
             <div className="flex flex-col items-center justify-center text-center">
-              <div className="w-24 h-24 mb-8 relative">
-                <div className="absolute inset-0 bg-blue-500/20 rounded-full animate-ping"></div>
-                <div className="relative z-10 w-full h-full flex items-center justify-center bg-white dark:bg-slate-950 rounded-full shadow-xl">
-                   <svg className="w-12 h-12 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+              <div className="w-24 h-24 mb-6 relative">
+                <div className="absolute inset-0 bg-md-primary/20 rounded-full animate-ping"></div>
+                <div className="relative z-10 w-full h-full flex items-center justify-center bg-md-surface-container-lowest rounded-full shadow-md">
+                  <svg className="w-11 h-11 text-md-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
                 </div>
               </div>
-              
+
               <div className="space-y-2">
-                <h3 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter leading-none italic">{progressState.status}</h3>
-                <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em] animate-pulse">{t('msg_establishing_uplink')}</p>
+                <h3 className="text-2xl font-bold text-md-on-surface tracking-tight">{progressState.status}</h3>
+                <p className="text-xs font-semibold text-md-primary uppercase tracking-widest animate-pulse">{t('msg_establishing_uplink')}</p>
               </div>
             </div>
-            
-            <div className="space-y-6">
-                <div className="relative pt-1">
-                    <div className="flex items-center justify-between mb-4 px-1">
-                        <div>
-                            <span className="text-[10px] font-black inline-block py-1 px-3 uppercase rounded-full text-white bg-blue-600 shadow-sm">
-                                {progressState.percent}{t('lbl_match_percent')}
-                            </span>
-                        </div>
-                        <div className="text-right">
-                            <span className="text-[10px] font-black inline-block text-gray-700 dark:text-slate-200 uppercase tracking-widest">
-                                {t('lbl_est_remaining').replace('{time}', countdown.toString())}
-                            </span>
-                        </div>
-                    </div>
-                    <div className="overflow-hidden h-4 mb-4 text-xs flex rounded-[20px] bg-gray-100 dark:bg-slate-800 shadow-inner p-1">
-                        <div 
-                          style={{ width: `${progressState.percent}%` }} 
-                          className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-600 rounded-full transition-all duration-1000 ease-out relative overflow-hidden"
-                        >
-                           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-[shimmer_2s_infinite]"></div>
-                        </div>
-                    </div>
+
+            <div className="space-y-4">
+              <div className="relative pt-1">
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <span className="text-xs font-semibold inline-block py-1 px-3 rounded-full text-md-on-primary bg-md-primary shadow-sm">
+                    {progressState.percent}{t('lbl_match_percent')}
+                  </span>
+                  <span className="text-xs font-semibold inline-block text-md-on-surface-variant">
+                    {t('lbl_est_remaining').replace('{time}', countdown.toString())}
+                  </span>
                 </div>
+                <div className="overflow-hidden h-3.5 mb-4 flex rounded-full bg-md-surface-container-high p-0.5">
+                  <div
+                    style={{ width: `${progressState.percent}%` }}
+                    className="flex flex-col text-center whitespace-nowrap text-md-on-primary justify-center bg-md-primary rounded-full transition-all duration-700 ease-out relative overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-[shimmer_2s_infinite]"></div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {error && (
-                <div className="space-y-4 pt-4 animate-in slide-in-from-top-4">
-                    <p className="text-red-500 text-center text-[11px] font-bold uppercase tracking-widest leading-relaxed bg-red-50 dark:bg-red-900/10 p-5 rounded-[32px] border-2 border-red-100 dark:border-red-900/20">{error}</p>
-                    <div className="flex gap-3">
-                        <button onClick={resetForm} className="flex-1 h-14 bg-gray-100 dark:bg-slate-800 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-700 dark:text-slate-200 hover:bg-gray-200 transition-all border border-gray-200 dark:border-slate-700">Retry Manual</button>
-                        {retryImage && (
-                            <Button onClick={() => processImage(retryImage)} className="flex-[2] h-14 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-blue-500/20">Retry Sync</Button>
-                        )}
-                    </div>
+              <div className="space-y-4 pt-2 animate-in slide-in-from-top-4">
+                <p className="text-md-on-error-container text-center text-xs font-medium leading-relaxed bg-md-error-container p-4 rounded-2xl border border-md-error/30">{error}</p>
+                <div className="flex gap-3">
+                  <Button variant="outlined" onClick={resetForm} className="flex-1 h-12 rounded-2xl">Retry Manual</Button>
+                  {retryImage && (
+                    <Button onClick={() => processImage(retryImage)} className="flex-[2] h-12 rounded-2xl">Retry Sync</Button>
+                  )}
                 </div>
+              </div>
             )}
-            
+
             <style dangerouslySetInnerHTML={{ __html: `
                 @keyframes shimmer {
                   0% { transform: translateX(-100%); }
@@ -422,198 +418,199 @@ export const AddInventoryModal: React.FC<AddInventoryModalProps> = ({ isOpen, on
         )}
 
         {addMode === 'MANUAL' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 animate-in slide-in-from-bottom-2 duration-500">
-             <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">{t('category')}</label>
-                <select className="w-full bg-gray-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-verdant dark:text-white transition-all outline-none" value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value as InventoryCategory})}>
-                  <option value="tools">{t('cat_tools')}</option>
-                  <option value="insecticide">{t('cat_insecticide')}</option>
-                  <option value="fertiliser">{t('cat_fertiliser')}</option>
-                  <option value="seeds">{t('cat_seeds')}</option>
-                  <option value="soil">{t('cat_soil')}</option>
-                  <option value="accessories">{t('cat_accessories')}</option>
-                  <option value="pots">{t('cat_pots')}</option>
-                  <option value="saucers">{t('cat_saucers')}</option>
-                </select>
-             </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 animate-in slide-in-from-bottom-2 duration-300">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5">{t('category')}</label>
+              <select className="w-full bg-md-surface-container-high border border-md-outline-variant/40 rounded-xl px-4 py-2.5 text-sm font-medium text-md-on-surface focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary transition-all outline-none" value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value as InventoryCategory})}>
+                <option value="tools">{t('cat_tools')}</option>
+                <option value="insecticide">{t('cat_insecticide')}</option>
+                <option value="fertiliser">{t('cat_fertiliser')}</option>
+                <option value="seeds">{t('cat_seeds')}</option>
+                <option value="soil">{t('cat_soil')}</option>
+                <option value="accessories">{t('cat_accessories')}</option>
+                <option value="pots">{t('cat_pots')}</option>
+                <option value="saucers">{t('cat_saucers')}</option>
+              </select>
+            </div>
 
-             <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">{t('lbl_nickname')}</label>
-                <input 
-                  className="w-full bg-gray-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-verdant dark:text-white transition-all outline-none" 
-                  value={formData.name} 
-                  onChange={(e) => setFormData({...formData, name: e.target.value})} 
-                  placeholder={t('placeholder_inventory_name')}
-                />
-             </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5">{t('lbl_nickname')}</label>
+              <input
+                className="w-full bg-md-surface-container-high border border-md-outline-variant/40 rounded-xl px-4 py-2.5 text-sm font-medium text-md-on-surface focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary transition-all outline-none"
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                placeholder={t('placeholder_inventory_name')}
+              />
+            </div>
 
-             <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">{t('lbl_brand')}</label>
-                <input 
-                  className="w-full bg-gray-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-verdant dark:text-white transition-all outline-none" 
-                  value={formData.brand} 
-                  onChange={(e) => setFormData({...formData, brand: e.target.value})} 
-                  placeholder="e.g. Schultz"
-                />
-             </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5">{t('lbl_brand')}</label>
+              <input
+                className="w-full bg-md-surface-container-high border border-md-outline-variant/40 rounded-xl px-4 py-2.5 text-sm font-medium text-md-on-surface focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary transition-all outline-none"
+                value={formData.brand}
+                onChange={(e) => setFormData({...formData, brand: e.target.value})}
+                placeholder="e.g. Schultz"
+              />
+            </div>
 
-             <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">{t('lbl_desc')}</label>
-                <textarea 
-                  className="w-full bg-gray-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-verdant dark:text-white transition-all outline-none min-h-[80px]" 
-                  value={formData.description} 
-                  onChange={(e) => setFormData({...formData, description: e.target.value})} 
-                  placeholder={t('placeholder_describe_specimen')}
-                />
-             </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5">{t('lbl_desc')}</label>
+              <textarea
+                className="w-full bg-md-surface-container-high border border-md-outline-variant/40 rounded-xl px-4 py-2.5 text-sm font-medium text-md-on-surface focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary transition-all outline-none min-h-[80px]"
+                value={formData.description}
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                placeholder={t('placeholder_describe_specimen')}
+              />
+            </div>
 
-             <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">{t('lbl_usage_instructions')}</label>
-                <textarea 
-                  className="w-full bg-gray-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-verdant dark:text-white transition-all outline-none min-h-[80px]" 
-                  value={formData.applicationUsage} 
-                  onChange={(e) => setFormData({...formData, applicationUsage: e.target.value})} 
-                  placeholder={t('placeholder_usage_desc')}
-                />
-             </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5">{t('lbl_usage_instructions')}</label>
+              <textarea
+                className="w-full bg-md-surface-container-high border border-md-outline-variant/40 rounded-xl px-4 py-2.5 text-sm font-medium text-md-on-surface focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary transition-all outline-none min-h-[80px]"
+                value={formData.applicationUsage}
+                onChange={(e) => setFormData({...formData, applicationUsage: e.target.value})}
+                placeholder={t('placeholder_usage_desc')}
+              />
+            </div>
 
-             <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">{t('lbl_instructions')}</label>
-                <textarea 
-                  className="w-full bg-gray-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-verdant dark:text-white transition-all outline-none min-h-[80px]" 
-                  value={formData.instructions} 
-                  onChange={(e) => setFormData({...formData, instructions: e.target.value})} 
-                  placeholder={t('placeholder_guide')}
-                />
-             </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5">{t('lbl_instructions')}</label>
+              <textarea
+                className="w-full bg-md-surface-container-high border border-md-outline-variant/40 rounded-xl px-4 py-2.5 text-sm font-medium text-md-on-surface focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary transition-all outline-none min-h-[80px]"
+                value={formData.instructions}
+                onChange={(e) => setFormData({...formData, instructions: e.target.value})}
+                placeholder={t('placeholder_guide')}
+              />
+            </div>
 
-             <div>
-                <label className="block text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">{t('lbl_quantity')}</label>
-                <input 
-                  type="number"
-                  className="w-full bg-gray-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-verdant dark:text-white transition-all outline-none" 
-                  value={formData.quantity} 
-                  onChange={(e) => setFormData({...formData, quantity: parseFloat(e.target.value) || 0})}
-                />
-             </div>
+            <div>
+              <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5">{t('lbl_quantity')}</label>
+              <input
+                type="number"
+                className="w-full bg-md-surface-container-high border border-md-outline-variant/40 rounded-xl px-4 py-2.5 text-sm font-medium text-md-on-surface focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary transition-all outline-none"
+                value={formData.quantity}
+                onChange={(e) => setFormData({...formData, quantity: parseFloat(e.target.value) || 0})}
+              />
+            </div>
 
-             <div>
-                <label className="block text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">{t('lbl_unit')}</label>
-                <input 
-                  className="w-full bg-gray-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-verdant dark:text-white transition-all outline-none" 
-                  value={formData.unit} 
-                  onChange={(e) => setFormData({...formData, unit: e.target.value})}
-                  placeholder={t('placeholder_inventory_unit')}
-                />
-             </div>
+            <div>
+              <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5">{t('lbl_unit')}</label>
+              <input
+                className="w-full bg-md-surface-container-high border border-md-outline-variant/40 rounded-xl px-4 py-2.5 text-sm font-medium text-md-on-surface focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary transition-all outline-none"
+                value={formData.unit}
+                onChange={(e) => setFormData({...formData, unit: e.target.value})}
+                placeholder={t('placeholder_inventory_unit')}
+              />
+            </div>
 
-             {(formData.category === 'pots' || formData.category === 'saucers') && (
-               <>
-                 <div>
-                    <label className="block text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">{t('lbl_size_inches')}</label>
-                    <input 
-                      type="number"
-                      step="0.1"
-                      className="w-full bg-gray-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-verdant dark:text-white transition-all outline-none" 
-                      value={formData.sizeInches} 
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        const cm = val ? (parseFloat(val) * 2.54).toFixed(2) : '';
-                        setFormData({...formData, sizeInches: val, sizeCm: cm});
-                      }}
-                      placeholder="e.g. 6"
-                    />
-                 </div>
+            {(formData.category === 'pots' || formData.category === 'saucers') && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5">{t('lbl_size_inches')}</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="w-full bg-md-surface-container-high border border-md-outline-variant/40 rounded-xl px-4 py-2.5 text-sm font-medium text-md-on-surface focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary transition-all outline-none"
+                    value={formData.sizeInches}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const cm = val ? (parseFloat(val) * 2.54).toFixed(2) : '';
+                      setFormData({...formData, sizeInches: val, sizeCm: cm});
+                    }}
+                    placeholder="e.g. 6"
+                  />
+                </div>
 
-                 <div>
-                    <label className="block text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-1">{t('lbl_size_cm')}</label>
-                    <input 
-                      type="number"
-                      step="0.1"
-                      className="w-full bg-gray-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-verdant dark:text-white transition-all outline-none" 
-                      value={formData.sizeCm} 
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        const inches = val ? (parseFloat(val) / 2.54).toFixed(2) : '';
-                        setFormData({...formData, sizeCm: val, sizeInches: inches});
-                      }}
-                      placeholder="e.g. 15"
-                    />
-                 </div>
-               </>
-             )}
+                <div>
+                  <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5">{t('lbl_size_cm')}</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="w-full bg-md-surface-container-high border border-md-outline-variant/40 rounded-xl px-4 py-2.5 text-sm font-medium text-md-on-surface focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary transition-all outline-none"
+                    value={formData.sizeCm}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const inches = val ? (parseFloat(val) / 2.54).toFixed(2) : '';
+                      setFormData({...formData, sizeCm: val, sizeInches: inches});
+                    }}
+                    placeholder="e.g. 15"
+                  />
+                </div>
+              </>
+            )}
 
-             <div className="md:col-span-2 pt-6 flex gap-3">
-                <button onClick={resetForm} className="flex-1 h-14 bg-gray-100 dark:bg-slate-800 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-700 dark:text-slate-200 hover:bg-gray-200 border border-gray-200 dark:border-slate-700">{t('btn_return_to_choice')}</button>
-                <Button className="flex-[2] h-14 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-verdant/20" onClick={handleManualSave} isLoading={isSaving}>{t('save').toUpperCase()}</Button>
-             </div>
+            <div className="md:col-span-2 pt-4 flex gap-3">
+              <Button variant="outlined" onClick={resetForm} className="flex-1 h-12 rounded-2xl">{t('btn_return_to_choice')}</Button>
+              <Button className="flex-[2] h-12 rounded-2xl" onClick={handleManualSave} isLoading={isSaving}>{t('save')}</Button>
+            </div>
           </div>
         )}
+
         {addMode === 'REVIEW' && identifiedItem && (
-          <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
-            <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-gray-100 dark:border-slate-800 p-6 shadow-sm space-y-6">
-              <div className="flex gap-6">
-                <div className="w-32 h-32 rounded-2xl overflow-hidden bg-gray-100 dark:bg-slate-800 shrink-0">
+          <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+            <div className="m3-card-elevated rounded-3xl p-6 space-y-5">
+              <div className="flex gap-5">
+                <div className="w-28 h-28 rounded-2xl overflow-hidden bg-md-surface-container-high shrink-0">
                   {identifiedItem.images && identifiedItem.images[0] ? (
                     <img src={identifiedItem.images[0]} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-slate-700">
-                       <Logo className="w-8 h-8 opacity-20" />
+                    <div className="w-full h-full flex items-center justify-center bg-md-surface-container-high">
+                      <Logo className="w-8 h-8 opacity-20" />
                     </div>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className="inline-block px-2 py-0.5 bg-verdant/10 text-verdant text-[8px] font-black uppercase tracking-widest rounded-full mb-2">
+                  <span className="inline-block px-2.5 py-0.5 bg-md-primary-container text-md-on-primary-container text-[11px] font-semibold uppercase tracking-wider rounded-full mb-2">
                     {t(`cat_${identifiedItem.category.replace('-', '_')}`)}
                   </span>
-                  <h3 className="text-xl font-black text-gray-900 dark:text-white truncate">{lv(identifiedItem.name)}</h3>
-                  <p className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest">{lv(identifiedItem.brand)}</p>
-                  <div className="mt-4 flex items-center gap-4">
+                  <h3 className="text-xl font-bold text-md-on-surface truncate">{lv(identifiedItem.name)}</h3>
+                  <p className="text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider">{lv(identifiedItem.brand)}</p>
+                  <div className="mt-3 flex items-center gap-4">
                     <div className="flex flex-col">
-                      <span className="text-[8px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{t('lbl_quantity')}</span>
-                      <span className="text-lg font-black dark:text-white">{identifiedItem.quantity} <span className="text-[10px] text-slate-600 dark:text-slate-300">{identifiedItem.unit}</span></span>
+                      <span className="text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider">{t('lbl_quantity')}</span>
+                      <span className="text-lg font-bold text-md-on-surface">{identifiedItem.quantity} <span className="text-xs font-medium text-md-on-surface-variant">{identifiedItem.unit}</span></span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {compatiblePlants.length > 0 && (
-                <div className="p-4 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-800/30">
-                  <p className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em] mb-3">{t('lbl_compatible_with_collection')}</p>
+                <div className="p-4 bg-md-primary-container/25 rounded-2xl border border-md-primary/20">
+                  <p className="text-[11px] font-semibold text-md-primary uppercase tracking-wider mb-3">{t('lbl_compatible_with_collection')}</p>
                   <div className="flex flex-wrap gap-2">
                     {compatiblePlants.map(p => (
-                      <div key={p.id} className="flex items-center gap-2 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg border border-emerald-100/20 shadow-sm">
+                      <div key={p.id} className="flex items-center gap-2 bg-md-surface-container-lowest px-2.5 py-1 rounded-lg border border-md-outline-variant/30 shadow-sm">
                         {p.images && p.images[0] ? (
                           <img src={p.images[0]} className="w-5 h-5 rounded-md object-cover" alt="" referrerPolicy="no-referrer" />
                         ) : (
-                          <div className="w-5 h-5 rounded-md bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
-                            <span className="text-[6px] font-black">?</span>
+                          <div className="w-5 h-5 rounded-md bg-md-primary-container flex items-center justify-center">
+                            <span className="text-[10px] font-bold text-md-on-primary-container">?</span>
                           </div>
                         )}
-                        <span className="text-[10px] font-bold dark:text-white">{lv(p.nickname)}</span>
+                        <span className="text-xs font-medium text-md-on-surface">{lv(p.nickname)}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              <div className="space-y-3">
-                <p className="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest px-1">{t('lbl_desc')}</p>
-                <p className="text-xs text-gray-800 dark:text-slate-200 italic leading-relaxed">"{lv(identifiedItem.description)}"</p>
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider px-1">{t('lbl_desc')}</p>
+                <p className="text-xs text-md-on-surface italic leading-relaxed">"{lv(identifiedItem.description)}"</p>
               </div>
 
               {(identifiedItem.applicationUsage || identifiedItem.instructions) && (
-                <div className="space-y-3">
-                  <p className="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest px-1">{t('lbl_usage_instructions')}</p>
-                  <p className="text-xs text-gray-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">{lv(identifiedItem.applicationUsage) || lv(identifiedItem.instructions)}</p>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider px-1">{t('lbl_usage_instructions')}</p>
+                  <p className="text-xs text-md-on-surface leading-relaxed whitespace-pre-wrap">{lv(identifiedItem.applicationUsage) || lv(identifiedItem.instructions)}</p>
                 </div>
               )}
             </div>
 
-            <div className="flex gap-4">
-              <button className="flex-1 h-14 bg-gray-100 dark:bg-slate-800 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700" onClick={resetForm}>{t('cancel')}</button>
-              <Button 
-                className="flex-[2] h-14 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-verdant/20" 
+            <div className="flex gap-3">
+              <Button variant="outlined" className="flex-1 h-12 rounded-2xl" onClick={resetForm}>{t('cancel')}</Button>
+              <Button
+                className="flex-[2] h-12 rounded-2xl"
                 onClick={() => {
                   addItem(identifiedItem);
                   onClose();

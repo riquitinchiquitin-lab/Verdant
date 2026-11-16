@@ -15,9 +15,10 @@ import { InventoryItem, InventoryCategory } from '../types';
 export const InventoryView: React.FC = () => {
   const { t, lv } = useLanguage();
   const { inventory } = useInventory();
-  const { plants, searchFilter } = usePlants();
+  const { plants, houses, searchFilter } = usePlants();
   const { user, can } = useAuth();
   const [filter, setFilter] = useState<InventoryCategory | 'all'>('all');
+  const [selectedHouseFilter, setSelectedHouseFilter] = useState<string | 'ALL' | 'UNATTRIBUTED'>('ALL');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isCalcOpen, setIsCalcOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
@@ -30,7 +31,11 @@ export const InventoryView: React.FC = () => {
 
   const filteredByProperty = inventory.filter(i => {
     // --- STRICT INVENTORY VISIBILITY ---
-    if (isAdmin) return true;
+    if (isAdmin) {
+      if (selectedHouseFilter === 'ALL') return true;
+      if (selectedHouseFilter === 'UNATTRIBUTED') return !i.houseId;
+      return i.houseId === selectedHouseFilter;
+    }
     if (user?.houseId) return i.houseId === user.houseId;
     return false;
   });
@@ -65,7 +70,20 @@ export const InventoryView: React.FC = () => {
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-md-on-surface tracking-tight">{t('inventory_title')}</h1>
         </div>
-        <div className="flex flex-wrap gap-2.5 w-full md:w-auto">
+        <div className="flex flex-wrap gap-2.5 w-full md:w-auto items-center">
+          {isAdmin && (
+            <select
+              className="h-10 px-4 bg-md-surface-container-high border border-md-outline-variant/60 rounded-full text-xs font-semibold text-md-on-surface outline-none focus:ring-2 focus:ring-md-primary/30 transition-all min-w-[160px]"
+              value={selectedHouseFilter}
+              onChange={(e) => setSelectedHouseFilter(e.target.value as any)}
+            >
+              <option value="ALL">{t('labels_all_global_properties')}</option>
+              <option value="UNATTRIBUTED">{t('lbl_unattributed')}</option>
+              {houses.map(h => (
+                <option key={h.id} value={h.id}>{lv(h.name)}</option>
+              ))}
+            </select>
+          )}
           {can('manage_inventory') && (
             <Button variant="tonal" size="md" onClick={() => setIsCalcOpen(true)} className="flex-1 md:flex-none">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>

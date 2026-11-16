@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { translateInput, translateArrayInput, translateObjectInput } from '../services/translationService';
 import { generatePlantDetails } from '../services/plantAi';
 import { CameraCapture } from './ui/CameraCapture';
+import { compressImage } from '../services/imageUtils';
 import { ROOM_TYPES, CURRENCIES, getCurrencyForLanguage } from '../constants';
 
 interface EditPlantModalProps {
@@ -239,28 +240,28 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
     <Modal isOpen={isOpen} onClose={onClose} title={t('edit_plant')}>
       <div className="space-y-6 max-h-[80vh] overflow-y-auto no-scrollbar px-1">
           {error && (
-              <div className="p-4 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 rounded-2xl">
-                  <p className="text-[10px] font-black text-red-600 dark:text-red-500 uppercase tracking-widest leading-tight">
+              <div className="p-4 bg-md-error-container border border-md-error/30 rounded-2xl">
+                  <p className="text-xs font-semibold text-md-on-error-container leading-tight">
                       ⚠️ {error}
                   </p>
               </div>
           )}
           <div>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_nickname')}</label>
-              <input 
-                  type="text" 
-                  className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold"
+              <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_nickname')}</label>
+              <input
+                  type="text"
+                  className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium transition-all"
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
               />
           </div>
 
           <div>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('primary_command_site')}</label>
+              <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('primary_command_site')}</label>
               <div className="relative">
-                <select 
+                <select
                     disabled={!canTransfer}
-                    className={`w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold appearance-none transition-opacity ${!canTransfer ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
+                    className={`w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium appearance-none transition-opacity ${!canTransfer ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
                     value={houseId || ''}
                     onChange={e => setHouseId(e.target.value || null)}
                 >
@@ -268,8 +269,8 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
                     {houses.map(h => <option key={h.id} value={h.id}>{lv(h.name)}</option>)}
                 </select>
                 {!canTransfer && (
-                    <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-900/20">
-                        <p className="text-[9px] font-black text-amber-600 dark:text-amber-500 uppercase tracking-widest leading-tight">
+                    <div className="mt-2 p-3 bg-md-tertiary-container/40 rounded-xl border border-md-tertiary/30">
+                        <p className="text-xs font-medium text-md-on-tertiary-container leading-tight">
                             ⚠️ {t('msg_admin_transfer_only')}
                         </p>
                     </div>
@@ -278,10 +279,10 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
           </div>
 
           <div>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_category')}</label>
-              <input 
-                  type="text" 
-                  className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold transition-all"
+              <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_category')}</label>
+              <input
+                  type="text"
+                  className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium transition-all"
                   value={category}
                   onChange={e => setCategory(e.target.value)}
                   placeholder={t('placeholder_category')}
@@ -289,10 +290,10 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
           </div>
 
           <div>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_growth_rate')}</label>
-              <input 
-                  type="text" 
-                  className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold transition-all"
+              <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_growth_rate')}</label>
+              <input
+                  type="text"
+                  className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium transition-all"
                   value={growthRate}
                   onChange={e => setGrowthRate(e.target.value)}
                   placeholder={t('growth_moderate_fast')}
@@ -300,9 +301,9 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
           </div>
 
           <div>
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_room')}</label>
-              <select 
-                  className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold appearance-none"
+              <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_room')}</label>
+              <select
+                  className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium appearance-none transition-all"
                   value={isCustom ? 'CUSTOM_OPTION' : room}
                   onChange={handleSelectChange}
               >
@@ -312,13 +313,13 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
                   ))}
                   <option value="CUSTOM_OPTION">{t('other_room')}</option>
               </select>
-              
+
               {isCustom && (
                   <div className="mt-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                      <input 
+                      <input
                           type="text"
                           placeholder={t('enter_custom_room')}
-                          className="w-full h-14 px-4 border border-verdant/30 dark:border-verdant/20 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-verdant/5 dark:bg-verdant/10 dark:text-white font-bold"
+                          className="w-full h-12 px-4 border border-md-primary/40 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 bg-md-primary-container/20 text-md-on-surface font-medium"
                           value={room}
                           onChange={(e) => setRoom(e.target.value)}
                           autoFocus
@@ -327,48 +328,48 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
               )}
           </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                      <div>
-                          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_hydration_interval_days')}</label>
-                          <input 
-                              type="number" 
-                              className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold"
-                              value={wateringInterval || ''}
-                              onChange={(e) => setWateringInterval(parseInt(e.target.value) || null)}
-                              placeholder={t('placeholder_days')}
-                          />
-                      </div>
-                      <div>
-                          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_last_watered_date')}</label>
-                          <input 
-                              type="date" 
-                              className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold"
-                              value={lastWatered ? lastWatered.split('T')[0] : ''}
-                              onChange={(e) => setLastWatered(e.target.value || null)}
-                          />
-                      </div>
-                  </div>
+          <div className="grid grid-cols-2 gap-4">
+              <div>
+                  <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_hydration_interval_days')}</label>
+                  <input
+                      type="number"
+                      className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium transition-all"
+                      value={wateringInterval || ''}
+                      onChange={(e) => setWateringInterval(parseInt(e.target.value) || null)}
+                      placeholder={t('placeholder_days')}
+                  />
+              </div>
+              <div>
+                  <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_last_watered_date')}</label>
+                  <input
+                      type="date"
+                      className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium transition-all"
+                      value={lastWatered ? lastWatered.split('T')[0] : ''}
+                      onChange={(e) => setLastWatered(e.target.value || null)}
+                  />
+              </div>
+          </div>
 
-          <div className="pt-8 border-t border-gray-100 dark:border-slate-800">
-              <h3 className="text-[11px] font-serif font-black text-verdant uppercase tracking-[0.3em] mb-6">{t('lbl_specimen_documentation')}</h3>
+          <div className="pt-6 border-t border-md-outline-variant/30">
+              <h3 className="text-xs font-bold text-md-primary uppercase tracking-wider mb-4">{t('lbl_specimen_documentation')}</h3>
               <div className="grid grid-cols-3 gap-4 mb-4">
                   {images.map((img, idx) => (
-                      <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden group border border-gray-100 dark:border-slate-700">
+                      <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden group border border-md-outline-variant/40">
                           <img src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                          <button 
+                          <button
                             type="button"
                             onClick={() => setImages(prev => prev.filter((_, i) => i !== idx))}
-                            className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                            className="absolute top-2 right-2 w-8 h-8 bg-md-error text-md-on-error rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
                           >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                           </button>
                           {idx === 0 && (
-                              <div className="absolute bottom-0 left-0 right-0 bg-verdant/80 text-white text-[8px] font-black uppercase tracking-widest py-1 text-center">
+                              <div className="absolute bottom-0 left-0 right-0 bg-md-primary/90 text-md-on-primary text-[10px] font-semibold uppercase tracking-wider py-1 text-center">
                                   {t('lbl_primary')}
                               </div>
                           )}
                           {idx > 0 && (
-                              <button 
+                              <button
                                 type="button"
                                 onClick={() => {
                                     const newImages = [...images];
@@ -376,14 +377,14 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
                                     newImages.unshift(moved);
                                     setImages(newImages);
                                 }}
-                                className="absolute bottom-2 left-2 px-2 py-1 bg-white/80 dark:bg-slate-800/80 text-gray-900 dark:text-white text-[8px] font-black uppercase tracking-widest rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="absolute bottom-2 left-2 px-2 py-1 bg-md-surface-container-lowest/90 text-md-on-surface text-[10px] font-semibold uppercase tracking-wider rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
                               >
                                 {t('btn_set_primary')}
                               </button>
                           )}
                       </div>
                   ))}
-                  <button 
+                  <button
                     type="button"
                     onClick={() => {
                         const input = document.createElement('input');
@@ -392,59 +393,57 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
                         input.onchange = async (e) => {
                             const file = (e.target as HTMLInputElement).files?.[0];
                             if (file) {
-                                const { compressImage } = await import('../services/imageUtils');
                                 const base64 = await compressImage(file);
                                 setImages(prev => [...prev, base64]);
                             }
                         };
                         input.click();
                     }}
-                    className="aspect-square rounded-2xl border-2 border-dashed border-gray-200 dark:border-slate-700 flex flex-col items-center justify-center text-gray-400 hover:border-verdant hover:text-verdant transition-all"
+                    className="aspect-square rounded-2xl border-2 border-dashed border-md-outline-variant/50 flex flex-col items-center justify-center text-md-on-surface-variant hover:border-md-primary hover:text-md-primary transition-all"
                   >
-                      <svg className="w-8 h-8 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                      <span className="text-[9px] font-black uppercase tracking-widest">{t('btn_add_photo')}</span>
+                      <svg className="w-7 h-7 mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                      <span className="text-[11px] font-semibold uppercase tracking-wider">{t('btn_add_photo')}</span>
                   </button>
               </div>
           </div>
 
-
-          <div className="pt-8 border-t border-gray-100 dark:border-slate-800">
-              <h3 className="text-[11px] font-serif font-black text-verdant uppercase tracking-[0.3em] mb-6">{t('lbl_advanced_technical_metrics')}</h3>
+          <div className="pt-6 border-t border-md-outline-variant/30">
+              <h3 className="text-xs font-bold text-md-primary uppercase tracking-wider mb-4">{t('lbl_advanced_technical_metrics')}</h3>
               <div className="grid grid-cols-2 gap-4">
                   <div>
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_target_ph')}</label>
-                      <input type="number" step="0.1" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={targetPh || ''} onChange={e => setTargetPh(parseFloat(e.target.value) || null)} />
+                      <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_target_ph')}</label>
+                      <input type="number" step="0.1" className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium transition-all" value={targetPh || ''} onChange={e => setTargetPh(parseFloat(e.target.value) || null)} />
                   </div>
                   <div>
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_target_ec_unit')}</label>
-                      <input type="number" step="0.1" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={targetEc || ''} onChange={e => setTargetEc(parseFloat(e.target.value) || null)} />
+                      <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_target_ec_unit')}</label>
+                      <input type="number" step="0.1" className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium transition-all" value={targetEc || ''} onChange={e => setTargetEc(parseFloat(e.target.value) || null)} />
                   </div>
                   <div>
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_target_vpd_unit')}</label>
-                      <input type="number" step="0.1" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={targetVpd || ''} onChange={e => setTargetVpd(parseFloat(e.target.value) || null)} />
+                      <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_target_vpd_unit')}</label>
+                      <input type="number" step="0.1" className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium transition-all" value={targetVpd || ''} onChange={e => setTargetVpd(parseFloat(e.target.value) || null)} />
                   </div>
                   <div>
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_target_dli_unit')}</label>
-                      <input type="number" step="0.1" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={targetDli || ''} onChange={e => setTargetDli(parseFloat(e.target.value) || null)} />
+                      <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_target_dli_unit')}</label>
+                      <input type="number" step="0.1" className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium transition-all" value={targetDli || ''} onChange={e => setTargetDli(parseFloat(e.target.value) || null)} />
                   </div>
               </div>
           </div>
 
-          <div className="pt-8 border-t border-gray-100 dark:border-slate-800">
-              <h3 className="text-[11px] font-serif font-black text-verdant uppercase tracking-[0.3em] mb-6">{t('lbl_lifecycle_phenology')}</h3>
+          <div className="pt-6 border-t border-md-outline-variant/30">
+              <h3 className="text-xs font-bold text-md-primary uppercase tracking-wider mb-4">{t('lbl_lifecycle_phenology')}</h3>
               <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                       <div>
-                          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_repot_frequency')}</label>
-                          <input type="number" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={repottingFrequency || ''} onChange={e => setRepottingFrequency(parseInt(e.target.value) || null)} />
+                          <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_repot_frequency')}</label>
+                          <input type="number" className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium transition-all" value={repottingFrequency || ''} onChange={e => setRepottingFrequency(parseInt(e.target.value) || null)} />
                       </div>
                       <div className="space-y-4">
                           <div>
-                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_size_cm')}</label>
-                              <input 
-                                  type="number" 
-                                  className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" 
-                                  value={lastPotSizeCm || ''} 
+                              <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_size_cm')}</label>
+                              <input
+                                  type="number"
+                                  className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium transition-all"
+                                  value={lastPotSizeCm || ''}
                                   onChange={e => {
                                       const val = parseFloat(e.target.value) || null;
                                       setLastPotSizeCm(val);
@@ -455,16 +454,16 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
                                           setLastPotSizeInches(null);
                                           setLastPotSize('');
                                       }
-                                  }} 
-                                  placeholder="cm" 
+                                  }}
+                                  placeholder="cm"
                               />
                           </div>
                           <div>
-                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_size_inches')}</label>
-                              <input 
-                                  type="number" 
-                                  className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" 
-                                  value={lastPotSizeInches || ''} 
+                              <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_size_inches')}</label>
+                              <input
+                                  type="number"
+                                  className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium transition-all"
+                                  value={lastPotSizeInches || ''}
                                   onChange={e => {
                                       const val = parseFloat(e.target.value) || null;
                                       setLastPotSizeInches(val);
@@ -476,77 +475,77 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
                                           setLastPotSizeCm(null);
                                           setLastPotSize('');
                                       }
-                                  }} 
-                                  placeholder="inches" 
+                                  }}
+                                  placeholder="inches"
                               />
                           </div>
                       </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                       <div>
-                          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_rotation_frequency')}</label>
-                          <input type="number" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={rotationFrequency || ''} onChange={e => setRotationFrequency(parseInt(e.target.value) || null)} />
+                          <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_rotation_frequency')}</label>
+                          <input type="number" className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium transition-all" value={rotationFrequency || ''} onChange={e => setRotationFrequency(parseInt(e.target.value) || null)} />
                       </div>
                       <div>
-                          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_last_rotated')}</label>
-                          <input type="date" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={lastRotated ? lastRotated.split('T')[0] : ''} onChange={e => setLastRotated(e.target.value || null)} />
+                          <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_last_rotated')}</label>
+                          <input type="date" className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium transition-all" value={lastRotated ? lastRotated.split('T')[0] : ''} onChange={e => setLastRotated(e.target.value || null)} />
                       </div>
                   </div>
                   <div>
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_propagation_methods')}</label>
-                      <input type="text" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={propagationMethods} onChange={e => setPropagationMethods(e.target.value)} placeholder={t('placeholder_propagation_methods')} />
+                      <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_propagation_methods')}</label>
+                      <input type="text" className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium transition-all" value={propagationMethods} onChange={e => setPropagationMethods(e.target.value)} placeholder={t('placeholder_propagation_methods')} />
                   </div>
                   <div>
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_propagation_instructions')}</label>
-                      <textarea 
-                          className="w-full p-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-serif italic min-h-[120px]" 
-                          value={propagationInstructions} 
-                          onChange={e => setPropagationInstructions(e.target.value)} 
+                      <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_propagation_instructions')}</label>
+                      <textarea
+                          className="w-full p-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface text-sm min-h-[110px]"
+                          value={propagationInstructions}
+                          onChange={e => setPropagationInstructions(e.target.value)}
                           placeholder="Step-by-step guide..."
                       />
                   </div>
                   <div>
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_repotting_instructions')}</label>
-                      <textarea 
-                          className="w-full p-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-serif italic min-h-[120px]" 
-                          value={repottingInstructions} 
-                          onChange={e => setRepottingInstructions(e.target.value)} 
+                      <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_repotting_instructions')}</label>
+                      <textarea
+                          className="w-full p-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface text-sm min-h-[110px]"
+                          value={repottingInstructions}
+                          onChange={e => setRepottingInstructions(e.target.value)}
                           placeholder="Step-by-step guide..."
                       />
                   </div>
               </div>
           </div>
 
-          <div className="pt-8 border-t border-gray-100 dark:border-slate-800">
-              <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-[11px] font-serif font-black text-verdant uppercase tracking-[0.3em]">{t('lbl_provenance_history')}</h3>
+          <div className="pt-6 border-t border-md-outline-variant/30">
+              <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xs font-bold text-md-primary uppercase tracking-wider">{t('lbl_provenance_history')}</h3>
               </div>
               <div className="space-y-4">
                   <div>
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_nursery_origin')}</label>
-                      <input 
+                      <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_nursery_origin')}</label>
+                      <input
                           type="text"
                           value={nursery}
                           onChange={e => setNursery(e.target.value)}
-                          className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold"
+                          className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium transition-all"
                           placeholder={t('lbl_nursery_origin')}
                       />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                       <div>
-                          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_acquisition_date')}</label>
-                          <input type="date" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={dateOfPurchase} onChange={e => setDateOfPurchase(e.target.value)} />
+                          <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_acquisition_date')}</label>
+                          <input type="date" className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium transition-all" value={dateOfPurchase} onChange={e => setDateOfPurchase(e.target.value)} />
                       </div>
                       <div className="flex gap-3">
                            <div className="flex-[3]">
-                               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_cost')}</label>
-                               <input type="number" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={cost || ''} onChange={e => setCost(parseFloat(e.target.value) || null)} />
+                               <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_cost')}</label>
+                               <input type="number" className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium transition-all" value={cost || ''} onChange={e => setCost(parseFloat(e.target.value) || null)} />
                            </div>
                            <div className="flex-1 min-w-[100px]">
-                               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_ccy')}</label>
-                               <select 
-                                   className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold appearance-none"
-                                   value={currency} 
+                               <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('lbl_ccy')}</label>
+                               <select
+                                   className="w-full h-12 px-4 border border-md-outline-variant/50 rounded-2xl outline-none focus:ring-2 focus:ring-md-primary/30 focus:border-md-primary bg-md-surface-container-high text-md-on-surface font-medium appearance-none transition-all"
+                                   value={currency}
                                    onChange={e => setCurrency(e.target.value)}
                                >
                                    {CURRENCIES.map(c => (
@@ -560,20 +559,20 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
           </div>
 
           <div className="flex items-center gap-3 pt-6">
-              <Button 
-                onClick={handleRefreshData} 
-                variant="ghost" 
-                className="w-14 h-14 rounded-2xl flex items-center justify-center text-blue-500 hover:bg-blue-50" 
+              <Button
+                onClick={handleRefreshData}
+                variant="tonal"
+                className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
                 disabled={isSaving || isRefreshing}
                 title={t('btn_refresh_ai')}
               >
-                <svg className={`w-6 h-6 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
               </Button>
-              <Button onClick={onDelete} variant="danger" className="w-14 h-14 rounded-2xl flex items-center justify-center" disabled={isSaving || isRefreshing}><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></Button>
-              <Button variant="ghost" className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-xs" onClick={onClose} disabled={isSaving || isRefreshing}>{t('cancel')}</Button>
-              <Button className="flex-[2] h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-verdant/20" onClick={handleSave} isLoading={isSaving} disabled={isRefreshing}>{t('btn_save_changes')}</Button>
+              <Button onClick={onDelete} variant="danger" className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" disabled={isSaving || isRefreshing}><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></Button>
+              <Button variant="ghost" className="flex-1 h-12 rounded-2xl" onClick={onClose} disabled={isSaving || isRefreshing}>{t('cancel')}</Button>
+              <Button className="flex-[2] h-12 rounded-2xl" onClick={handleSave} isLoading={isSaving} disabled={isRefreshing}>{t('btn_save_changes')}</Button>
           </div>
       </div>
     </Modal>

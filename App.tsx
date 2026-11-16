@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PlantProvider, usePlants } from './context/PlantContext';
@@ -9,14 +9,21 @@ import { PersonnelProvider, usePersonnel } from './context/PersonnelContext';
 import { SystemProvider } from './context/SystemContext';
 import { Layout } from './components/Layout';
 import { SecureAuth } from './pages/SecureAuth';
-import { AdminView } from './pages/AdminView';
 import { Dashboard } from './pages/Dashboard';
-import { CareSchedule } from './pages/CareSchedule';
-import { LocationsView } from './pages/LocationsView';
-import { TasksView } from './pages/TasksView';
-import { InventoryView } from './pages/InventoryView';
-import { LabelsView } from './pages/LabelsView';
-import { ManualView } from './pages/ManualView';
+
+const AdminView = lazy(() => import('./pages/AdminView').then(m => ({ default: m.AdminView })));
+const CareSchedule = lazy(() => import('./pages/CareSchedule').then(m => ({ default: m.CareSchedule })));
+const LocationsView = lazy(() => import('./pages/LocationsView').then(m => ({ default: m.LocationsView })));
+const TasksView = lazy(() => import('./pages/TasksView').then(m => ({ default: m.TasksView })));
+const InventoryView = lazy(() => import('./pages/InventoryView').then(m => ({ default: m.InventoryView })));
+const LabelsView = lazy(() => import('./pages/LabelsView').then(m => ({ default: m.LabelsView })));
+const ManualView = lazy(() => import('./pages/ManualView').then(m => ({ default: m.ManualView })));
+
+const RouteFallback: React.FC = () => (
+  <div className="flex h-[60vh] items-center justify-center">
+    <div className="w-10 h-10 border-4 border-md-primary border-t-transparent rounded-full animate-spin" />
+  </div>
+);
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode; requireManager?: boolean }> = ({ 
   children, 
@@ -30,9 +37,9 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; requireManager?: boo
   // 1. First, wait for Auth to determine if we have a session
   if (authLoading) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-white dark:bg-slate-950">
-        <div className="w-16 h-16 border-4 border-verdant border-t-transparent rounded-full animate-spin mb-4"></div>
-        <div className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 animate-pulse">
+      <div className="flex h-screen flex-col items-center justify-center bg-md-surface">
+        <div className="w-14 h-14 border-4 border-md-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+        <div className="text-xs font-semibold tracking-widest text-md-on-surface-variant animate-pulse">
           Authenticating...
         </div>
       </div>
@@ -47,9 +54,9 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; requireManager?: boo
   // 3. If logged in, wait for data contexts to finish their initial server sync
   if (plantsLoading || inventoryLoading || personnelLoading) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-white dark:bg-slate-950">
-        <div className="w-16 h-16 border-4 border-verdant border-t-transparent rounded-full animate-spin mb-4"></div>
-        <div className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 animate-pulse">
+      <div className="flex h-screen flex-col items-center justify-center bg-md-surface">
+        <div className="w-14 h-14 border-4 border-md-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+        <div className="text-xs font-semibold tracking-widest text-md-on-surface-variant animate-pulse">
           Verifying with Server...
         </div>
       </div>
@@ -74,65 +81,67 @@ const App: React.FC = () => {
             <InventoryProvider>
               <PlantProvider>
                 <HashRouter>
-                  <Routes>
-                      <Route path="/login" element={<SecureAuth />} />
-                      <Route path="/" element={
-                        <ProtectedRoute>
-                          <Layout>
-                            <Dashboard />
-                          </Layout>
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/care" element={
-                        <ProtectedRoute>
-                          <Layout>
-                            <CareSchedule />
-                          </Layout>
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/tasks" element={
-                        <ProtectedRoute>
-                          <Layout>
-                            <TasksView />
-                          </Layout>
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/inventory" element={
-                        <ProtectedRoute>
-                          <Layout>
-                            <InventoryView />
-                          </Layout>
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/labels" element={
-                        <ProtectedRoute>
-                          <Layout>
-                            <LabelsView />
-                          </Layout>
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/locations" element={
-                        <ProtectedRoute>
-                          <Layout>
-                            <LocationsView />
-                          </Layout>
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/admin" element={
-                        <ProtectedRoute requireManager>
-                          <Layout>
-                            <AdminView />
-                          </Layout>
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/manual" element={
-                        <ProtectedRoute>
-                          <Layout>
-                            <ManualView />
-                          </Layout>
-                        </ProtectedRoute>
-                      } />
-                  </Routes>
+                  <Suspense fallback={<RouteFallback />}>
+                    <Routes>
+                        <Route path="/login" element={<SecureAuth />} />
+                        <Route path="/" element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <Dashboard />
+                            </Layout>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/care" element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <CareSchedule />
+                            </Layout>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/tasks" element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <TasksView />
+                            </Layout>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/inventory" element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <InventoryView />
+                            </Layout>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/labels" element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <LabelsView />
+                            </Layout>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/locations" element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <LocationsView />
+                            </Layout>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/admin" element={
+                          <ProtectedRoute requireManager>
+                            <Layout>
+                              <AdminView />
+                            </Layout>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/manual" element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <ManualView />
+                            </Layout>
+                          </ProtectedRoute>
+                        } />
+                    </Routes>
+                  </Suspense>
                 </HashRouter>
               </PlantProvider>
             </InventoryProvider>

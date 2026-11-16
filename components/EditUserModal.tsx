@@ -99,126 +99,130 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={t('modify_personnel_authority')}>
-      <div className="space-y-8 py-2">
-        <div className="flex items-center gap-4 bg-gray-50 dark:bg-slate-800/50 p-6 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-inner">
-            <div className="w-14 h-14 bg-verdant/10 text-verdant rounded-2xl flex items-center justify-center font-black text-xl border border-verdant/20 shrink-0">
-                {(lv(targetUser.name) || '?').charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0">
-                <h3 className="font-black text-gray-900 dark:text-white uppercase tracking-tight truncate">{lv(targetUser.name) || 'Anonymous'}</h3>
-                <p className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest truncate">{targetUser.email}</p>
-            </div>
+      <div className="space-y-6 py-2 font-sans">
+        <div className="flex items-center gap-4 bg-md-surface-container p-5 rounded-[24px] border border-md-outline-variant/30">
+          <div className="w-14 h-14 bg-md-primary-container text-md-on-primary-container rounded-2xl flex items-center justify-center font-bold text-xl shrink-0">
+            {(lv(targetUser.name) || '?').charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-bold text-md-on-surface tracking-tight truncate">{lv(targetUser.name) || 'Anonymous'}</h3>
+            <p className="text-xs font-medium text-md-on-surface-variant truncate">{targetUser.email}</p>
+          </div>
         </div>
 
-        <div className="space-y-6">
-            <div>
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">{t('auth_level_label')}</label>
-                <div className="grid grid-cols-1 gap-2">
-                    {filteredRoles.map(r => (
-                        <button
-                            key={r.value}
-                            onClick={() => setRole(r.value)}
-                            className={`p-4 rounded-2xl text-left border-2 transition-all group ${role === r.value ? 'bg-verdant/5 border-verdant shadow-md ring-4 ring-verdant/10' : 'bg-white dark:bg-slate-900 border-gray-100 dark:border-slate-800 hover:border-verdant/30'}`}
-                        >
-                            <div className="flex justify-between items-center mb-1">
-                                <span className={`font-black uppercase tracking-tight text-sm ${role === r.value ? 'text-verdant' : 'text-gray-700 dark:text-white'}`}>{r.label}</span>
-                                {role === r.value && <div className="w-2 h-2 rounded-full bg-verdant animate-pulse" />}
-                            </div>
-                            <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest leading-relaxed">{r.desc}</p>
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            <div className="animate-in slide-in-from-top-2 duration-300">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">{t('primary_command')}</label>
-                <select 
-                    disabled={isLeadHand}
-                    className={`w-full h-14 bg-gray-50 dark:bg-slate-800 rounded-2xl px-6 font-bold outline-none border border-gray-100 dark:border-slate-700 dark:text-white focus:ring-4 focus:ring-verdant/10 transition-all appearance-none ${isLeadHand ? 'opacity-60 cursor-not-allowed' : ''}`}
-                    value={isLeadHand ? currentUser?.houseId || '' : houseId}
-                    onChange={e => setHouseId(e.target.value)}
+        <div className="space-y-5">
+          <div>
+            <label className="text-xs font-semibold text-md-on-surface-variant mb-2 block ml-1">{t('auth_level_label')}</label>
+            <div className="grid grid-cols-1 gap-2">
+              {filteredRoles.map(r => (
+                <button
+                  key={r.value}
+                  onClick={() => setRole(r.value)}
+                  className={`m3-state-layer p-4 rounded-2xl text-left border transition-all ${
+                    role === r.value
+                      ? 'bg-md-primary-container/50 border-md-primary ring-2 ring-md-primary/20'
+                      : 'bg-md-surface-container-high border-md-outline-variant/40 hover:border-md-primary/50'
+                  }`}
                 >
-                    {!isLeadHand && <option value="">-- {t('unassigned_location')} --</option>}
-                    {houses.map(h => <option key={h.id} value={h.id}>{lv(h.name)}</option>)}
-                </select>
-                {isLeadHand && <p className="mt-2 text-[8px] font-black text-amber-600 uppercase tracking-[0.2em] px-2">AUTHORITY RESTRICTED TO SITE</p>}
-            </div>
-
-            {role === 'SEASONAL' && (
-                <div className="grid grid-cols-2 gap-4 animate-in zoom-in-95 duration-300">
-                    <div>
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">{t('access_start')}</label>
-                        <input type="date" className="w-full h-14 bg-gray-50 dark:bg-slate-800 rounded-2xl px-4 font-bold outline-none dark:text-white border border-gray-100 dark:border-slate-700" value={startDate} onChange={e => setStartDate(e.target.value)} />
-                    </div>
-                    <div>
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">{t('access_expiry')}</label>
-                        <input type="date" className="w-full h-14 bg-gray-50 dark:bg-slate-800 rounded-2xl px-4 font-bold outline-none dark:text-white border border-gray-100 dark:border-slate-700" value={endDate} onChange={e => setEndDate(e.target.value)} />
-                    </div>
-                </div>
-            )}
-
-            <div className="pt-6 border-t border-gray-100 dark:border-slate-800 space-y-3">
-                <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700">
-                    <div>
-                        <span className="block font-black uppercase tracking-widest text-xs text-gray-800 dark:text-white">
-                            Argon2id Password: {hasPassword ? 'Configured' : 'Not Set'}
-                        </span>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                            {hasPassword ? 'User can sign in with password' : 'User can set password on login'}
-                        </span>
-                    </div>
-                    {hasPassword && (
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={handleResetPassword}
-                            disabled={resettingPassword}
-                            className="h-9 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest"
-                        >
-                            {resettingPassword ? 'Clearing...' : 'Reset Password'}
-                        </Button>
-                    )}
-                </div>
-
-                <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700">
-                    <div>
-                        <span className="block font-black uppercase tracking-widest text-xs text-gray-800 dark:text-white">
-                            FIDO2 Passkeys: {passkeyCount}
-                        </span>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                            {passkeyCount > 0 ? 'Device enrolled' : 'Awaiting first-time enrollment'}
-                        </span>
-                    </div>
-                    {passkeyCount > 0 && (
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={handleResetPasskeys}
-                            disabled={resettingPasskeys}
-                            className="h-9 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest"
-                        >
-                            {resettingPasskeys ? 'Resetting...' : 'Reset Keys'}
-                        </Button>
-                    )}
-                </div>
-
-                <button 
-                    onClick={() => setIsRevoked(!isRevoked)}
-                    className={`flex items-center gap-3 w-full p-4 rounded-2xl transition-all border-2 ${isRevoked ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/10' : 'bg-red-50 text-red-600 border-red-100 dark:bg-red-900/10'}`}
-                >
-                    <div className="w-10 h-10 rounded-xl bg-white/50 flex items-center justify-center shrink-0">
-                        {isRevoked ? <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> : <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" /></svg>}
-                    </div>
-                    <div className="text-left">
-                        <span className="block font-black uppercase tracking-widest text-xs">{isRevoked ? t('restore_authority') : t('revoke_credentials')}</span>
-                    </div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className={`font-bold text-sm ${role === r.value ? 'text-md-primary' : 'text-md-on-surface'}`}>{r.label}</span>
+                    {role === r.value && <div className="w-2 h-2 rounded-full bg-md-primary animate-pulse" />}
+                  </div>
+                  <p className="text-xs font-medium text-md-on-surface-variant leading-relaxed">{r.desc}</p>
                 </button>
+              ))}
             </div>
+          </div>
+
+          <div className="animate-in slide-in-from-top-2 duration-200">
+            <label className="text-xs font-semibold text-md-on-surface-variant mb-2 block ml-1">{t('primary_command')}</label>
+            <select 
+              disabled={isLeadHand}
+              className={`w-full h-12 bg-md-surface-container-highest rounded-2xl px-4 text-sm font-medium outline-none border border-md-outline-variant/60 text-md-on-surface focus:border-md-primary focus:ring-2 focus:ring-md-primary/20 transition-all appearance-none ${isLeadHand ? 'opacity-60 cursor-not-allowed' : ''}`}
+              value={isLeadHand ? currentUser?.houseId || '' : houseId}
+              onChange={e => setHouseId(e.target.value)}
+            >
+              {!isLeadHand && <option value="">-- {t('unassigned_location')} --</option>}
+              {houses.map(h => <option key={h.id} value={h.id}>{lv(h.name)}</option>)}
+            </select>
+            {isLeadHand && <p className="mt-1.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400 px-1">Authority restricted to site</p>}
+          </div>
+
+          {role === 'SEASONAL' && (
+            <div className="grid grid-cols-2 gap-3.5 animate-in zoom-in-95 duration-200">
+              <div>
+                <label className="text-xs font-semibold text-md-on-surface-variant mb-1.5 block ml-1">{t('access_start')}</label>
+                <input type="date" className="w-full h-12 bg-md-surface-container-highest rounded-2xl px-4 text-sm font-medium outline-none text-md-on-surface border border-md-outline-variant/60 focus:border-md-primary" value={startDate} onChange={e => setStartDate(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-md-on-surface-variant mb-1.5 block ml-1">{t('access_expiry')}</label>
+                <input type="date" className="w-full h-12 bg-md-surface-container-highest rounded-2xl px-4 text-sm font-medium outline-none text-md-on-surface border border-md-outline-variant/60 focus:border-md-primary" value={endDate} onChange={e => setEndDate(e.target.value)} />
+              </div>
+            </div>
+          )}
+
+          <div className="pt-5 border-t border-md-outline-variant/30 space-y-3">
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-md-surface-container border border-md-outline-variant/30">
+              <div>
+                <span className="block font-semibold text-xs text-md-on-surface">
+                  Argon2id Password: {hasPassword ? 'Configured' : 'Not Set'}
+                </span>
+                <span className="text-[11px] text-md-on-surface-variant font-medium">
+                  {hasPassword ? 'User can sign in with password' : 'User can set password on login'}
+                </span>
+              </div>
+              {hasPassword && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleResetPassword}
+                  disabled={resettingPassword}
+                  className="h-9 px-4 rounded-xl text-xs"
+                >
+                  {resettingPassword ? 'Clearing...' : 'Reset Password'}
+                </Button>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-md-surface-container border border-md-outline-variant/30">
+              <div>
+                <span className="block font-semibold text-xs text-md-on-surface">
+                  FIDO2 Passkeys: {passkeyCount}
+                </span>
+                <span className="text-[11px] text-md-on-surface-variant font-medium">
+                  {passkeyCount > 0 ? 'Device enrolled' : 'Awaiting first-time enrollment'}
+                </span>
+              </div>
+              {passkeyCount > 0 && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleResetPasskeys}
+                  disabled={resettingPasskeys}
+                  className="h-9 px-4 rounded-xl text-xs"
+                >
+                  {resettingPasskeys ? 'Resetting...' : 'Reset Keys'}
+                </Button>
+              )}
+            </div>
+
+            <button
+              onClick={() => setIsRevoked(!isRevoked)}
+              className={`flex items-center gap-3 w-full p-4 rounded-2xl transition-all border ${isRevoked ? 'bg-md-primary-container/40 text-md-on-primary-container border-md-primary/30' : 'bg-md-error-container/40 text-md-on-error-container border-md-error/30'}`}
+            >
+              <div className="w-10 h-10 rounded-xl bg-md-surface-container-lowest/70 flex items-center justify-center shrink-0">
+                {isRevoked ? <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> : <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" /></svg>}
+              </div>
+              <div className="text-left">
+                <span className="block font-semibold text-xs uppercase tracking-wider">{isRevoked ? t('restore_authority') : t('revoke_credentials')}</span>
+              </div>
+            </button>
+          </div>
         </div>
 
         <div className="flex gap-3 pt-4">
-            <Button variant="ghost" onClick={onClose} className="flex-1 font-black uppercase tracking-widest text-xs">{t('discard')}</Button>
-            <Button onClick={handleSave} className="flex-[2] h-14 rounded-2xl shadow-xl shadow-verdant/20 font-black uppercase tracking-widest">{t('apply_protocol_updates')}</Button>
+          <Button variant="ghost" onClick={onClose} className="flex-1 h-12 rounded-2xl">{t('discard')}</Button>
+          <Button onClick={handleSave} className="flex-[2] h-12 rounded-2xl">{t('apply_protocol_updates')}</Button>
         </div>
       </div>
     </Modal>

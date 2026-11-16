@@ -137,86 +137,84 @@ export const CustomMixCalculator: React.FC<CustomMixCalculatorProps> = ({ onSave
   };
   
   return (
-    <div className="space-y-6 w-full animate-in fade-in duration-500 max-h-[80vh] overflow-y-auto no-scrollbar px-2 pb-6">
-      <div className="flex items-center gap-4 mb-2">
-        <div className="p-4 bg-white dark:bg-slate-800 rounded-[24px] shadow-sm border border-gray-100 dark:border-slate-700 flex items-center justify-center transition-all duration-500" style={{ borderLeft: `8px solid ${containerColor}` }}>
+    <div className="space-y-5 w-full animate-in fade-in duration-300 max-h-[80vh] overflow-y-auto no-scrollbar px-1 pb-4 font-sans">
+      <div className="flex items-center gap-4 mb-1">
+        <div className="p-3.5 bg-md-surface-container-high rounded-2xl shadow-xs border border-md-outline-variant/30 flex items-center justify-center" style={{ borderLeft: `6px solid ${containerColor}` }}>
           <ContainerIcon type={containerType} color={containerColor} className="w-8 h-8" />
         </div>
-        <div className="flex-1">
-          <h2 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-1">{t('mix_calculator')}</h2>
-          <p className="text-[10px] text-gray-400 dark:text-slate-500 font-black uppercase tracking-widest">{t('lbl_total_volume')} & {t('lbl_ratio')}</p>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg md:text-xl font-bold text-md-on-surface tracking-tight">{t('mix_calculator')}</h2>
+          <p className="text-xs text-md-on-surface-variant font-semibold">{t('lbl_total_volume')} & {t('lbl_ratio')}</p>
         </div>
       </div>
 
-      <div className="bg-gray-50 dark:bg-slate-800/50 p-6 rounded-[28px] border border-gray-100 dark:border-slate-800 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-2 px-1">{t('lbl_nickname')}</label>
-              <input type="text" placeholder={t('lbl_nickname')} value={mixName} onChange={(e) => setMixName(e.target.value)} className="w-full bg-transparent border-b border-gray-200 dark:border-slate-700 text-xl font-bold focus:ring-0 focus:border-verdant dark:text-white pb-1 outline-none transition-all" />
-            </div>
+      <div className="bg-md-surface-container p-5 rounded-[24px] border border-md-outline-variant/30 space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-md-on-surface-variant mb-1.5 ml-1">{t('lbl_nickname')}</label>
+            <input type="text" placeholder={t('lbl_nickname')} value={mixName} onChange={(e) => setMixName(e.target.value)} className="w-full h-12 px-4 bg-md-surface-container-highest border border-md-outline-variant/60 rounded-2xl text-sm font-semibold text-md-on-surface outline-none focus:border-md-primary focus:ring-2 focus:ring-md-primary/20 transition-all" />
           </div>
           <div>
-            <label className="block text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-2 px-1">{t('category')}</label>
-            <select value={mixType} onChange={(e) => setMixType(e.target.value as CustomMixType)} className="w-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-verdant outline-none dark:text-white">
+            <label className="block text-xs font-semibold text-md-on-surface-variant mb-1.5 ml-1">{t('category')}</label>
+            <select value={mixType} onChange={(e) => setMixType(e.target.value as CustomMixType)} className="w-full h-12 bg-md-surface-container-highest border border-md-outline-variant/60 rounded-2xl px-4 text-sm font-semibold text-md-on-surface outline-none focus:border-md-primary">
               {MIX_TYPES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
         </div>
 
-        <div className="text-center">
-            <label className="block text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-2 px-1">{t('lbl_total_volume')}</label>
-            <p className="text-4xl font-black dark:text-white">{totalVolume.toFixed(2)} {totalUnit}</p>
-          </div>
+        <div className="text-center pt-1">
+          <label className="block text-xs font-semibold text-md-on-surface-variant mb-1">{t('lbl_total_volume')}</label>
+          <p className="text-3xl md:text-4xl font-bold text-md-primary">{totalVolume.toFixed(2)} {totalUnit}</p>
+        </div>
       </div>
 
-      <div className="space-y-4">
-        <label className="block text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest px-1">{t('lbl_ingredients')}</label>
+      <div className="space-y-3.5">
+        <label className="block text-xs font-semibold text-md-on-surface-variant ml-1">{t('lbl_ingredients')}</label>
         {ingredients.map((ing, idx) => (
-          <div key={ing.id} className="p-5 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-[32px] shadow-sm space-y-4 group transition-all hover:border-verdant/20">
+          <div key={ing.id} className="m3-card-elevated p-4 md:p-5 border border-md-outline-variant/30 rounded-[24px] space-y-3.5 group">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gray-50 dark:bg-slate-800 flex items-center justify-center font-black text-gray-400 text-xs shadow-inner">{idx + 1}</div>
-              <input placeholder={t('lbl_ingredients')} value={ing.name} onChange={(e) => setIngredients(prev => prev.map(i => i.id === ing.id ? { ...i, name: e.target.value } : i))} className="flex-1 bg-transparent border-none text-base font-bold focus:ring-0 dark:text-white outline-none" />
-              <button onClick={() => removeIngredient(ing.id)} className="p-2 text-gray-300 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M6 18L18 6M6 6l12 12" /></svg></button>
+              <div className="w-9 h-9 rounded-xl bg-md-secondary-container text-md-on-secondary-container flex items-center justify-center font-bold text-xs shrink-0">{idx + 1}</div>
+              <input placeholder={t('lbl_ingredients')} value={ing.name} onChange={(e) => setIngredients(prev => prev.map(i => i.id === ing.id ? { ...i, name: e.target.value } : i))} className="flex-1 bg-transparent border-none text-base font-bold text-md-on-surface outline-none" />
+              <button onClick={() => removeIngredient(ing.id)} className="m3-state-layer w-8 h-8 rounded-full flex items-center justify-center text-md-on-surface-variant hover:text-md-error transition-all opacity-70 md:opacity-0 md:group-hover:opacity-100"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M6 18L18 6M6 6l12 12" /></svg></button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-              <div className="bg-gray-50 dark:bg-slate-800/80 rounded-2xl p-4 flex flex-col justify-center border border-transparent focus-within:border-verdant/30 transition-all">
-                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('quantity')}</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-md-surface-container rounded-2xl p-3.5 flex flex-col justify-center border border-md-outline-variant/30 focus-within:border-md-primary transition-all">
+                <span className="text-[11px] font-semibold text-md-on-surface-variant mb-1">{t('quantity')}</span>
                 <div className="flex items-center gap-2">
-                    <input type="text" inputMode="decimal" value={ing.quantity} onChange={(e) => {
-                      const value = e.target.value;
-                      if (/^\d*\.?\d*$/.test(value)) {
-                        updateIngredient(ing.id, { quantity: value });
-                      }
-                    }} className="flex-1 min-w-0 bg-transparent border-none text-3xl font-black focus:ring-0 dark:text-white p-0" />
-                    <select value={ing.unit} onChange={(e) => updateIngredient(ing.id, { unit: e.target.value })} className="flex-shrink-0 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-[10px] font-black text-verdant uppercase tracking-widest rounded-lg px-2 py-1 outline-none">
-                      <optgroup label={t('metric')}>{UNIT_SYSTEMS.METRIC.map(u => <option key={u.value} value={u.value}>{u.value}</option>)}</optgroup>
-                      <optgroup label={t('imperial')}>{UNIT_SYSTEMS.IMPERIAL.map(u => <option key={u.value} value={u.value}>{u.value}</option>)}</optgroup>
-                    </select>
-                  </div>
-                </div>
-                <div className="space-y-3 bg-gray-50/50 dark:bg-slate-800/30 p-4 rounded-2xl border border-gray-100/50 dark:border-slate-800/50 text-center">
-                  <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{t('lbl_ratio')}</span>
-                  <p className="text-2xl font-black text-verdant">{ratios[idx].toFixed(2)}%</p>
+                  <input type="text" inputMode="decimal" value={ing.quantity} onChange={(e) => {
+                    const value = e.target.value;
+                    if (/^\d*\.?\d*$/.test(value)) {
+                      updateIngredient(ing.id, { quantity: value });
+                    }
+                  }} className="flex-1 min-w-0 bg-transparent border-none text-2xl font-bold text-md-on-surface focus:ring-0 p-0 outline-none" />
+                  <select value={ing.unit} onChange={(e) => updateIngredient(ing.id, { unit: e.target.value })} className="shrink-0 bg-md-surface-container-highest border border-md-outline-variant/50 text-xs font-semibold text-md-primary rounded-xl px-2.5 py-1.5 outline-none">
+                    <optgroup label={t('metric')}>{UNIT_SYSTEMS.METRIC.map(u => <option key={u.value} value={u.value}>{u.value}</option>)}</optgroup>
+                    <optgroup label={t('imperial')}>{UNIT_SYSTEMS.IMPERIAL.map(u => <option key={u.value} value={u.value}>{u.value}</option>)}</optgroup>
+                  </select>
                 </div>
               </div>
+              <div className="bg-md-surface-container p-3.5 rounded-2xl border border-md-outline-variant/30 flex flex-col justify-center text-center">
+                <span className="text-[11px] font-semibold text-md-on-surface-variant">{t('lbl_ratio')}</span>
+                <p className="text-2xl font-bold text-md-primary">{ratios[idx].toFixed(2)}%</p>
+              </div>
+            </div>
           </div>
         ))}
-        <Button variant="secondary" size="sm" className="w-full border-dashed rounded-[24px] py-4 border-2 hover:border-verdant/50 transition-all font-black text-[10px] tracking-widest uppercase mt-2" onClick={addIngredient}><svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path d="M12 4v16m8-8H4" /></svg>{t('add_item')}</Button>
+        <Button variant="tonal" size="md" className="w-full" onClick={addIngredient}><svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M12 4v16m8-8H4" /></svg>{t('add_item')}</Button>
       </div>
 
-      <div className="pt-8 border-t border-gray-100 dark:border-slate-800 space-y-6">
+      <div className="pt-5 border-t border-md-outline-variant/30 space-y-5">
         <div className="space-y-4">
-           <label className="block text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest px-1">{t('visual_configuration')}</label>
-           <div className="flex flex-wrap items-center gap-2">{PRESET_COLORS.map(c => <button key={c} onClick={() => setContainerColor(c)} className={`w-10 h-10 rounded-2xl border-2 transition-all ${containerColor === c ? 'scale-110 border-gray-900 dark:border-white shadow-xl' : 'border-transparent'}`} style={{ backgroundColor: c }} />)}</div>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             <div><label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t('vessel_type')}</label><select value={containerType} onChange={(e) => setContainerType(e.target.value as ContainerType)} className="w-full bg-gray-100 dark:bg-slate-800 border-none rounded-xl px-3 py-3 text-xs font-bold outline-none dark:text-white">{CONTAINER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
-             <div><label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t('lbl_desc')}</label><input type="text" placeholder="e.g. Weekly fertilization" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full bg-gray-100 dark:bg-slate-800 border-none rounded-xl px-3 py-3 text-xs font-bold outline-none dark:text-white" /></div>
-             <div><label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t('lbl_usage_instructions')}</label><input type="text" placeholder="e.g. Mix 1:10 with water" value={applicationUsage} onChange={(e) => setApplicationUsage(e.target.value)} className="w-full bg-gray-100 dark:bg-slate-800 border-none rounded-xl px-3 py-3 text-xs font-bold outline-none dark:text-white" /></div>
-             <div><label className="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t('lbl_instructions')}</label><input type="text" placeholder="e.g. Apply to soil only" value={instructions} onChange={(e) => setInstructions(e.target.value)} className="w-full bg-gray-100 dark:bg-slate-800 border-none rounded-xl px-3 py-3 text-xs font-bold outline-none dark:text-white" /></div>
-           </div>
+          <label className="block text-xs font-semibold text-md-on-surface-variant ml-1">{t('visual_configuration')}</label>
+          <div className="flex flex-wrap items-center gap-2">{PRESET_COLORS.map(c => <button key={c} onClick={() => setContainerColor(c)} className={`w-9 h-9 rounded-2xl border-2 transition-all ${containerColor === c ? 'scale-110 border-md-on-surface shadow-md' : 'border-transparent'}`} style={{ backgroundColor: c }} />)}</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            <div><label className="block text-xs font-semibold text-md-on-surface-variant mb-1.5 ml-1">{t('vessel_type')}</label><select value={containerType} onChange={(e) => setContainerType(e.target.value as ContainerType)} className="w-full h-12 bg-md-surface-container-highest border border-md-outline-variant/60 rounded-2xl px-4 text-sm font-medium outline-none text-md-on-surface">{CONTAINER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
+            <div><label className="block text-xs font-semibold text-md-on-surface-variant mb-1.5 ml-1">{t('lbl_desc')}</label><input type="text" placeholder="e.g. Weekly fertilization" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full h-12 bg-md-surface-container-highest border border-md-outline-variant/60 rounded-2xl px-4 text-sm font-medium outline-none text-md-on-surface" /></div>
+            <div><label className="block text-xs font-semibold text-md-on-surface-variant mb-1.5 ml-1">{t('lbl_usage_instructions')}</label><input type="text" placeholder="e.g. Mix 1:10 with water" value={applicationUsage} onChange={(e) => setApplicationUsage(e.target.value)} className="w-full h-12 bg-md-surface-container-highest border border-md-outline-variant/60 rounded-2xl px-4 text-sm font-medium outline-none text-md-on-surface" /></div>
+            <div><label className="block text-xs font-semibold text-md-on-surface-variant mb-1.5 ml-1">{t('lbl_instructions')}</label><input type="text" placeholder="e.g. Apply to soil only" value={instructions} onChange={(e) => setInstructions(e.target.value)} className="w-full h-12 bg-md-surface-container-highest border border-md-outline-variant/60 rounded-2xl px-4 text-sm font-medium outline-none text-md-on-surface" /></div>
+          </div>
         </div>
-        <div className="pt-4"><Button variant="primary" className="w-full py-5 rounded-[28px] shadow-2xl shadow-verdant/30 text-base font-black tracking-[0.2em]" disabled={isSaving || !mixName.trim() || ingredients.some(i => !i.name)} onClick={handleSave} isLoading={isSaving}>{itemToEdit ? t('save_changes').toUpperCase() : t('save_mix').toUpperCase()}</Button></div>
+        <div className="pt-2"><Button variant="primary" size="lg" className="w-full" disabled={isSaving || !mixName.trim() || ingredients.some(i => !i.name)} onClick={handleSave} isLoading={isSaving}>{itemToEdit ? t('save_changes') : t('save_mix')}</Button></div>
       </div>
     </div>
   );

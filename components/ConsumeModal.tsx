@@ -37,17 +37,17 @@ export const ConsumeModal: React.FC<ConsumeModalProps> = ({ item, isOpen, onClos
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`${t('btn_consume')}: ${lv(item.name)}`}>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700">
-           <div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{t('stats_total')}</p>
-              <p className="text-xl font-black text-gray-900 dark:text-white">{formatted.value} <span className="text-xs">{formatted.unit}</span></p>
-           </div>
-           {isOutOfStock && <span className="px-2 py-1 bg-red-100 text-red-600 text-[10px] font-black uppercase rounded-lg">{t('out_of_stock')}</span>}
+      <div className="space-y-5 font-sans">
+        <div className="flex items-center justify-between p-4 bg-md-surface-container rounded-2xl border border-md-outline-variant/30">
+          <div>
+            <p className="text-xs font-semibold text-md-on-surface-variant">{t('stats_total')}</p>
+            <p className="text-xl font-bold text-md-on-surface">{formatted.value} <span className="text-xs font-medium text-md-on-surface-variant">{formatted.unit}</span></p>
+          </div>
+          {isOutOfStock && <span className="px-2.5 py-1 bg-md-error-container text-md-on-error-container text-xs font-semibold rounded-full">{t('out_of_stock')}</span>}
         </div>
 
-        <div className="space-y-4">
-          <label className="block text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">{t('lbl_consume_amount')} ({item.unit})</label>
+        <div className="space-y-3">
+          <label className="block text-xs font-semibold text-md-on-surface-variant ml-1">{t('lbl_consume_amount')} ({item.unit})</label>
           
           <div className="relative">
             <input 
@@ -65,9 +65,9 @@ export const ConsumeModal: React.FC<ConsumeModalProps> = ({ item, isOpen, onClos
                   }
                 }
               }}
-              className="w-full bg-white dark:bg-slate-900 border-2 border-gray-100 dark:border-slate-800 rounded-2xl px-6 py-4 text-2xl font-black text-verdant outline-none focus:border-verdant transition-all"
+              className="w-full bg-md-surface-container-highest border border-md-outline-variant/60 rounded-2xl px-5 py-3.5 text-2xl font-bold text-md-primary outline-none focus:border-md-primary focus:ring-2 focus:ring-md-primary/20 transition-all"
             />
-            <div className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 font-bold uppercase text-sm">{item.unit}</div>
+            <div className="absolute right-5 top-1/2 -translate-y-1/2 text-md-on-surface-variant font-semibold uppercase text-xs">{item.unit}</div>
           </div>
 
           <div className="grid grid-cols-4 gap-2">
@@ -75,7 +75,7 @@ export const ConsumeModal: React.FC<ConsumeModalProps> = ({ item, isOpen, onClos
               <button 
                 key={p} 
                 onClick={() => setPercent(p)}
-                className="py-2 rounded-xl border border-gray-100 dark:border-slate-800 text-[10px] font-black uppercase tracking-widest hover:bg-verdant hover:text-white transition-all dark:text-slate-300"
+                className="m3-state-layer py-2.5 rounded-xl bg-md-surface-container-high border border-md-outline-variant/40 text-xs font-semibold text-md-on-surface hover:bg-md-secondary-container hover:text-md-on-secondary-container transition-all"
               >
                 {p * 100}%
               </button>
@@ -85,32 +85,33 @@ export const ConsumeModal: React.FC<ConsumeModalProps> = ({ item, isOpen, onClos
 
         {parseFloat(amount) > 0 && (
           <div className="space-y-3">
-            <div className="flex flex-col items-center justify-center p-4 bg-verdant/5 dark:bg-verdant/10 rounded-2xl border border-verdant/10 animate-in fade-in zoom-in-95 duration-300">
-              <p className="text-[10px] font-black text-verdant uppercase tracking-[0.2em] mb-1">Consumption Ratio</p>
-              <p className="text-lg font-black text-gray-900 dark:text-white">
-                {amount} {item.unit} <span className="text-gray-400 mx-2">/</span> {item.quantity} {item.unit}
+            <div className="flex flex-col items-center justify-center p-4 bg-md-primary-container/40 rounded-2xl border border-md-primary/20 animate-in fade-in zoom-in-95 duration-200">
+              <p className="text-xs font-semibold text-md-primary mb-1">Consumption Ratio</p>
+              <p className="text-lg font-bold text-md-on-surface">
+                {amount} {item.unit} <span className="text-md-on-surface-variant mx-1.5">/</span> {item.quantity} {item.unit}
               </p>
-              <div className="w-full h-1.5 bg-gray-100 dark:bg-slate-800 rounded-full mt-3 overflow-hidden">
+              <div className="w-full h-1.5 bg-md-surface-container-highest rounded-full mt-3 overflow-hidden">
                 <div 
-                  className="h-full bg-verdant transition-all duration-500 ease-out" 
+                  className="h-full bg-md-primary transition-all duration-500 ease-out rounded-full" 
                   style={{ width: `${Math.min(100, (parseFloat(amount) / item.quantity) * 100)}%` }}
                 />
               </div>
             </div>
 
-            <div className="flex justify-between items-center p-4 bg-gray-50 dark:bg-slate-800/50 rounded-2xl border border-gray-100 dark:border-slate-700 animate-in fade-in slide-in-from-bottom-2 duration-500">
-               <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Remaining Stock</span>
-               <span className="text-sm font-black text-verdant">
-                 {(item.quantity - parseFloat(amount)).toFixed(2)} {item.unit}
-               </span>
+            <div className="flex justify-between items-center p-4 bg-md-surface-container rounded-2xl border border-md-outline-variant/30 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <span className="text-xs font-semibold text-md-on-surface-variant">Remaining Stock</span>
+              <span className="text-sm font-bold text-md-primary">
+                {(item.quantity - parseFloat(amount)).toFixed(2)} {item.unit}
+              </span>
             </div>
           </div>
         )}
 
-        <div className="flex gap-3 pt-4">
-          <Button variant="ghost" className="flex-1" onClick={onClose}>{t('cancel')}</Button>
+        <div className="flex gap-3 pt-2">
+          <Button variant="tonal" className="flex-1" onClick={onClose}>{t('cancel')}</Button>
           <Button 
-            className="flex-1 shadow-lg shadow-verdant/20" 
+            variant="primary"
+            className="flex-1" 
             disabled={!amount || parseFloat(amount) <= 0 || isOutOfStock}
             onClick={handleConsume}
           >
