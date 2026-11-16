@@ -350,75 +350,8 @@ app.post('/api/auth/password/validate', async (req, res) => {
   }
 });
 
-// ARGON2ID FIRST-TIME PASSWORD SETUP (Root owner bootstrap or invited user without a password yet)
-app.post('/api/auth/password/setup', async (req, res) => {
-  try {
-    const email = (req.body?.email || '').trim().toLowerCase();
-    const password = req.body?.password || '';
-    const displayNameInput = (req.body?.name || '').trim();
-
-    if (!email) return res.status(400).json({ error: "EMAIL_REQUIRED" });
-
-    const nist = await validatePasswordNist(String(password), { name: displayNameInput, email });
-    if (!nist.isValid) {
-      return res.status(400).json({
-        error: nist.errors[0] || "PASSWORD_POLICY_VIOLATION",
-        details: nist.errors,
-        nist: {
-          errors: nist.errors,
-          warnings: nist.warnings,
-          entropyBits: nist.entropyBits,
-          isPwned: nist.isPwned,
-        },
-      });
-    }
-
-    const rootOwnerEmail = (process.env.VITE_ROOT_OWNER_EMAIL || process.env.ROOT_OWNER_EMAIL || '').trim().toLowerCase();
-    let userRes = await query('SELECT * FROM users WHERE LOWER(email) = ? AND deletedAt IS NULL', [email]);
-    let rawUser = userRes.rows[0] || null;
-
-    if (!rawUser) {
-      const totalUsersRes = await query('SELECT COUNT(*) as count FROM users WHERE deletedAt IS NULL');
-      const hasAnyUsers = (totalUsersRes.rows[0]?.count || 0) > 0;
-      if ((rootOwnerEmail && email === rootOwnerEmail) || !hasAnyUsers) {
-        const newId = `u-${crypto.randomUUID()}`;
-        const ownerName = displayNameInput || 'System Founder';
-        const pwHash = await hashPassword(nist.normalized);
-        await query(
-          'INSERT INTO users (id, email, name, role, houseId, passwordHash) VALUES (?, ?, ?, ?, ?, ?)',
-          [newId, email, ownerName, 'OWNER', null, pwHash]
-        );
-        const createdRes = await query('SELECT * FROM users WHERE id = ?', [newId]);
-        const user = parseUserRecord(createdRes.rows[0]);
-        const token = createSessionToken(user);
-        await logSystemEvent('ARGON2ID_OWNER_BOOTSTRAPPED', `Owner ${email} initialized with Argon2id (NIST SP 800-63B)`, 'INFO');
-        return res.json({ verified: true, token, user });
-      }
-      return res.status(404).json({ error: "USER_NOT_FOUND" });
-    }
-
-    if (rawUser.passwordHash) {
-      return res.status(403).json({ error: "PASSWORD_ALREADY_SET" });
-    }
-
-    const seasonalCheck = checkSeasonalAccess(rawUser);
-    if (!seasonalCheck.ok) {
-      return res.status(403).json({ error: seasonalCheck.reason });
-    }
-
-    const pwHash = await hashPassword(nist.normalized);
-    await query('UPDATE users SET passwordHash = ? WHERE id = ?', [pwHash, rawUser.id]);
-    const updatedRes = await query('SELECT * FROM users WHERE id = ?', [rawUser.id]);
-    const user = parseUserRecord(updatedRes.rows[0]);
-    const token = createSessionToken(user);
-
-    await logSystemEvent('ARGON2ID_PASSWORD_SET', `Argon2id password enrolled for ${user.email} (NIST SP 800-63B)`, 'INFO');
-    res.json({ verified: true, token, user });
-  } catch (e: any) {
-    console.error('[ARGON2ID] Setup error:', e);
-    res.status(500).json({ error: "PASSWORD_SETUP_FAULT" });
-  }
-});
+// Note: Initial admin setup & password resets are performed on the Linux/Proxmox host
+// via scripts/change-password.sh or ADMIN_EMAIL/ADMIN_PASSWORD in .env (no public setup).
 
 // ARGON2ID PASSWORD LOGIN (With NIST progressive throttling, optional FIDO2, TOTP & Recovery Code 2FA)
 app.post('/api/auth/password/login', async (req, res) => {
@@ -560,39 +493,20 @@ app.get('/api/auth/policy', async (req, res) => {
   }
 });
 
-// FIDO2 REGISTRATION OPTIONS (First-time enrollment OR adding a new passkey while logged in)
+// FIDO2 REGISTRATION OPTIONS (Requires authenticated session — add passkey from Security settings)
 app.post('/api/auth/webauthn/register/options', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     const tokenStr = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
     const sessionUser = tokenStr ? verifySessionToken(tokenStr) : null;
+    if (!sessionUser) {
+      return res.status(401).json({ error: "AUTHENTICATION_REQUIRED" });
+    }
 
-    let email = (req.body?.email || sessionUser?.email || '').trim().toLowerCase();
-    const displayNameInput = (req.body?.name || '').trim();
-
-    if (!email) return res.status(400).json({ error: "EMAIL_REQUIRED" });
-
-    const rootOwnerEmail = (process.env.VITE_ROOT_OWNER_EMAIL || process.env.ROOT_OWNER_EMAIL || '').trim().toLowerCase();
-    let userRes = await query('SELECT * FROM users WHERE LOWER(email) = ? AND deletedAt IS NULL', [email]);
-    let user = userRes.rows[0] ? parseUserRecord(userRes.rows[0]) : null;
-
+    const userRes = await query('SELECT * FROM users WHERE id = ? AND deletedAt IS NULL', [sessionUser.id]);
+    const user = userRes.rows[0] ? parseUserRecord(userRes.rows[0]) : null;
     if (!user) {
-      const totalUsersRes = await query('SELECT COUNT(*) as count FROM users WHERE deletedAt IS NULL');
-      const hasAnyUsers = (totalUsersRes.rows[0]?.count || 0) > 0;
-
-      // Allow Root Owner (or the very first user if no users exist yet) to bootstrap as OWNER
-      if ((rootOwnerEmail && email === rootOwnerEmail) || !hasAnyUsers) {
-        const newId = `u-${crypto.randomUUID()}`;
-        const ownerName = displayNameInput || 'System Founder';
-        await query(
-          'INSERT INTO users (id, email, name, role, houseId) VALUES (?, ?, ?, ?, ?)',
-          [newId, email, ownerName, 'OWNER', null]
-        );
-        user = { id: newId, email, name: ownerName, role: 'OWNER', houseId: null };
-        await logSystemEvent('ROOT_OWNER_BOOTSTRAPPED', `Owner ${email} initialized via FIDO2`, 'INFO');
-      } else {
-        return res.status(404).json({ error: "USER_NOT_FOUND" });
-      }
+      return res.status(404).json({ error: "USER_NOT_FOUND" });
     }
 
     const seasonalCheck = checkSeasonalAccess(user);
@@ -602,11 +516,6 @@ app.post('/api/auth/webauthn/register/options', async (req, res) => {
 
     const existingCredsRes = await query('SELECT * FROM webauthn_credentials WHERE userId = ?', [user.id]);
     const existingCreds = existingCredsRes.rows;
-
-    // Security gate: If user already has passkeys, only an authenticated session for that user can add more
-    if (existingCreds.length > 0 && (!sessionUser || sessionUser.id !== user.id)) {
-      return res.status(403).json({ error: "CREDENTIAL_ALREADY_REGISTERED" });
-    }
 
     const { rpID, rpName } = getRpConfig(req);
     const userNameStr = typeof user.name === 'object' ? (user.name?.en || user.email) : (user.name || user.email);
@@ -1853,6 +1762,22 @@ async function initializeDatabase() {
   try { await query(`ALTER TABLE users ADD COLUMN totpEnabled INTEGER DEFAULT 0`); } catch(e) {}
   try { await query(`ALTER TABLE users ADD COLUMN recoveryCodes TEXT`); } catch(e) {}
   try { await query(`ALTER TABLE api_usage ADD COLUMN gemini_tokens INTEGER DEFAULT 0`); } catch(e) {}
+
+  // Seed initial OWNER from .env if no users exist yet (Proxmox / Docker preset)
+  const existingUsers = await query('SELECT COUNT(*) as count FROM users WHERE deletedAt IS NULL');
+  if ((existingUsers.rows[0]?.count || 0) === 0) {
+    const seedEmail = (process.env.VERDANT_ADMIN_EMAIL || process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+    const seedPw = process.env.VERDANT_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '';
+    const seedName = (process.env.VERDANT_ADMIN_NAME || process.env.ADMIN_NAME || 'System Owner').trim();
+    if (seedEmail && seedPw.length >= 8) {
+      const pwHash = await hashPassword(seedPw);
+      await query(
+        'INSERT INTO users (id, email, name, role, houseId, passwordHash) VALUES (?, ?, ?, ?, ?, ?)',
+        [`u-${crypto.randomUUID()}`, seedEmail, seedName, 'OWNER', null, pwHash]
+      );
+      console.log(`[AUTH] Pre-seeded OWNER account from environment: ${seedEmail}`);
+    }
+  }
 
   console.log('[DB] Schema Synchronized');
 }

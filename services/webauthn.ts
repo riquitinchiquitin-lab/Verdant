@@ -31,27 +31,6 @@ export async function getWebAuthnStatus(): Promise<WebAuthnStatus> {
   return res.json();
 }
 
-export async function setupPassword(params: {
-  email: string;
-  password: string;
-  name?: string;
-}): Promise<{ verified: boolean; token: string; user: User }> {
-  const res = await fetch(`${API_URL}/api/auth/password/setup`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email: params.email.trim().toLowerCase(),
-      password: params.password,
-      name: params.name?.trim(),
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || 'PASSWORD_SETUP_FAULT');
-  }
-  return res.json();
-}
-
 export interface PasswordLoginResult {
   verified?: boolean;
   token?: string;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Fingerprint, KeyRound, ShieldCheck, UserPlus, Lock, Smartphone } from 'lucide-react';
+import { Fingerprint, KeyRound, Lock, Smartphone, Terminal } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useSystem } from '../context/SystemContext';
@@ -8,14 +8,11 @@ import { Logo } from '../components/ui/Logo';
 import { Button } from '../components/ui/Button';
 import { LanguageSelector } from '../components/ui/LanguageSelector';
 import { ThemeToggle } from '../components/ThemeToggle';
-import { NistPasswordMeter } from '../components/NistPasswordMeter';
 import {
   isWebAuthnSupported,
   getWebAuthnStatus,
   authenticateWithPasskey,
-  registerPasskey,
   loginWithPassword,
-  setupPassword,
   WebAuthnStatus,
 } from '../services/webauthn';
 
@@ -25,43 +22,28 @@ export const SecureAuth: React.FC = () => {
   const { showNotification } = useSystem();
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState<'LOGIN' | 'ENROLL'>('LOGIN');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [requireFido2, setRequireFido2] = useState(false);
   const [totpStep, setTotpStep] = useState(false);
   const [totpCode, setTotpCode] = useState('');
   const [useRecoveryCode, setUseRecoveryCode] = useState(false);
   const [recoveryCode, setRecoveryCode] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [deviceLabel, setDeviceLabel] = useState('');
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [status, setStatus] = useState<WebAuthnStatus | null>(null);
   const webAuthnSupported = isWebAuthnSupported();
 
-  // Redirect if already authenticated
   useEffect(() => {
     if (!authLoading && user) {
       navigate('/');
     }
   }, [user, authLoading, navigate]);
 
-  // Check server auth status on mount
   useEffect(() => {
     getWebAuthnStatus()
-      .then((s) => {
-        setStatus(s);
-        if (!s.hasCredentials && !s.hasPasswords) {
-          setMode('ENROLL');
-          const rootEmail = (window as any)._ENV_?.ROOT_OWNER_EMAIL || import.meta.env.VITE_ROOT_OWNER_EMAIL || '';
-          if (rootEmail) setEmail(rootEmail);
-        }
-      })
-      .catch(() => {
-        // Ignore transient status fetch errors
-      });
+      .then((s) => setStatus(s))
+      .catch(() => {});
   }, []);
 
   const mapAuthError = (err: any): string => {
@@ -72,11 +54,8 @@ export const SecureAuth: React.FC = () => {
     if (msg === 'INVALID_CREDENTIALS') return 'Invalid email or password.';
     if (msg === 'INVALID_TOTP_CODE') return 'Invalid 6-digit authenticator code.';
     if (msg === 'INVALID_RECOVERY_CODE') return 'Invalid or already used recovery code.';
-    if (msg === 'PASSWORD_TOO_SHORT') return 'Password must be at least 8 characters (NIST SP 800-63B).';
-    if (msg === 'PASSWORD_NOT_SET') return 'No password set for this account yet. Use "Setup / Enroll" to set one.';
-    if (msg === 'PASSWORD_ALREADY_SET') return 'Password is already configured. Sign in to change it in Admin > Security.';
-    if (msg === 'NO_PASSKEY_REGISTERED') return 'No passkey enrolled for this account yet. Use "Setup / Enroll" below.';
-    if (msg === 'CREDENTIAL_ALREADY_REGISTERED') return 'This account already has a passkey enrolled. Sign in first to add another.';
+    if (msg === 'PASSWORD_NOT_SET') return 'No password configured for this account. Ask an administrator or run scripts/change-password.sh on the host.';
+    if (msg === 'NO_PASSKEY_REGISTERED') return 'No passkey enrolled for this account. Sign in with your password first and add a passkey in Admin > Security.';
     return msg || 'PROTOCOL_FAULT';
   };
 
@@ -112,11 +91,7 @@ export const SecureAuth: React.FC = () => {
         await completeLogin({ token: result.token, user: result.user });
       }
     } catch (err: any) {
-      const friendly = mapAuthError(err);
-      setAuthError(friendly);
-      if (err?.message === 'PASSWORD_NOT_SET') {
-        setMode('ENROLL');
-      }
+      setAuthError(mapAuthError(err));
       showNotification('AUTHENTICATION FAILED', 'ERROR');
     } finally {
       setLoading(false);
@@ -136,65 +111,8 @@ export const SecureAuth: React.FC = () => {
       const result = await authenticateWithPasskey(targetEmail);
       await completeLogin(result);
     } catch (e: any) {
-      const friendly = mapAuthError(e);
-      setAuthError(friendly);
-      if (e?.message === 'NO_PASSKEY_REGISTERED') {
-        setMode('ENROLL');
-      }
+      setAuthError(mapAuthError(e));
       showNotification('AUTHENTICATION FAILED', 'ERROR');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSetupPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) {
-      setAuthError('Please enter your email address.');
-      return;
-    }
-    if (password.length < 8) {
-      setAuthError('Password must be at least 8 characters (NIST SP 800-63B).');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setAuthError('Passwords do not match.');
-      return;
-    }
-    setLoading(true);
-    setAuthError(null);
-    try {
-      const result = await setupPassword({
-        email: email.trim().toLowerCase(),
-        password,
-        name: displayName.trim() || undefined,
-      });
-      await completeLogin(result);
-    } catch (err: any) {
-      setAuthError(mapAuthError(err));
-      showNotification('SETUP FAILED', 'ERROR');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEnrollPasskey = async () => {
-    if (!email.trim()) {
-      setAuthError('Please enter your registered email address.');
-      return;
-    }
-    setLoading(true);
-    setAuthError(null);
-    try {
-      const result = await registerPasskey({
-        email: email.trim().toLowerCase(),
-        name: displayName.trim() || undefined,
-        label: deviceLabel.trim() || undefined,
-      });
-      await completeLogin(result);
-    } catch (err: any) {
-      setAuthError(mapAuthError(err));
-      showNotification('ENROLLMENT FAILED', 'ERROR');
     } finally {
       setLoading(false);
     }
@@ -213,7 +131,6 @@ export const SecureAuth: React.FC = () => {
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/5 blur-[120px] rounded-full pointer-events-none"></div>
 
-      {/* Theme and Language Selectors Overlay */}
       <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] right-[calc(1rem+env(safe-area-inset-right))] md:top-8 md:right-8 z-20 flex items-center gap-3">
         <ThemeToggle />
         <LanguageSelector variant="filled" align="right" />
@@ -237,7 +154,6 @@ export const SecureAuth: React.FC = () => {
             </div>
           </div>
 
-          {/* BIBLE VERSE SECTION */}
           <div className="relative py-2.5 px-4 text-center">
             <div className="absolute inset-0 bg-emerald-500/5 rounded-[24px] blur-xl"></div>
             <div className="relative">
@@ -250,6 +166,21 @@ export const SecureAuth: React.FC = () => {
 
           <div className="h-px w-full bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent"></div>
 
+          {status && !status.hasUsers && (
+            <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-left space-y-1.5">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">
+                <Terminal className="w-3.5 h-3.5" />
+                Server Initialization Required
+              </div>
+              <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                No administrator account exists yet. Preset the Owner account on your Proxmox/Linux host:
+              </p>
+              <code className="block p-2 rounded-lg bg-slate-900 text-emerald-400 text-[10px] font-mono">
+                ./scripts/change-password.sh
+              </code>
+            </div>
+          )}
+
           {loading ? (
             <div className="flex flex-col items-center gap-4 py-6">
               <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
@@ -258,285 +189,141 @@ export const SecureAuth: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="space-y-5">
-              {/* Mode Switcher */}
-              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800/70 rounded-2xl">
-                <button
-                  type="button"
-                  onClick={() => { setMode('LOGIN'); setAuthError(null); }}
-                  className={`py-2.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 ${
-                    mode === 'LOGIN'
-                      ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
-                  }`}
+            <div className="space-y-4">
+              <form onSubmit={handlePasswordLogin} className="space-y-3">
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="personnel@domain.com"
+                  className="w-full h-12 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
+                />
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password (Argon2id)"
+                  className="w-full h-12 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
+                />
+                {totpStep && (
+                  <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2.5 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                        <Smartphone className="w-3.5 h-3.5" />
+                        {useRecoveryCode ? 'One-Time Recovery Code' : '2FA Authenticator Code'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => { setUseRecoveryCode(!useRecoveryCode); setAuthError(null); }}
+                        className="text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-emerald-600 underline"
+                      >
+                        {useRecoveryCode ? 'Use 6-digit TOTP' : 'Use Recovery Code'}
+                      </button>
+                    </div>
+                    {useRecoveryCode ? (
+                      <input
+                        type="text"
+                        required
+                        value={recoveryCode}
+                        onChange={(e) => setRecoveryCode(e.target.value)}
+                        placeholder="XXXX-XXXX"
+                        className="w-full h-11 bg-white dark:bg-slate-900 rounded-xl px-4 text-sm font-mono font-bold tracking-widest outline-none border border-emerald-500/30 dark:text-white"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]{6}"
+                        maxLength={6}
+                        required
+                        value={totpCode}
+                        onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="000000"
+                        className="w-full h-11 bg-white dark:bg-slate-900 rounded-xl px-4 text-center text-lg font-mono font-black tracking-[0.4em] outline-none border border-emerald-500/30 dark:text-white"
+                      />
+                    )}
+                  </div>
+                )}
+                {webAuthnSupported && !totpStep && (
+                  <label className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer px-1">
+                    <input
+                      type="checkbox"
+                      checked={requireFido2}
+                      onChange={(e) => setRequireFido2(e.target.checked)}
+                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    Require FIDO2 2nd Factor
+                  </label>
+                )}
+                <Button
+                  type="submit"
+                  className="w-full h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
                 >
-                  <Lock className="w-3.5 h-3.5" />
-                  Sign In
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setMode('ENROLL'); setAuthError(null); }}
-                  className={`py-2.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 ${
-                    mode === 'ENROLL'
-                      ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
-                  }`}
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  Setup / Enroll
-                </button>
-              </div>
+                  <Lock className="w-4 h-4" />
+                  {totpStep ? 'Verify 2FA & Sign In' : 'Sign In with Password'}
+                </Button>
+              </form>
 
-              {mode === 'LOGIN' ? (
-                <div className="space-y-4">
-                  <form onSubmit={handlePasswordLogin} className="space-y-3">
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="personnel@domain.com"
-                      className="w-full h-12 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
-                    />
-                    <input
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Password (Argon2id)"
-                      className="w-full h-12 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
-                    />
-                    {totpStep && (
-                      <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2.5 animate-in fade-in duration-200">
-                        <div className="flex items-center justify-between">
-                          <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
-                            <Smartphone className="w-3.5 h-3.5" />
-                            {useRecoveryCode ? 'One-Time Recovery Code' : '2FA Authenticator Code'}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => { setUseRecoveryCode(!useRecoveryCode); setAuthError(null); }}
-                            className="text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-emerald-600 underline"
-                          >
-                            {useRecoveryCode ? 'Use 6-digit TOTP' : 'Use Recovery Code'}
-                          </button>
-                        </div>
-                        {useRecoveryCode ? (
-                          <input
-                            type="text"
-                            required
-                            value={recoveryCode}
-                            onChange={(e) => setRecoveryCode(e.target.value)}
-                            placeholder="XXXX-XXXX"
-                            className="w-full h-11 bg-white dark:bg-slate-900 rounded-xl px-4 text-sm font-mono font-bold tracking-widest outline-none border border-emerald-500/30 dark:text-white"
-                          />
-                        ) : (
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]{6}"
-                            maxLength={6}
-                            required
-                            value={totpCode}
-                            onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                            placeholder="000000"
-                            className="w-full h-11 bg-white dark:bg-slate-900 rounded-xl px-4 text-center text-lg font-mono font-black tracking-[0.4em] outline-none border border-emerald-500/30 dark:text-white"
-                          />
-                        )}
-                      </div>
-                    )}
-                    {webAuthnSupported && !totpStep && (
-                      <label className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer px-1">
-                        <input
-                          type="checkbox"
-                          checked={requireFido2}
-                          onChange={(e) => setRequireFido2(e.target.checked)}
-                          className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                        />
-                        Require FIDO2 2nd Factor
-                      </label>
-                    )}
+              {webAuthnSupported && (
+                <>
+                  <div className="relative flex items-center py-1">
+                    <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+                    <span className="flex-shrink mx-3 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                      Or FIDO2 Passkey
+                    </span>
+                    <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2">
                     <Button
-                      type="submit"
-                      className="w-full h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
+                      type="button"
+                      variant="ghost"
+                      onClick={() => handlePasskeyLogin(false)}
+                      className="w-full h-11 rounded-xl border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
                     >
-                      <Lock className="w-4 h-4" />
-                      {totpStep ? 'Verify 2FA & Sign In' : 'Sign In with Password'}
+                      <Fingerprint className="w-4 h-4" />
+                      Sign in with Passkey
                     </Button>
-                  </form>
-
-                  {webAuthnSupported && (
-                    <>
-                      <div className="relative flex items-center py-1">
-                        <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-                        <span className="flex-shrink mx-3 text-[9px] font-black uppercase tracking-widest text-slate-400">
-                          Or FIDO2 Passkey
-                        </span>
-                        <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => handlePasskeyLogin(false)}
-                          className="w-full h-11 rounded-xl border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
-                        >
-                          <Fingerprint className="w-4 h-4" />
-                          Sign in with Passkey
-                        </Button>
-                        {email.trim() && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => handlePasskeyLogin(true)}
-                            className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
-                          >
-                            <KeyRound className="w-3.5 h-3.5 text-emerald-500" />
-                            Verify Security Key for {email.trim()}
-                          </Button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <form onSubmit={handleSetupPassword} className="space-y-3">
-                  {status && !status.hasPasswords && !status.hasCredentials && (
-                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[10px] font-bold text-emerald-700 dark:text-emerald-400 leading-relaxed">
-                      First-time setup: Initialize your Owner account with an Argon2id password or FIDO2 passkey.
-                    </div>
-                  )}
-                  <div>
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">
-                      Authorized Email
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="name@domain.com"
-                      className="w-full h-11 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
-                    />
-                  </div>
-                  {status && !status.hasUsers && (
-                    <div>
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">
-                        Display Name
-                      </label>
-                      <input
-                        type="text"
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        placeholder="System Founder"
-                        className="w-full h-11 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
-                      />
-                    </div>
-                  )}
-                  <div>
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">
-                      New Password (NIST SP 800-63B, Argon2id)
-                    </label>
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="•••••••••••••••"
-                      className="w-full h-11 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
-                    />
-                  </div>
-                  <NistPasswordMeter password={password} email={email} name={displayName} />
-                  <div>
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">
-                      Confirm Password
-                    </label>
-                    <input
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="••••••••••"
-                      className="w-full h-11 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
-                  >
-                    <ShieldCheck className="w-4 h-4" />
-                    Set Argon2id Password
-                  </Button>
-
-                  {webAuthnSupported && (
-                    <>
-                      <div className="relative flex items-center py-1">
-                        <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-                        <span className="flex-shrink mx-3 text-[9px] font-black uppercase tracking-widest text-slate-400">
-                          Or Enroll FIDO2 Key
-                        </span>
-                        <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-                      </div>
-                      <input
-                        type="text"
-                        value={deviceLabel}
-                        onChange={(e) => setDeviceLabel(e.target.value)}
-                        placeholder="Key label (e.g. MacBook TouchID, YubiKey 5)"
-                        className="w-full h-11 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
-                      />
+                    {email.trim() && (
                       <Button
                         type="button"
                         variant="ghost"
-                        onClick={handleEnrollPasskey}
-                        className="w-full h-11 rounded-xl border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
+                        onClick={() => handlePasskeyLogin(true)}
+                        className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
                       >
-                        <Fingerprint className="w-4 h-4" />
-                        Enroll FIDO2 Passkey
+                        <KeyRound className="w-3.5 h-3.5 text-emerald-500" />
+                        Verify Security Key for {email.trim()}
                       </Button>
-                    </>
-                  )}
-                </form>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           )}
 
           {authError && (
-            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-center space-y-1.5">
-              <p className="text-[10px] font-black text-red-500 uppercase tracking-widest leading-relaxed">
+            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-center">
+              <p className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest leading-relaxed">
                 {authError}
               </p>
-              {authError === t('msg_access_denied') && (
-                <p className="text-[9px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-tight italic leading-relaxed">
-                  {t('msg_invite_required')}
-                </p>
-              )}
             </div>
           )}
         </div>
 
-        {/* ORCHESTRATION LINKS FOOTER */}
-        <div className="text-center space-y-6">
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-[8px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.4em]">System Orchestration</p>
-            <p className="text-[7px] text-emerald-600/40 dark:text-emerald-500/30 font-black uppercase tracking-[0.2em]">Verdant Protocol v1.0</p>
-          </div>
-          <div className="flex flex-wrap justify-center items-center gap-x-8 gap-y-4 px-4">
-            {serviceLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-500 transition-all hover:scale-110"
-              >
-                {link.name}
-              </a>
-            ))}
-          </div>
-          <div className="h-px w-12 bg-slate-200 dark:bg-slate-700 mx-auto opacity-40"></div>
-          <p className="text-[9px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.5em] opacity-40">© 2026 VERDANT BOTANICAL SYSTEMS</p>
-          <p className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-[0.15em] opacity-70 max-w-[300px] mx-auto leading-relaxed">
-            Creative Commons Attribution-NonCommercial 4.0 International Public License
-          </p>
+        <div className="flex flex-wrap items-center justify-center gap-4 pt-2 opacity-60">
+          {serviceLinks.map((link) => (
+            <a
+              key={link.name}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-emerald-500 transition-colors"
+            >
+              {link.name}
+            </a>
+          ))}
         </div>
       </div>
     </div>
