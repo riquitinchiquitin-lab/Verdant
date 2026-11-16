@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { Plant } from '../types';
+import { getShortBarcodeId } from './barcodeService';
 
 /**
  * Generates an Excel file optimized for Niimbot App label import.
@@ -25,7 +26,7 @@ export const exportPlantsToNiimbotExcel = (plants: Plant[], lv: (val: any) => st
       'nickname': lv(p.nickname),
       'species': p.species,
       'family': p.family || '-',
-      'barcode': plantId,
+      'barcode': getShortBarcodeId(plantId),
       'qr': hFormatHash
     };
   });

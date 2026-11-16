@@ -8,6 +8,7 @@ import { exportPlantsToNiimbotExcel } from '../services/exportService';
 import {
   D110_LABEL_W_PX,
   D110_LABEL_H_PX,
+  getShortBarcodeId,
   isNiimbotWebBluetoothSupported,
   printLabelsToNiimbotD110,
   renderD110LabelCanvas,
@@ -43,7 +44,8 @@ export const LabelsView: React.FC = () => {
       const matchesSearch = !q ||
         (lv(p.nickname) || '').toLowerCase().includes(q) ||
         (p.species || '').toLowerCase().includes(q) ||
-        (p.id || '').toLowerCase().includes(q);
+        (p.id || '').toLowerCase().includes(q) ||
+        getShortBarcodeId(p.id).toLowerCase().includes(q);
       return matchesHouse && matchesSearch;
     });
   }, [plants, selectedHouseId, searchQuery, lv, isGlobalUser, user?.houseId]);
@@ -326,7 +328,7 @@ export const LabelsView: React.FC = () => {
                             {p.species}
                           </p>
                           <code className="sm:hidden inline-block mt-1 text-[11px] font-mono text-md-primary bg-md-primary-container/25 px-2 py-0.5 rounded-md border border-md-primary/20">
-                            {p.id}
+                            {getShortBarcodeId(p.id)}
                           </code>
                         </div>
                       </div>
@@ -338,7 +340,7 @@ export const LabelsView: React.FC = () => {
                     </td>
                     <td className="px-4 md:px-6 py-3.5 hidden sm:table-cell whitespace-nowrap">
                       <code className="text-xs font-mono text-md-primary bg-md-primary-container/25 px-2.5 py-1 rounded-lg border border-md-primary/20 select-all">
-                        {p.id}
+                        {getShortBarcodeId(p.id)}
                       </code>
                     </td>
                   </tr>

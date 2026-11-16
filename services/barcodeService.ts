@@ -20,6 +20,17 @@ const CODE128_PATTERNS: string[] = [
 ];
 
 /**
+ * Generates a compact 10-character Code 128B ID (e.g. V-3DA6F9F2) from a plant UUID
+ * so the barcode prints with wide, crisp 2px bars and full quiet zones on 15×50mm labels.
+ */
+export function getShortBarcodeId(id?: string): string {
+  const raw = (id || 'NEW').trim();
+  const stripped = raw.replace(/^p-(?:synced-)?/i, '').replace(/[^a-zA-Z0-9]/g, '');
+  const short = (stripped || raw).slice(0, 8).toUpperCase();
+  return `V-${short}`;
+}
+
+/**
  * Encodes an ASCII string (32..126) as a Code 128B module array (1 = black bar, 0 = white space).
  */
 export function encodeCode128B(text: string): number[] {
@@ -115,7 +126,7 @@ export function renderD110LabelCanvas(
   ctx.fillText(fitText(ctx, subline || 'Verdant Specimen', maxTextWidth), padX, 24);
 
   // Line 3: Code 128B Barcode (integer bar width for razor-sharp 203 DPI thermal printing)
-  const barcodeValue = (plant.id || 'NEW').trim();
+  const barcodeValue = getShortBarcodeId(plant.id);
   const modules = encodeCode128B(barcodeValue);
   const maxBarcodeWidth = D110_LABEL_W_PX - 24;
   const barWidth = modules.length * 2 <= maxBarcodeWidth ? 2 : 1;
