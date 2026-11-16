@@ -124,9 +124,12 @@ fi
 [ -d "$INSTALL_DIR/data" ] && chmod 700 "$INSTALL_DIR/data"
 [ -f "$INSTALL_DIR/.env" ] && chmod 600 "$INSTALL_DIR/.env"
 
-# 8. Restart service & health check with rollback
-echo -e "${CYAN}[7/7] Restarting ${SERVICE_NAME}.service & verifying health...${NC}"
-if systemctl list-unit-files 2>/dev/null | grep -q "${SERVICE_NAME}.service"; then
+# 8. Restart service / Docker Compose & health check with rollback
+echo -e "${CYAN}[7/7] Restarting Verdant & verifying health...${NC}"
+if [ -f "$INSTALL_DIR/docker-compose.yml" ] && command -v docker >/dev/null 2>&1 && docker compose ps -q 2>/dev/null | grep -q .; then
+  docker compose up -d --build
+  echo -e "${GREEN}✓ Docker Compose stack rebuilt & restarted.${NC}"
+elif systemctl list-unit-files 2>/dev/null | grep -q "${SERVICE_NAME}.service"; then
   systemctl start "$SERVICE_NAME"
   sleep 3
   if curl -fsS "http://127.0.0.1:${PORT}/api/auth/webauthn/status" >/dev/null 2>&1; then

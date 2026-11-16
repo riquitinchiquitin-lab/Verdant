@@ -12,6 +12,11 @@ export default defineConfig(({ mode }) => {
       react(),
       isProd && VitePWA({
         registerType: 'autoUpdate',
+        workbox: {
+          cleanupOutdatedCaches: true,
+          skipWaiting: true,
+          clientsClaim: true,
+        },
         includeAssets: ['logo.svg', 'apple-touch-icon.png', 'masked-icon.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
           name: 'Verdant Botanical Systems',
