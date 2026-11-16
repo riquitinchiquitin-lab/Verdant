@@ -50,7 +50,7 @@ export const ManualView: React.FC = () => {
         {/* HEADER SECTION */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b-2 border-slate-200 dark:border-white/5 pb-12 relative">
           <div className="flex items-center gap-8">
-            <div className="w-20 h-20 drop-shadow-[0_0_15px_rgba(94,143,71,0.5)]">
+            <div className="w-20 h-20 text-md-primary drop-shadow-[0_0_15px_rgba(94,143,71,0.35)]">
               <Logo />
             </div>
             <div>
