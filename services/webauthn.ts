@@ -130,11 +130,18 @@ export async function regenerateRecoveryCodes(token: string): Promise<{ recovery
   return res.json();
 }
 
+export interface UserComplianceItem {
+  id: string;
+  name: string;
+  compliant: boolean;
+}
+
 export interface SecurityPolicyStatus {
   allUsersRequired: boolean;
   totalUsers: number;
   compliantUsers: number;
   nonCompliantUsers: number;
+  userCompliance?: UserComplianceItem[];
 }
 
 export async function getSecurityPolicy(): Promise<SecurityPolicyStatus> {
@@ -153,6 +160,14 @@ export async function updateSecurityPolicy(token: string, allUsersRequired: bool
     body: JSON.stringify({ allUsersRequired }),
   });
   if (!res.ok) throw new Error('POLICY_UPDATE_FAULT');
+}
+
+export async function revokeAllPasskeys(token: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/auth/webauthn/credentials/revoke-all`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('CREDENTIAL_REVOKE_FAULT');
 }
 
 export async function registerPasskey(params: {

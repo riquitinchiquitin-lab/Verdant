@@ -499,18 +499,35 @@ app.get('/api/auth/policy', async (req, res) => {
   try {
     const policyRes = await query('SELECT require2faAllUsers FROM security_policy WHERE id = 1');
     const allUsersRequired = Boolean(policyRes.rows[0]?.require2faAllUsers);
-    const usersRes = await query('SELECT id, totpEnabled, totpSecret FROM users WHERE deletedAt IS NULL');
+    const usersRes = await query('SELECT id, name, email, totpEnabled, totpSecret FROM users WHERE deletedAt IS NULL');
     const credsRes = await query('SELECT DISTINCT userId FROM webauthn_credentials');
     const passkeyUsers = new Set(credsRes.rows.map((r: any) => r.userId));
     const totalUsers = usersRes.rows.length;
-    const compliantUsers = usersRes.rows.filter(
-      (u: any) => passkeyUsers.has(u.id) || Boolean(u.totpEnabled && u.totpSecret)
-    ).length;
+    const userCompliance = usersRes.rows.map((u: any) => {
+      let displayName = u.email || u.id;
+      try {
+        const parsedName = typeof u.name === 'string' && u.name.startsWith('{') ? JSON.parse(u.name) : u.name;
+        if (parsedName && typeof parsedName === 'object') {
+          displayName = parsedName.en || parsedName.fr || Object.values(parsedName)[0] || displayName;
+        } else if (parsedName) {
+          displayName = String(parsedName);
+        }
+      } catch {
+        displayName = u.name || displayName;
+      }
+      return {
+        id: u.id,
+        name: displayName,
+        compliant: passkeyUsers.has(u.id) || Boolean(u.totpEnabled && u.totpSecret),
+      };
+    });
+    const compliantUsers = userCompliance.filter((u: any) => u.compliant).length;
     res.json({
       allUsersRequired,
       totalUsers,
       compliantUsers,
       nonCompliantUsers: totalUsers - compliantUsers,
+      userCompliance,
     });
   } catch (e) {
     res.status(500).json({ error: "POLICY_FAULT" });
@@ -847,6 +864,17 @@ app.delete('/api/auth/webauthn/credentials/:id', checkAuth, async (req, res) => 
   }
 });
 
+app.post('/api/auth/webauthn/credentials/revoke-all', checkAuth, async (req, res) => {
+  try {
+    const userId = (req as any).userId;
+    await query('DELETE FROM webauthn_credentials WHERE userId = ?', [userId]);
+    await logSystemEvent('PASSKEYS_REVOKED_ALL', `All passkeys revoked by user ${userId}`, 'WARN');
+    res.json({ status: 'ok' });
+  } catch (e) {
+    res.status(500).json({ error: 'CREDENTIAL_REVOKE_FAULT' });
+  }
+});
+
 app.post('/api/users/:id/reset-passkeys', checkAuth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -1089,6 +1117,131 @@ app.get('/api/system/config', checkAuth, (req, res) => {
     return res.json({ masterKey: currentVaultKey || process.env.MASTER_KEY || 'demo-key' });
   }
   res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+});
+
+function upsertEnvFile(updates: Record<string, string>) {
+  const envPath = path.resolve(process.cwd(), '.env');
+  let lines: string[] = [];
+  if (fs.existsSync(envPath)) {
+    lines = fs.readFileSync(envPath, 'utf-8').split(/\r?\n/);
+  }
+  for (const [key, val] of Object.entries(updates)) {
+    const idx = lines.findIndex((l) => l.startsWith(`${key}=`));
+    const sanitized = String(val ?? '').replace(/[\r\n]/g, '');
+    const entry = `${key}=${sanitized}`;
+    if (idx >= 0) lines[idx] = entry;
+    else lines.push(entry);
+  }
+  fs.writeFileSync(envPath, lines.filter((l, i) => !(i === lines.length - 1 && l === '')).join('\n') + '\n', 'utf-8');
+}
+
+app.get('/api/system/hosting', checkAuth, async (req, res) => {
+  const role = (req as any).userRole;
+  if (!['OWNER', 'CO_CEO'].includes(role)) {
+    return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+  }
+  try {
+    const token = process.env.CLOUDFLARE_TUNNEL_TOKEN || '';
+    const maskedToken = token ? `${token.slice(0, 8)}••••••••${token.slice(-4)}` : '';
+    const hostingMode =
+      (process.env.HOSTING_MODE as 'cloudflare' | 'tailscale' | 'lan') ||
+      (token ? 'cloudflare' : 'lan');
+
+    res.json({
+      workspaceName: process.env.WORKSPACE_NAME || 'Botanical Workspace',
+      hostingMode,
+      appUrl: process.env.APP_URL || '',
+      tailscaleDomain: process.env.TAILSCALE_DOMAIN || '',
+      cloudflareTokenConfigured: Boolean(token),
+      cloudflareTokenMasked: maskedToken,
+      port,
+      geminiReady: Boolean(process.env.GEMINI_API_KEY),
+    });
+  } catch (e) {
+    res.status(500).json({ error: "HOSTING_CONFIG_FAULT" });
+  }
+});
+
+app.post('/api/system/hosting', checkAuth, async (req, res) => {
+  const role = (req as any).userRole;
+  if (!['OWNER', 'CO_CEO'].includes(role)) {
+    return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+  }
+  try {
+    const { workspaceName, hostingMode, appUrl, cloudflareTunnelToken, tailscaleDomain } = req.body || {};
+    const updates: Record<string, string> = {};
+
+    if (typeof workspaceName === 'string' && workspaceName.trim()) {
+      const cleanName = workspaceName.trim().slice(0, 60);
+      process.env.WORKSPACE_NAME = cleanName;
+      updates.WORKSPACE_NAME = cleanName;
+    }
+    if (hostingMode && ['cloudflare', 'tailscale', 'lan'].includes(hostingMode)) {
+      process.env.HOSTING_MODE = hostingMode;
+      updates.HOSTING_MODE = hostingMode;
+    }
+    if (typeof appUrl === 'string') {
+      const cleanUrl = appUrl.trim().replace(/\/+$/, '');
+      process.env.APP_URL = cleanUrl;
+      updates.APP_URL = cleanUrl;
+    }
+    if (typeof tailscaleDomain === 'string') {
+      const cleanTs = tailscaleDomain.trim().replace(/\/+$/, '');
+      process.env.TAILSCALE_DOMAIN = cleanTs;
+      updates.TAILSCALE_DOMAIN = cleanTs;
+    }
+    if (typeof cloudflareTunnelToken === 'string' && cloudflareTunnelToken.trim() && !cloudflareTunnelToken.includes('••••')) {
+      const cleanToken = cloudflareTunnelToken.trim();
+      process.env.CLOUDFLARE_TUNNEL_TOKEN = cleanToken;
+      updates.CLOUDFLARE_TUNNEL_TOKEN = cleanToken;
+    }
+
+    for (const [k, v] of Object.entries(updates)) {
+      await query(
+        `INSERT INTO system_settings (key, value, updatedAt) VALUES (?, ?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updatedAt = excluded.updatedAt`,
+        [k, v, new Date().toISOString()]
+      );
+    }
+
+    try {
+      if (Object.keys(updates).length > 0) upsertEnvFile(updates);
+    } catch (envErr) {
+      console.warn('[HOSTING] Could not write .env file (non-fatal):', envErr);
+    }
+
+    await logSystemEvent('HOSTING_SETTINGS_UPDATED', `Hosting/domain settings updated by ${(req as any).userId || 'ADMIN'}`, 'INFO');
+    res.json({ status: 'ok', workspaceName: process.env.WORKSPACE_NAME || 'Botanical Workspace' });
+  } catch (e) {
+    res.status(500).json({ error: "HOSTING_SAVE_FAULT" });
+  }
+});
+
+app.post('/api/system/test-endpoint', checkAuth, async (req, res) => {
+  const role = (req as any).userRole;
+  if (!['OWNER', 'CO_CEO'].includes(role)) {
+    return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+  }
+  const rawUrl = String(req.body?.url || '').trim().replace(/\/+$/, '');
+  if (!rawUrl || !/^https?:\/\/.+/i.test(rawUrl)) {
+    return res.status(400).json({ ok: false, error: 'INVALID_URL' });
+  }
+  const startedAt = Date.now();
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const resp = await fetch(`${rawUrl}/api/health`, { method: 'GET', signal: controller.signal });
+    clearTimeout(timer);
+    const latencyMs = Date.now() - startedAt;
+    res.json({ ok: resp.ok, status: resp.status, latencyMs });
+  } catch (err: any) {
+    res.json({
+      ok: false,
+      status: 0,
+      latencyMs: Date.now() - startedAt,
+      error: err?.name === 'AbortError' ? 'TIMEOUT' : (err?.message || 'UNREACHABLE'),
+    });
+  }
 });
 
 app.post('/api/system/vault-key', checkAuth, async (req, res) => {
@@ -1902,6 +2055,7 @@ app.get('/env-config.js', async (req, res) => {
   res.send(`window._ENV_ = ${JSON.stringify({
     AUTH_MODE: 'ARGON2ID_FIDO2',
     ROOT_OWNER_EMAIL: (process.env.VITE_ROOT_OWNER_EMAIL || process.env.ROOT_OWNER_EMAIL || '').trim(),
+    WORKSPACE_NAME: (process.env.WORKSPACE_NAME || 'Botanical Workspace').trim(),
   })};`);
 });
 
@@ -1958,6 +2112,7 @@ async function initializeDatabase() {
     `CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, houseId TEXT, plantIds TEXT, type TEXT, title TEXT, description TEXT, date TEXT, completed INTEGER, completedAt TEXT, recurrence TEXT, data TEXT)`,
     `CREATE TABLE IF NOT EXISTS inventory (id TEXT PRIMARY KEY, houseId TEXT, name TEXT, data TEXT)`,
     `CREATE TABLE IF NOT EXISTS system_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, event TEXT, details TEXT, level TEXT, created_at TEXT)`,
+    `CREATE TABLE IF NOT EXISTS system_settings (key TEXT PRIMARY KEY, value TEXT, updatedAt TEXT)`,
     `CREATE TABLE IF NOT EXISTS api_usage (
       id TEXT PRIMARY KEY, 
       gemini_count INTEGER DEFAULT 0,
@@ -1999,6 +2154,18 @@ async function initializeDatabase() {
       console.log(`[AUTH] Pre-seeded OWNER account from environment: ${seedEmail}`);
     }
   }
+
+  // Hydrate persisted hosting & workspace settings
+  try {
+    const savedSettings = await query('SELECT key, value FROM system_settings');
+    for (const row of savedSettings.rows) {
+      if (row.key && typeof row.value === 'string' && !process.env[row.key]) {
+        process.env[row.key] = row.value;
+      } else if (row.key && typeof row.value === 'string' && ['WORKSPACE_NAME', 'HOSTING_MODE', 'APP_URL', 'TAILSCALE_DOMAIN'].includes(row.key)) {
+        process.env[row.key] = row.value;
+      }
+    }
+  } catch (e) {}
 
   console.log('[DB] Schema Synchronized');
 }

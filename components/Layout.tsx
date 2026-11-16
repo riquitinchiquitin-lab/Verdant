@@ -235,7 +235,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             </div>
             <div>
               <h1 className="text-xl font-bold text-md-on-surface tracking-tight leading-none">{t('app_name')}</h1>
-              <span className="text-[11px] font-medium text-md-on-surface-variant">Botanical Workspace</span>
+              <span className="text-[11px] font-medium text-md-on-surface-variant">
+                {(window as any)._ENV_?.WORKSPACE_NAME || 'Botanical Workspace'}
+              </span>
             </div>
           </Link>
         </div>

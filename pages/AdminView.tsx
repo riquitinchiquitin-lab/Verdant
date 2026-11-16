@@ -15,7 +15,10 @@ import { generateSecure50CharKey } from '../services/security';
 import { generateUUID } from '../services/crypto';
 import { useDraggableScroll } from '../hooks/useDraggableScroll';
 import { PasskeyManager } from '../components/PasskeyManager';
+import { HostingSettingsPanel } from '../components/HostingSettingsPanel';
+import { getSecurityPolicy, SecurityPolicyStatus } from '../services/webauthn';
 import { exportCombinedLogsToExcel } from '../services/exportService';
+import { ShieldCheck, KeyRound, CheckCircle2, AlertTriangle, Globe } from 'lucide-react';
 
 export const AdminView: React.FC = () => {
   const { user, token } = useAuth();
@@ -23,7 +26,8 @@ export const AdminView: React.FC = () => {
   const { showNotification, fetchSystemLogs } = useSystem();
   const { houses, plants, updateHouse, deleteHouse, addHouse, updatePlant, deleteAllLogs, deleteLogsByDay } = usePlants();
   const { users, addUser, updateUser, deleteUser, removeUserPermanently } = usePersonnel();
-  const [activeTab, setActiveTab] = useState<'HOUSES' | 'PERSONNEL' | 'PLANTS' | 'DATABASE' | 'SECURITY' | 'LOGS'>('HOUSES');
+  const [activeTab, setActiveTab] = useState<'HOUSES' | 'PERSONNEL' | 'PLANTS' | 'DATABASE' | 'SECURITY' | 'HOSTING' | 'LOGS'>('HOUSES');
+  const [policyStatus, setPolicyStatus] = useState<SecurityPolicyStatus | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [logs, setLogs] = useState<SystemLog[]>([]);
@@ -67,11 +71,15 @@ export const AdminView: React.FC = () => {
   useEffect(() => {
     console.log("[Verdant] AdminView Protocol v1.0.1 Loaded");
     setHasMasterKey(!!localStorage.getItem('verdant_master_key'));
+    getSecurityPolicy().then(setPolicyStatus).catch(() => {});
   }, []);
 
   useEffect(() => {
     if (activeTab === 'LOGS') {
       loadLogs();
+    }
+    if (activeTab === 'PERSONNEL' || activeTab === 'SECURITY') {
+      getSecurityPolicy().then(setPolicyStatus).catch(() => {});
     }
   }, [activeTab]);
 
@@ -102,10 +110,10 @@ export const AdminView: React.FC = () => {
   }, [users, isOwner, isDirector, isLeadHand, user]);
 
   const availableTabs = useMemo(() => {
-    const tabs: ('HOUSES' | 'PERSONNEL' | 'PLANTS' | 'DATABASE' | 'SECURITY' | 'LOGS')[] = ['HOUSES', 'PERSONNEL'];
+    const tabs: ('HOUSES' | 'PERSONNEL' | 'PLANTS' | 'DATABASE' | 'SECURITY' | 'HOSTING' | 'LOGS')[] = ['HOUSES', 'PERSONNEL'];
     if (isOwner || isDirector) {
       tabs.splice(2, 0, 'PLANTS');
-      tabs.push('DATABASE', 'SECURITY', 'LOGS');
+      tabs.push('DATABASE', 'SECURITY', 'HOSTING', 'LOGS');
     }
     return tabs;
   }, [isOwner, isDirector]);
@@ -787,10 +795,10 @@ export const AdminView: React.FC = () => {
         
         <SystemTelemetry />
 
-        <div {...tabsScroll.props} className={`flex gap-x-10 border-b border-slate-200 dark:border-slate-800 pb-0.5 whitespace-nowrap scroll-smooth ${tabsScroll.props.className}`}>
+        <div {...tabsScroll.props} className={`flex gap-x-8 border-b border-slate-200 dark:border-slate-800 pb-0.5 whitespace-nowrap scroll-smooth ${tabsScroll.props.className}`}>
             {availableTabs.map(tab => (
-                <button key={tab} onClick={() => setActiveTab(tab as any)} className={`pb-4 px-4 text-[10px] font-black uppercase tracking-[0.4em] transition-all relative border-b-2 shrink-0 ${activeTab === tab ? 'text-slate-900 dark:text-white border-verdant' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 border-transparent'}`}>
-                    {t(`tab_${tab.toLowerCase()}` as any)}
+                <button key={tab} onClick={() => setActiveTab(tab as any)} className={`pb-4 px-3 text-[10px] font-black uppercase tracking-[0.35em] transition-all relative border-b-2 shrink-0 ${activeTab === tab ? 'text-slate-900 dark:text-white border-verdant' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 border-transparent'}`}>
+                    {tab === 'HOSTING' ? 'Domains & Hosting' : t(`tab_${tab.toLowerCase()}` as any)}
                 </button>
             ))}
         </div>
@@ -821,50 +829,98 @@ export const AdminView: React.FC = () => {
         )}
         {activeTab === 'PERSONNEL' && (
             <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('tab_personnel')}</h2>
-                    <Button variant="primary" size="sm" className="rounded-xl uppercase font-black" onClick={openAddUserModal}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 className="text-2xl font-bold text-md-on-surface tracking-tight">{t('tab_personnel')}</h2>
+                        <p className="text-xs text-md-on-surface-variant mt-0.5">
+                            Manage personnel accounts, house assignments, and FIDO2 passkey compliance.
+                        </p>
+                    </div>
+                    <Button variant="primary" size="md" onClick={openAddUserModal}>
                         + {t('btn_add_personnel')}
                     </Button>
                 </div>
-                <div {...personnelScroll.props} className={`bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm ${personnelScroll.props.className}`}>
-                    <table className="w-full text-left min-w-[600px]">
-                        <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800/50">
-                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('lbl_name')}</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('lbl_role')}</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('lbl_house')}</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">{t('lbl_actions')}</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {visiblePersonnel.map(p => (
-                                <tr key={p.id} className="text-slate-900 dark:text-white">
-                                    <td className="px-6 py-4 font-bold">{typeof p.name === 'object' ? lv(p.name as any) : p.name || t('lbl_unknown')}</td>
-                                    <td className="px-6 py-4"><span className="text-[10px] font-black bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full">{t(`role_${p.role.toLowerCase()}` as any)}</span></td>
-                                    <td className="px-6 py-4 text-slate-500">{houses.find(prop => prop.id === p.houseId) ? lv(houses.find(prop => prop.id === p.houseId)!.name) : t('lbl_global')}</td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <button 
-                                                onClick={() => setEditingUser(p)}
-                                                className="text-verdant font-black text-[10px] uppercase tracking-widest hover:underline border border-verdant/20 px-3 py-1 rounded-lg"
-                                            >
-                                                {t('manage')}
-                                            </button>
-                                            {!(isLeadHand) && p.id !== user?.id && (
-                                                <button 
-                                                    onClick={() => handleDeleteUser(p.id)}
-                                                    className="text-red-500 font-black text-[10px] uppercase tracking-widest hover:underline border border-red-500/20 px-3 py-1 rounded-lg"
-                                                >
-                                                    {t('btn_delete')}
-                                                </button>
+
+                {(isOwner || isDirector) && policyStatus && (
+                    <div className="rounded-3xl p-4 md:p-5 bg-md-primary-container/50 border border-md-primary/25 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3.5">
+                            <div className="w-10 h-10 rounded-2xl bg-md-primary text-md-on-primary flex items-center justify-center shrink-0">
+                                <KeyRound className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-sm font-bold text-md-on-surface">
+                                        Global Policy: FIDO2 Mandatory for All Users
+                                    </p>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                        policyStatus.allUsersRequired
+                                            ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-200'
+                                            : 'bg-md-surface-container-high text-md-on-surface-variant'
+                                    }`}>
+                                        {policyStatus.allUsersRequired ? 'Enforced' : 'Optional'}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-md-on-surface-variant mt-0.5">
+                                    {policyStatus.compliantUsers} / {policyStatus.totalUsers} personnel compliant with a FIDO2 security key or TOTP.
+                                </p>
+                            </div>
+                        </div>
+                        <Button variant="primary" size="sm" onClick={() => setActiveTab('SECURITY')}>
+                            <ShieldCheck className="w-4 h-4" />
+                            Manage FIDO2
+                        </Button>
+                    </div>
+                )}
+
+                <div className="space-y-3">
+                    {visiblePersonnel.map(p => {
+                        const displayName = typeof p.name === 'object' ? lv(p.name as any) : p.name || t('lbl_unknown');
+                        const isCompliant = (p.passkeyCount || 0) > 0 || Boolean(p.totpEnabled);
+                        const houseObj = houses.find(prop => prop.id === p.houseId);
+                        return (
+                            <div key={p.id} className="m3-card-elevated rounded-3xl p-4 md:p-5 border border-md-outline-variant/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div className="flex items-center gap-3.5 min-w-0">
+                                    <div className="w-11 h-11 rounded-full bg-md-primary-container text-md-on-primary-container flex items-center justify-center font-bold text-sm uppercase shrink-0">
+                                        {(displayName || '?').charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className="font-bold text-sm text-md-on-surface truncate">{displayName}</span>
+                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-md-surface-container-high text-md-on-surface-variant uppercase">
+                                                {t(`role_${p.role.toLowerCase()}` as any)}
+                                            </span>
+                                            {p.id === user?.id && (
+                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-md-secondary-container text-md-on-secondary-container">
+                                                    You
+                                                </span>
                                             )}
+                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                                isCompliant
+                                                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                                    : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                                            }`}>
+                                                {isCompliant ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                                                {isCompliant ? 'FIDO2 Compliant' : 'Key Required'}
+                                            </span>
                                         </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                        <p className="text-xs text-md-on-surface-variant truncate mt-0.5">
+                                            {p.email} · {houseObj ? lv(houseObj.name) : t('lbl_global')}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0 justify-end">
+                                    <Button variant="outlined" size="sm" onClick={() => setEditingUser(p)}>
+                                        {t('manage')}
+                                    </Button>
+                                    {!(isLeadHand) && p.id !== user?.id && (
+                                        <Button variant="danger" size="sm" onClick={() => handleDeleteUser(p.id)}>
+                                            {t('btn_delete')}
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         )}
@@ -950,6 +1006,9 @@ export const AdminView: React.FC = () => {
                 </div>
                 <PasskeyManager />
             </div>
+        )}
+        {activeTab === 'HOSTING' && (
+            <HostingSettingsPanel />
         )}
         {activeTab === 'LOGS' && (
             <div className="space-y-6">
