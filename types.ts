@@ -35,7 +35,7 @@ export interface User {
   email: string;
   name: string | null;
   role: UserRole; 
-  googleId?: string | null;
+  passkeyCount?: number;
   houseId?: string | null;
   house?: House;
   caretakerStart?: string; // Access start for Seasonal

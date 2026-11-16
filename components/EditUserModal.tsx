@@ -4,6 +4,8 @@ import { Button } from './ui/Button';
 import { User, UserRole, House } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useSystem } from '../context/SystemContext';
+import { fetchWithAuth } from '../services/api';
 
 interface EditUserModalProps {
   isOpen: boolean;
@@ -14,14 +16,35 @@ interface EditUserModalProps {
 }
 
 export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user: targetUser, houses, onSave }) => {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, token } = useAuth();
   const { t, lv } = useLanguage();
+  const { showNotification } = useSystem();
   
   const [role, setRole] = useState<UserRole>(targetUser.role);
   const [houseId, setHouseId] = useState<string>(targetUser.houseId || '');
   const [startDate, setStartDate] = useState(targetUser.caretakerStart || '');
   const [endDate, setEndDate] = useState(targetUser.caretakerEnd || '');
   const [isRevoked, setIsRevoked] = useState(!!targetUser.deletedAt);
+  const [passkeyCount, setPasskeyCount] = useState<number>(targetUser.passkeyCount ?? 0);
+  const [resettingPasskeys, setResettingPasskeys] = useState(false);
+
+  const handleResetPasskeys = async () => {
+    if (!token) return;
+    setResettingPasskeys(true);
+    try {
+      const res = await fetchWithAuth(`/api/users/${targetUser.id}/reset-passkeys`, token, { method: 'POST' });
+      if (res.ok) {
+        setPasskeyCount(0);
+        showNotification('USER PASSKEYS RESET', 'SUCCESS');
+      } else {
+        showNotification('FAILED TO RESET PASSKEYS', 'ERROR');
+      }
+    } catch {
+      showNotification('FAILED TO RESET PASSKEYS', 'ERROR');
+    } finally {
+      setResettingPasskeys(false);
+    }
+  };
 
   const isLeadHand = currentUser?.role === 'LEAD_HAND';
 
@@ -114,7 +137,29 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
                 </div>
             )}
 
-            <div className="pt-6 border-t border-gray-100 dark:border-slate-800">
+            <div className="pt-6 border-t border-gray-100 dark:border-slate-800 space-y-3">
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700">
+                    <div>
+                        <span className="block font-black uppercase tracking-widest text-xs text-gray-800 dark:text-white">
+                            FIDO2 Passkeys: {passkeyCount}
+                        </span>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                            {passkeyCount > 0 ? 'Device enrolled' : 'Awaiting first-time enrollment'}
+                        </span>
+                    </div>
+                    {passkeyCount > 0 && (
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={handleResetPasskeys}
+                            disabled={resettingPasskeys}
+                            className="h-9 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                        >
+                            {resettingPasskeys ? 'Resetting...' : 'Reset Keys'}
+                        </Button>
+                    )}
+                </div>
+
                 <button 
                     onClick={() => setIsRevoked(!isRevoked)}
                     className={`flex items-center gap-3 w-full p-4 rounded-2xl transition-all border-2 ${isRevoked ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/10' : 'bg-red-50 text-red-600 border-red-100 dark:bg-red-900/10'}`}

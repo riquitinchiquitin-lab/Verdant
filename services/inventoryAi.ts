@@ -1,5 +1,5 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { getGeminiApiKey } from '../constants';
+import { Type } from "@google/genai";
+import { generateGeminiContent } from './GeminiService';
 
 const TARGET_LANGS = ['en', 'zh', 'ja', 'ko', 'es', 'fr', 'pt', 'de', 'id', 'vi', 'tl'];
 
@@ -12,17 +12,10 @@ export const identifyInventoryItem = async (
   onLog?: (msg: string, source: string) => void,
   apiKey?: string
 ) => {
-  // Fix: Use provided apiKey or fallback to global getGeminiApiKey()
-  const key = apiKey || getGeminiApiKey();
-  if (!key) {
-    throw new Error("UPLINK_FAULT: Gemini API Key is missing. Please ensure GEMINI_API_KEY is set in your environment variables.");
-  }
-  const maskedKey = `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
-  const ai = new GoogleGenAI({ apiKey: key });
   const model = 'gemini-3-flash-preview';
   const base64Data = image.split(',')[1];
 
-  onLog?.(`Initiating Deep Specimen Scan with ${model} (Key: ${maskedKey})...`, "GEMINI");
+  onLog?.(`Initiating Deep Specimen Scan with ${model} via secure proxy...`, "GEMINI");
 
   const callGeminiWithRetry = async (fn: () => Promise<any>, maxRetries = 3): Promise<any> => {
     let lastError: any;
@@ -60,8 +53,9 @@ export const identifyInventoryItem = async (
   `;
 
   try {
-    const response = await callGeminiWithRetry(() => ai.models.generateContent({
+    const response = await callGeminiWithRetry(() => generateGeminiContent({
       model: model,
+      personalApiKey: apiKey,
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: base64Data } },

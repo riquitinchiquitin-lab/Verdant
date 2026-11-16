@@ -1,5 +1,6 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { API_URL, getGeminiApiKey } from '../constants';
+import { Type } from "@google/genai";
+import { API_URL } from '../constants';
+import { generateGeminiContent } from './GeminiService';
 import { Plant, LocalizedString, LocalizedArray } from '../types';
 import { fetchTrefleData, fetchOpenPlantBookData, fetchPerenualData, searchGroundingData } from './botanicalServices';
 import { trackUsage } from './usageService';
@@ -44,13 +45,10 @@ const callGeminiWithRetry = async (fn: () => Promise<any>, maxRetries = 3): Prom
  * Validates an API key connection. 
  */
 export const verifyApiKey = async (apiKey?: string): Promise<boolean> => {
-    const keyToTest = apiKey || getGeminiApiKey();
-    if (!keyToTest) return false;
-    
-    const ai = new GoogleGenAI({ apiKey: keyToTest });
     try {
-        await callGeminiWithRetry(() => ai.models.generateContent({
+        await callGeminiWithRetry(() => generateGeminiContent({
             model: 'gemini-3-flash-preview',
+            personalApiKey: apiKey,
             contents: 'ping',
             config: { maxOutputTokens: 1 }
         }));
@@ -96,19 +94,13 @@ export const identifyPlantWithPlantNet = async (imageBlobs: Blob[]): Promise<any
  * 2. Visual Identification Fallback (Gemini)
  */
 export const identifyPlantWithGemini = async (base64: string, apiKey?: string): Promise<any> => {
-  const key = apiKey || getGeminiApiKey();
-  if (!key) {
-    throw new Error("UPLINK_FAULT: Gemini API Key is missing. Please ensure GEMINI_API_KEY is set in your environment variables.");
-  }
-  
-  const maskedKey = `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
-  const ai = new GoogleGenAI({ apiKey: key });
   const model = 'gemini-3-flash-preview';
   
   try {
     reportSystemHit();
-    const res = await callGeminiWithRetry(() => ai.models.generateContent({
+    const res = await callGeminiWithRetry(() => generateGeminiContent({
       model,
+      personalApiKey: apiKey,
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: base64.split(',')[1] } },
@@ -146,11 +138,6 @@ export const generatePlantDetails = async (
   onLog?: (msg: string, source: string) => void,
   apiKey?: string
 ): Promise<Partial<Plant>> => {
-  const key = apiKey || getGeminiApiKey();
-  if (!key) {
-    throw new Error("UPLINK_FAULT: Gemini API Key is missing. Please ensure GEMINI_API_KEY is set in your environment variables.");
-  }
-  const ai = new GoogleGenAI({ apiKey: key });
   const model = 'gemini-3-flash-preview';
 
   onLog?.("msg_accessing_archives", "NETWORK");
@@ -197,8 +184,9 @@ export const generatePlantDetails = async (
 
   try {
     reportSystemHit();
-    const response = await callGeminiWithRetry(() => ai.models.generateContent({
+    const response = await callGeminiWithRetry(() => generateGeminiContent({
       model,
+      personalApiKey: apiKey,
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -380,9 +368,6 @@ export const analyzePlantHealth = async (
   userObservations?: string,
   apiKey?: string
 ): Promise<{ diagnosis: LocalizedString; recoveryPlan: LocalizedArray } | null> => {
-  const key = apiKey || getGeminiApiKey();
-  if (!key) return null;
-  const ai = new GoogleGenAI({ apiKey: key });
   const model = 'gemini-3-flash-preview';
 
   const translationSchema = {
@@ -402,8 +387,9 @@ export const analyzePlantHealth = async (
 
   try {
     reportSystemHit();
-    const response = await callGeminiWithRetry(() => ai.models.generateContent({
+    const response = await callGeminiWithRetry(() => generateGeminiContent({
       model,
+      personalApiKey: apiKey,
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: base64.split(',')[1] } },

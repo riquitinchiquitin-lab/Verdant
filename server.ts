@@ -14,6 +14,12 @@ import fetch from 'node-fetch';
 import FormData from 'form-data';
 
 import os from 'os';
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse,
+} from '@simplewebauthn/server';
 
 console.log('[CORE] Bootstrap sequence initiated');
 
@@ -146,61 +152,498 @@ const logSystemEvent = async (event: string, details: string, level: 'INFO' | 'W
   }
 };
 
-app.use(cors());
+const allowedCorsOrigins = [
+  ...(process.env.WEBAUTHN_ORIGIN ? process.env.WEBAUTHN_ORIGIN.split(',').map(s => s.trim()) : []),
+  ...(process.env.VITE_ALLOWED_HOSTS ? process.env.VITE_ALLOWED_HOSTS.split(',').map(h => `https://${h.trim()}`) : []),
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedCorsOrigins.length === 0 || allowedCorsOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('CORS_NOT_ALLOWED'));
+  },
+}));
+
+const authRateBuckets = new Map<string, { count: number; resetAt: number }>();
+app.use('/api/auth/webauthn', (req, res, next) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const bucket = authRateBuckets.get(ip);
+  if (!bucket || now > bucket.resetAt) {
+    authRateBuckets.set(ip, { count: 1, resetAt: now + 60_000 });
+    return next();
+  }
+  bucket.count += 1;
+  if (bucket.count > 30) {
+    return res.status(429).json({ error: 'TOO_MANY_REQUESTS' });
+  }
+  next();
+});
+
 app.use((req, res, next) => {
   res.setHeader(
     'Content-Security-Policy',
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://www.gstatic.com https://cdn.jsdelivr.net; " +
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
     "font-src 'self' https://fonts.gstatic.com; " +
     "img-src 'self' data: blob: https://*; " +
-    "connect-src 'self' ws: wss: https://*; " +
-    "frame-src https://accounts.google.com;"
+    "connect-src 'self' ws: wss: https://*;"
   );
-  // FIX: Allow Google Login Popups
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   next();
 });
 
 app.use(express.json({ limit: '100mb' }));
+
+// --- SESSION TOKEN & FIDO2 / WEBAUTHN HELPERS ---
+const getSessionSecret = () => currentVaultKey || process.env.MASTER_KEY || 'verdant-local-session-secret';
+
+const createSessionToken = (user: any): string => {
+  const payload = {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    houseId: user.houseId || null,
+    iat: Date.now(),
+    exp: Date.now() + 1000 * 60 * 60 * 24 * 7, // 7 days
+  };
+  const data = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const sig = crypto.createHmac('sha256', getSessionSecret()).update(data).digest('base64url');
+  return `${data}.${sig}`;
+};
+
+const verifySessionToken = (token: string): any | null => {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 2) return null;
+    const [data, sig] = parts;
+    const expectedSig = crypto.createHmac('sha256', getSessionSecret()).update(data).digest('base64url');
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))) return null;
+    const payload = JSON.parse(Buffer.from(data, 'base64url').toString('utf8'));
+    if (payload.exp && Date.now() > payload.exp) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+};
+
+const parseUserRecord = (row: any) => {
+  if (!row) return row;
+  const user = { ...row };
+  if (user.name && typeof user.name === 'string' && (user.name.startsWith('{') || user.name.startsWith('['))) {
+    try { user.name = JSON.parse(user.name); } catch (e) {}
+  }
+  return user;
+};
+
+const checkSeasonalAccess = (user: any): { ok: boolean; reason?: string } => {
+  if (user.role !== 'SEASONAL') return { ok: true };
+  const now = new Date();
+  const start = user.caretakerStart ? new Date(user.caretakerStart) : null;
+  const end = user.caretakerEnd ? new Date(user.caretakerEnd) : null;
+  if (start) start.setHours(0, 0, 0, 0);
+  if (end) end.setHours(23, 59, 59, 999);
+  if ((start && now < start) || (end && now > end)) {
+    return { ok: false, reason: 'ACCESS_EXPIRED' };
+  }
+  return { ok: true };
+};
+
+const getRpConfig = (req: express.Request) => {
+  const forwardedHost = (req.headers['x-forwarded-host'] as string || '').split(',')[0].trim();
+  const rawHost = forwardedHost || req.get('host') || 'localhost';
+  const hostname = rawHost.split(':')[0];
+  const proto = ((req.headers['x-forwarded-proto'] as string) || req.protocol || 'http').split(',')[0].trim();
+
+  const rpID = (process.env.WEBAUTHN_RP_ID || hostname).trim();
+  const rpName = (process.env.WEBAUTHN_RP_NAME || 'Verdant Botanical Systems').trim();
+  const envOrigin = (process.env.WEBAUTHN_ORIGIN || '').trim();
+  const expectedOrigin = envOrigin
+    ? envOrigin.split(',').map(o => o.trim()).filter(Boolean)
+    : [`${proto}://${rawHost}`];
+
+  return { rpID, rpName, expectedOrigin };
+};
 
 // 1. HEALTH CHECK ENDPOINT
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: "ok", uptime: process.uptime() });
 });
 
-// PUBLIC AUTH VERIFICATION
-app.post('/api/auth/verify', async (req, res) => {
+// PUBLIC FIDO2 / WEBAUTHN STATUS
+app.get('/api/auth/webauthn/status', async (req, res) => {
   try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: "EMAIL_REQUIRED" });
-    const result = await query('SELECT * FROM users WHERE LOWER(email) = ? AND deletedAt IS NULL', [email.toLowerCase()]);
-    if (result.rows.length === 0) return res.status(404).json({ error: "USER_NOT_FOUND" });
-    const user = result.rows[0];
-    // Parse name if it's JSON
-    if (user.name && (user.name.startsWith('{') || user.name.startsWith('['))) {
-      try { user.name = JSON.parse(user.name); } catch(e) {}
-    }
-    res.json(user);
+    const usersCount = await query('SELECT COUNT(*) as count FROM users WHERE deletedAt IS NULL');
+    const credsCount = await query('SELECT COUNT(*) as count FROM webauthn_credentials');
+    const { rpID, rpName } = getRpConfig(req);
+    res.json({
+      hasUsers: (usersCount.rows[0]?.count || 0) > 0,
+      hasCredentials: (credsCount.rows[0]?.count || 0) > 0,
+      rpID,
+      rpName,
+    });
   } catch (e) {
-    res.status(500).json({ error: "AUTH_FAULT" });
+    res.status(500).json({ error: "AUTH_STATUS_FAULT" });
+  }
+});
+
+// FIDO2 REGISTRATION OPTIONS (First-time enrollment OR adding a new passkey while logged in)
+app.post('/api/auth/webauthn/register/options', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const tokenStr = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const sessionUser = tokenStr ? verifySessionToken(tokenStr) : null;
+
+    let email = (req.body?.email || sessionUser?.email || '').trim().toLowerCase();
+    const displayNameInput = (req.body?.name || '').trim();
+
+    if (!email) return res.status(400).json({ error: "EMAIL_REQUIRED" });
+
+    const rootOwnerEmail = (process.env.VITE_ROOT_OWNER_EMAIL || process.env.ROOT_OWNER_EMAIL || '').trim().toLowerCase();
+    let userRes = await query('SELECT * FROM users WHERE LOWER(email) = ? AND deletedAt IS NULL', [email]);
+    let user = userRes.rows[0] ? parseUserRecord(userRes.rows[0]) : null;
+
+    if (!user) {
+      const totalUsersRes = await query('SELECT COUNT(*) as count FROM users WHERE deletedAt IS NULL');
+      const hasAnyUsers = (totalUsersRes.rows[0]?.count || 0) > 0;
+
+      // Allow Root Owner (or the very first user if no users exist yet) to bootstrap as OWNER
+      if ((rootOwnerEmail && email === rootOwnerEmail) || !hasAnyUsers) {
+        const newId = `u-${crypto.randomUUID()}`;
+        const ownerName = displayNameInput || 'System Founder';
+        await query(
+          'INSERT INTO users (id, email, name, role, houseId) VALUES (?, ?, ?, ?, ?)',
+          [newId, email, ownerName, 'OWNER', null]
+        );
+        user = { id: newId, email, name: ownerName, role: 'OWNER', houseId: null };
+        await logSystemEvent('ROOT_OWNER_BOOTSTRAPPED', `Owner ${email} initialized via FIDO2`, 'INFO');
+      } else {
+        return res.status(404).json({ error: "USER_NOT_FOUND" });
+      }
+    }
+
+    const seasonalCheck = checkSeasonalAccess(user);
+    if (!seasonalCheck.ok) {
+      return res.status(403).json({ error: seasonalCheck.reason });
+    }
+
+    const existingCredsRes = await query('SELECT * FROM webauthn_credentials WHERE userId = ?', [user.id]);
+    const existingCreds = existingCredsRes.rows;
+
+    // Security gate: If user already has passkeys, only an authenticated session for that user can add more
+    if (existingCreds.length > 0 && (!sessionUser || sessionUser.id !== user.id)) {
+      return res.status(403).json({ error: "CREDENTIAL_ALREADY_REGISTERED" });
+    }
+
+    const { rpID, rpName } = getRpConfig(req);
+    const userNameStr = typeof user.name === 'object' ? (user.name?.en || user.email) : (user.name || user.email);
+
+    const options = await generateRegistrationOptions({
+      rpName,
+      rpID,
+      userName: user.email,
+      userID: new TextEncoder().encode(user.id),
+      userDisplayName: userNameStr,
+      attestationType: 'none',
+      excludeCredentials: existingCreds.map((c: any) => ({
+        id: c.id,
+        transports: c.transports ? JSON.parse(c.transports) : undefined,
+      })),
+      authenticatorSelection: {
+        residentKey: 'preferred',
+        userVerification: 'preferred',
+      },
+    });
+
+    const challengeId = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    await query('DELETE FROM webauthn_challenges WHERE expiresAt < ?', [new Date().toISOString()]);
+    await query(
+      'INSERT INTO webauthn_challenges (id, challenge, userId, email, type, expiresAt) VALUES (?, ?, ?, ?, ?, ?)',
+      [challengeId, options.challenge, user.id, user.email, 'registration', expiresAt]
+    );
+
+    res.json({ options, challengeId });
+  } catch (e: any) {
+    console.error('[WEBAUTHN] Register options error:', e);
+    res.status(500).json({ error: "WEBAUTHN_REGISTER_OPTIONS_FAULT" });
+  }
+});
+
+// FIDO2 REGISTRATION VERIFY
+app.post('/api/auth/webauthn/register/verify', async (req, res) => {
+  try {
+    const { challengeId, response, label } = req.body;
+    if (!challengeId || !response) return res.status(400).json({ error: "INVALID_REQUEST" });
+
+    const chalRes = await query('SELECT * FROM webauthn_challenges WHERE id = ? AND type = ?', [challengeId, 'registration']);
+    if (chalRes.rows.length === 0) return res.status(400).json({ error: "CHALLENGE_NOT_FOUND" });
+
+    const chalRow = chalRes.rows[0];
+    await query('DELETE FROM webauthn_challenges WHERE id = ?', [challengeId]);
+
+    if (new Date(chalRow.expiresAt).getTime() < Date.now()) {
+      return res.status(400).json({ error: "CHALLENGE_EXPIRED" });
+    }
+
+    const { rpID, expectedOrigin } = getRpConfig(req);
+    const verification = await verifyRegistrationResponse({
+      response,
+      expectedChallenge: chalRow.challenge,
+      expectedOrigin,
+      expectedRPID: rpID,
+      requireUserVerification: false,
+    });
+
+    if (!verification.verified || !verification.registrationInfo) {
+      return res.status(400).json({ error: "VERIFICATION_FAILED" });
+    }
+
+    const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
+    const publicKeyBase64 = Buffer.from(credential.publicKey).toString('base64');
+    const transportsJson = JSON.stringify(credential.transports || response.response?.transports || []);
+    const now = new Date().toISOString();
+
+    await query(
+      `INSERT OR REPLACE INTO webauthn_credentials (id, userId, publicKey, counter, transports, deviceType, backedUp, label, createdAt, lastUsedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        credential.id,
+        chalRow.userId,
+        publicKeyBase64,
+        credential.counter,
+        transportsJson,
+        credentialDeviceType,
+        credentialBackedUp ? 1 : 0,
+        label || 'Passkey / Security Key',
+        now,
+        now,
+      ]
+    );
+
+    const userRes = await query('SELECT * FROM users WHERE id = ? AND deletedAt IS NULL', [chalRow.userId]);
+    if (userRes.rows.length === 0) return res.status(404).json({ error: "USER_NOT_FOUND" });
+    const user = parseUserRecord(userRes.rows[0]);
+    const token = createSessionToken(user);
+
+    await logSystemEvent('WEBAUTHN_REGISTERED', `FIDO2 credential registered for ${user.email}`, 'INFO');
+    res.json({ verified: true, token, user });
+  } catch (e: any) {
+    console.error('[WEBAUTHN] Register verify error:', e);
+    res.status(400).json({ error: "WEBAUTHN_REGISTER_VERIFY_FAULT", details: e?.message });
+  }
+});
+
+// FIDO2 LOGIN OPTIONS (Supports both discoverable passkeys & email-targeted login)
+app.post('/api/auth/webauthn/login/options', async (req, res) => {
+  try {
+    const email = (req.body?.email || '').trim().toLowerCase();
+    const { rpID } = getRpConfig(req);
+
+    let allowCredentials: any[] | undefined = undefined;
+    let userId: string | null = null;
+
+    if (email) {
+      const userRes = await query('SELECT * FROM users WHERE LOWER(email) = ? AND deletedAt IS NULL', [email]);
+      if (userRes.rows.length === 0) return res.status(404).json({ error: "USER_NOT_FOUND" });
+      const user = parseUserRecord(userRes.rows[0]);
+
+      const seasonalCheck = checkSeasonalAccess(user);
+      if (!seasonalCheck.ok) {
+        return res.status(403).json({ error: seasonalCheck.reason });
+      }
+
+      const credsRes = await query('SELECT * FROM webauthn_credentials WHERE userId = ?', [user.id]);
+      if (credsRes.rows.length === 0) {
+        return res.status(404).json({ error: "NO_PASSKEY_REGISTERED" });
+      }
+      userId = user.id;
+      allowCredentials = credsRes.rows.map((c: any) => ({
+        id: c.id,
+        transports: c.transports ? JSON.parse(c.transports) : undefined,
+      }));
+    }
+
+    const options = await generateAuthenticationOptions({
+      rpID,
+      allowCredentials,
+      userVerification: 'preferred',
+    });
+
+    const challengeId = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    await query('DELETE FROM webauthn_challenges WHERE expiresAt < ?', [new Date().toISOString()]);
+    await query(
+      'INSERT INTO webauthn_challenges (id, challenge, userId, email, type, expiresAt) VALUES (?, ?, ?, ?, ?, ?)',
+      [challengeId, options.challenge, userId, email || null, 'authentication', expiresAt]
+    );
+
+    res.json({ options, challengeId });
+  } catch (e: any) {
+    console.error('[WEBAUTHN] Login options error:', e);
+    res.status(500).json({ error: "WEBAUTHN_LOGIN_OPTIONS_FAULT" });
+  }
+});
+
+// FIDO2 LOGIN VERIFY
+app.post('/api/auth/webauthn/login/verify', async (req, res) => {
+  try {
+    const { challengeId, response } = req.body;
+    if (!challengeId || !response) return res.status(400).json({ error: "INVALID_REQUEST" });
+
+    const chalRes = await query('SELECT * FROM webauthn_challenges WHERE id = ? AND type = ?', [challengeId, 'authentication']);
+    if (chalRes.rows.length === 0) return res.status(400).json({ error: "CHALLENGE_NOT_FOUND" });
+
+    const chalRow = chalRes.rows[0];
+    await query('DELETE FROM webauthn_challenges WHERE id = ?', [challengeId]);
+
+    if (new Date(chalRow.expiresAt).getTime() < Date.now()) {
+      return res.status(400).json({ error: "CHALLENGE_EXPIRED" });
+    }
+
+    const credRes = await query('SELECT * FROM webauthn_credentials WHERE id = ?', [response.id]);
+    if (credRes.rows.length === 0) {
+      return res.status(404).json({ error: "CREDENTIAL_NOT_FOUND" });
+    }
+    const storedCred = credRes.rows[0];
+
+    if (chalRow.userId && storedCred.userId !== chalRow.userId) {
+      return res.status(403).json({ error: "CREDENTIAL_USER_MISMATCH" });
+    }
+
+    const userRes = await query('SELECT * FROM users WHERE id = ? AND deletedAt IS NULL', [storedCred.userId]);
+    if (userRes.rows.length === 0) return res.status(404).json({ error: "USER_NOT_FOUND" });
+    const user = parseUserRecord(userRes.rows[0]);
+
+    const seasonalCheck = checkSeasonalAccess(user);
+    if (!seasonalCheck.ok) {
+      return res.status(403).json({ error: seasonalCheck.reason });
+    }
+
+    const { rpID, expectedOrigin } = getRpConfig(req);
+    const verification = await verifyAuthenticationResponse({
+      response,
+      expectedChallenge: chalRow.challenge,
+      expectedOrigin,
+      expectedRPID: rpID,
+      requireUserVerification: false,
+      credential: {
+        id: storedCred.id,
+        publicKey: new Uint8Array(Buffer.from(storedCred.publicKey, 'base64')),
+        counter: storedCred.counter || 0,
+        transports: storedCred.transports ? JSON.parse(storedCred.transports) : undefined,
+      },
+    });
+
+    if (!verification.verified) {
+      return res.status(401).json({ error: "VERIFICATION_FAILED" });
+    }
+
+    await query(
+      'UPDATE webauthn_credentials SET counter = ?, lastUsedAt = ? WHERE id = ?',
+      [verification.authenticationInfo.newCounter, new Date().toISOString(), storedCred.id]
+    );
+
+    const token = createSessionToken(user);
+    await logSystemEvent('WEBAUTHN_LOGIN', `User ${user.email} authenticated via FIDO2`, 'INFO');
+    res.json({ verified: true, token, user });
+  } catch (e: any) {
+    console.error('[WEBAUTHN] Login verify error:', e);
+    res.status(401).json({ error: "WEBAUTHN_LOGIN_VERIFY_FAULT", details: e?.message });
   }
 });
 
 const checkAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  if (!req.headers.authorization) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
     console.warn("[AUTH] Missing authorization header");
     return res.status(401).json({ error: "UNAUTHORIZED" });
   }
-  const role = req.headers['x-user-role'];
-  (req as any).userRole = typeof role === 'string' ? role.toUpperCase() : undefined;
-  (req as any).userHouseId = req.headers['x-user-house-id'];
-  (req as any).userId = req.headers['x-user-id'];
-  (req as any).userEmail = req.headers['x-user-email'];
-  next();
+
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+  const verified = verifySessionToken(token);
+
+  if (verified) {
+    (req as any).userRole = typeof verified.role === 'string' ? verified.role.toUpperCase() : undefined;
+    (req as any).userHouseId = verified.houseId;
+    (req as any).userId = verified.id;
+    (req as any).userEmail = verified.email;
+    return next();
+  }
+
+  // Allow dev-token in development mode only
+  if (process.env.NODE_ENV !== 'production' && token === 'dev-token') {
+    const role = req.headers['x-user-role'];
+    (req as any).userRole = typeof role === 'string' ? role.toUpperCase() : undefined;
+    (req as any).userHouseId = req.headers['x-user-house-id'];
+    (req as any).userId = req.headers['x-user-id'];
+    (req as any).userEmail = req.headers['x-user-email'];
+    return next();
+  }
+
+  console.warn("[AUTH] Invalid or expired session token");
+  return res.status(401).json({ error: "UNAUTHORIZED" });
 };
+
+// AUTHENTICATED PASSKEY MANAGEMENT
+app.get('/api/auth/webauthn/credentials', checkAuth, async (req, res) => {
+  try {
+    const userId = (req as any).userId;
+    const result = await query(
+      'SELECT id, label, deviceType, backedUp, createdAt, lastUsedAt FROM webauthn_credentials WHERE userId = ? ORDER BY createdAt DESC',
+      [userId]
+    );
+    res.json(result.rows);
+  } catch (e) {
+    res.status(500).json({ error: "DB_FAULT" });
+  }
+});
+
+app.delete('/api/auth/webauthn/credentials/:id', checkAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = (req as any).userId;
+    const role = (req as any).userRole;
+    if (['OWNER', 'CO_CEO'].includes(role)) {
+      await query('DELETE FROM webauthn_credentials WHERE id = ?', [id]);
+    } else {
+      await query('DELETE FROM webauthn_credentials WHERE id = ? AND userId = ?', [id, userId]);
+    }
+    res.json({ status: "ok" });
+  } catch (e) {
+    res.status(500).json({ error: "DB_FAULT" });
+  }
+});
+
+app.post('/api/users/:id/reset-passkeys', checkAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const role = (req as any).userRole;
+    const houseId = (req as any).userHouseId;
+
+    if (!['OWNER', 'CO_CEO', 'LEAD_HAND'].includes(role)) {
+      return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    }
+
+    if (role === 'LEAD_HAND') {
+      const targetRes = await query('SELECT houseId, role FROM users WHERE id = ?', [id]);
+      const target = targetRes.rows[0];
+      if (!target || target.houseId !== houseId || !['GARDENER', 'SEASONAL'].includes(target.role)) {
+        return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+      }
+    }
+
+    await query('DELETE FROM webauthn_credentials WHERE userId = ?', [id]);
+    await logSystemEvent('WEBAUTHN_RESET', `Passkeys reset for user ${id} by ${(req as any).userId}`, 'WARN');
+    res.json({ status: "ok" });
+  } catch (e) {
+    res.status(500).json({ error: "DB_FAULT" });
+  }
+});
 
 const checkHouseAccess = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const role = (req as any).userRole;
@@ -246,7 +689,7 @@ app.use(async (req, res, next) => {
 
 // 2. CORE API ROUTES
 app.get('/api/system/config', checkAuth, (req, res) => {
-  const role = req.headers['x-user-role'];
+  const role = (req as any).userRole;
   if (role === 'OWNER' || role === 'CO_CEO') {
     return res.json({ masterKey: currentVaultKey || process.env.MASTER_KEY || 'demo-key' });
   }
@@ -437,6 +880,29 @@ app.get('/api/proxy/perenual', checkAuth, async (req, res) => {
   }
 });
 
+app.post('/api/proxy/gemini', checkAuth, async (req, res) => {
+  try {
+    const { model, contents, config, personalApiKey } = req.body;
+    const apiKey = (personalApiKey || process.env.GEMINI_API_KEY || process.env.API_KEY || '').trim();
+    if (!apiKey) {
+      return res.status(400).json({ error: "GEMINI_API_KEY_MISSING" });
+    }
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model: model || 'gemini-2.5-flash',
+      contents,
+      config,
+    });
+    res.json({
+      text: response.text,
+      usageMetadata: response.usageMetadata,
+    });
+  } catch (e: any) {
+    console.error('[GEMINI PROXY] Fault:', e?.message || e);
+    res.status(500).json({ error: "GEMINI_PROXY_FAULT", details: e?.message });
+  }
+});
+
 app.get('/api/system/usage', checkAuth, async (req, res) => {
   console.log(`[API] Fetching usage for user: ${(req as any).userId}`);
   const now = new Date();
@@ -525,6 +991,8 @@ app.post('/api/system/restore', checkAuth, async (req, res) => {
       await query('DELETE FROM tasks');
       await query('DELETE FROM inventory');
       await query('DELETE FROM users');
+      await query('DELETE FROM webauthn_credentials');
+      await query('DELETE FROM webauthn_challenges');
       await query('DELETE FROM system_logs');
 
       if (decoded.plants && Array.isArray(decoded.plants)) {
@@ -590,6 +1058,21 @@ app.post('/api/system/restore', checkAuth, async (req, res) => {
   }
 });
 
+const assertRecordHouseOwnership = async (
+  table: 'plants' | 'tasks' | 'inventory',
+  id: string,
+  role: string,
+  userHouseId: string
+): Promise<{ allowed: boolean; status?: number; error?: string }> => {
+  if (['OWNER', 'CO_CEO'].includes(role)) return { allowed: true };
+  if (!id) return { allowed: false, status: 400, error: 'ID_REQUIRED' };
+  const existing = await query(`SELECT houseId FROM ${table} WHERE id = ?`, [id]);
+  if (existing.rows.length > 0 && existing.rows[0].houseId !== userHouseId) {
+    return { allowed: false, status: 403, error: 'INSUFFICIENT_CLEARANCE' };
+  }
+  return { allowed: true };
+};
+
 // PLANTS
 app.get('/api/plants', checkAuth, async (req, res) => {
   try {
@@ -609,6 +1092,9 @@ app.get('/api/plants', checkAuth, async (req, res) => {
 app.post('/api/plants', checkAuth, checkHouseAccess, async (req, res) => {
   try {
     const p = req.body;
+    const ownership = await assertRecordHouseOwnership('plants', p.id, (req as any).userRole, (req as any).userHouseId);
+    if (!ownership.allowed) return res.status(ownership.status || 403).json({ error: ownership.error });
+
     await query('INSERT OR REPLACE INTO plants (id, houseId, species, nickname, images, logs, lastWatered, updatedAt, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [p.id, p.houseId, p.species, JSON.stringify(p.nickname), JSON.stringify(p.images), JSON.stringify(p.logs), p.lastWatered, new Date().toISOString(), JSON.stringify(p)]);
     await logSystemEvent('PLANT_UPDATED', `Plant ${p.id} updated by ${(req as any).userId || 'ADMIN'}`, 'INFO');
@@ -618,6 +1104,13 @@ app.post('/api/plants', checkAuth, checkHouseAccess, async (req, res) => {
 
 app.delete('/api/plants/:id', checkAuth, async (req, res) => {
   try {
+    const role = (req as any).userRole;
+    if (!['OWNER', 'CO_CEO', 'LEAD_HAND'].includes(role)) {
+      return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    }
+    const ownership = await assertRecordHouseOwnership('plants', req.params.id, role, (req as any).userHouseId);
+    if (!ownership.allowed) return res.status(ownership.status || 403).json({ error: ownership.error });
+
     await query('DELETE FROM plants WHERE id = ?', [req.params.id]);
     await logSystemEvent('PLANT_DELETED', `Plant ${req.params.id} deleted by ${(req as any).userId || 'ADMIN'}`, 'WARN');
     res.json({ status: "ok" });
@@ -645,7 +1138,6 @@ app.post('/api/houses', checkAuth, async (req, res) => {
   try {
     const role = (req as any).userRole;
     const email = (req as any).userEmail;
-    console.log(`[API] POST /api/houses - User: ${email}, Role: ${role}`);
 
     // SECURITY: Only OWNER and CO_CEO can create/update houses globally
     if (!['OWNER', 'CO_CEO'].includes(role)) {
@@ -654,17 +1146,13 @@ app.post('/api/houses', checkAuth, async (req, res) => {
     }
 
     const h = req.body;
-    console.log(`[API] House Data:`, h);
-
     if (!h.id || !h.name) {
-      console.warn(`[API] Invalid house data provided:`, h);
       return res.status(400).json({ error: "INVALID_HOUSE_DATA" });
     }
 
     await query('INSERT OR REPLACE INTO houses (id, name, createdAt, data) VALUES (?, ?, ?, ?)',
       [h.id, JSON.stringify(h.name), h.createdAt, JSON.stringify(h)]);
     
-    console.log(`[API] House ${h.id} successfully saved to DB.`);
     await logSystemEvent('HOUSE_UPDATED', `House ${h.id} updated by ${email}`, 'INFO');
     res.json({ status: "ok" });
   } catch (e) { 
@@ -676,6 +1164,10 @@ app.post('/api/houses', checkAuth, async (req, res) => {
 // EXPLICIT DELETE ROUTE
 app.delete('/api/houses/:id', checkAuth, async (req, res) => {
   try {
+    const role = (req as any).userRole;
+    if (!['OWNER', 'CO_CEO'].includes(role)) {
+      return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    }
     const { id } = req.params;
     await query('DELETE FROM houses WHERE id = ?', [id]);
     await logSystemEvent('HOUSE_DELETED', `House ${id} deleted by ${(req as any).userId || 'ADMIN'}`, 'WARN');
@@ -702,6 +1194,9 @@ app.get('/api/tasks', checkAuth, async (req, res) => {
 app.post('/api/tasks', checkAuth, checkHouseAccess, async (req, res) => {
   try {
     const t = req.body;
+    const ownership = await assertRecordHouseOwnership('tasks', t.id, (req as any).userRole, (req as any).userHouseId);
+    if (!ownership.allowed) return res.status(ownership.status || 403).json({ error: ownership.error });
+
     await query('INSERT OR REPLACE INTO tasks (id, houseId, plantIds, type, title, description, date, completed, completedAt, recurrence, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [t.id, t.houseId, JSON.stringify(t.plantIds), t.type, JSON.stringify(t.title), JSON.stringify(t.description), t.date, t.completed ? 1 : 0, t.completedAt, JSON.stringify(t.recurrence), JSON.stringify(t)]);
     await logSystemEvent('TASK_UPDATED', `Task ${t.id} updated by ${(req as any).userId || 'ADMIN'}`, 'INFO');
@@ -711,6 +1206,13 @@ app.post('/api/tasks', checkAuth, checkHouseAccess, async (req, res) => {
 
 app.delete('/api/tasks/:id', checkAuth, async (req, res) => {
   try {
+    const role = (req as any).userRole;
+    if (role === 'SEASONAL') {
+      return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    }
+    const ownership = await assertRecordHouseOwnership('tasks', req.params.id, role, (req as any).userHouseId);
+    if (!ownership.allowed) return res.status(ownership.status || 403).json({ error: ownership.error });
+
     await query('DELETE FROM tasks WHERE id = ?', [req.params.id]);
     await logSystemEvent('TASK_DELETED', `Task ${req.params.id} deleted by ${(req as any).userId || 'ADMIN'}`, 'WARN');
     res.json({ status: "ok" });
@@ -736,6 +1238,9 @@ app.get('/api/inventory', checkAuth, async (req, res) => {
 app.post('/api/inventory', checkAuth, checkHouseAccess, async (req, res) => {
   try {
     const i = req.body;
+    const ownership = await assertRecordHouseOwnership('inventory', i.id, (req as any).userRole, (req as any).userHouseId);
+    if (!ownership.allowed) return res.status(ownership.status || 403).json({ error: ownership.error });
+
     await query('INSERT OR REPLACE INTO inventory (id, houseId, name, data) VALUES (?, ?, ?, ?)',
       [i.id, i.houseId, JSON.stringify(i.name), JSON.stringify(i)]);
     await logSystemEvent('INVENTORY_UPDATED', `Inventory item ${i.id} updated by ${(req as any).userId || 'ADMIN'}`, 'INFO');
@@ -747,6 +1252,13 @@ app.delete('/api/inventory', checkAuth, async (req, res) => {
   try {
     const id = req.query.id as string;
     if (!id) return res.status(400).json({ error: "ID_REQUIRED" });
+    const role = (req as any).userRole;
+    if (role === 'SEASONAL') {
+      return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    }
+    const ownership = await assertRecordHouseOwnership('inventory', id, role, (req as any).userHouseId);
+    if (!ownership.allowed) return res.status(ownership.status || 403).json({ error: ownership.error });
+
     await query('DELETE FROM inventory WHERE id = ?', [id]);
     await logSystemEvent('INVENTORY_DELETED', `Inventory item ${id} deleted by ${(req as any).userId || 'ADMIN'}`, 'WARN');
     res.json({ status: "ok" });
@@ -763,6 +1275,7 @@ app.delete('/api/users/:id', checkAuth, async (req, res) => {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
 
+    await query('DELETE FROM webauthn_credentials WHERE userId = ?', [id]);
     await query('DELETE FROM users WHERE id = ?', [id]);
     await logSystemEvent('USER_DELETED', `User ${id} permanently deleted by ${(req as any).userId || 'ADMIN'}`, 'WARN');
     res.json({ status: "ok" });
@@ -774,14 +1287,14 @@ app.get('/api/users', checkAuth, async (req, res) => {
   try {
     const role = (req as any).userRole;
     const houseId = (req as any).userHouseId;
-    let sql = 'SELECT * FROM users WHERE deletedAt IS NULL';
+    let sql = 'SELECT users.*, (SELECT COUNT(*) FROM webauthn_credentials wc WHERE wc.userId = users.id) AS passkeyCount FROM users WHERE deletedAt IS NULL';
     let params: any[] = [];
     if (role === 'LEAD_HAND') {
       sql += ' AND houseId = ? AND role IN ("GARDENER", "SEASONAL")';
       params.push(houseId);
     } else if (!['OWNER', 'CO_CEO'].includes(role)) {
       sql += ' AND id = ?';
-      params.push(req.headers['x-user-id'] || '');
+      params.push((req as any).userId || req.headers['x-user-id'] || '');
     }
     const result = await query(sql, params);
     res.json(result.rows.map((r: any) => ({ ...r, name: r.name && (r.name.startsWith('{') || r.name.startsWith('[')) ? JSON.parse(r.name) : r.name })));
@@ -790,11 +1303,47 @@ app.get('/api/users', checkAuth, async (req, res) => {
 
 app.post('/api/users', checkAuth, async (req, res) => {
   try {
+    const callerRole = (req as any).userRole;
+    const callerId = (req as any).userId;
+    const callerHouseId = (req as any).userHouseId;
     const u = req.body;
     const email = u.email?.trim().toLowerCase();
+
+    if (!u.id || !email) {
+      return res.status(400).json({ error: "INVALID_USER_DATA" });
+    }
+
+    if (callerRole === 'OWNER') {
+      // OWNER has full user management rights
+    } else if (callerRole === 'CO_CEO') {
+      // CO_CEO cannot create or modify OWNER accounts
+      if (u.role === 'OWNER') return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+      const existing = await query('SELECT role FROM users WHERE id = ?', [u.id]);
+      if (existing.rows[0]?.role === 'OWNER') return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    } else if (callerRole === 'LEAD_HAND') {
+      // LEAD_HAND can only manage GARDENER/SEASONAL within their own house
+      if (!['GARDENER', 'SEASONAL'].includes(u.role) || u.houseId !== callerHouseId) {
+        return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+      }
+      const existing = await query('SELECT houseId, role FROM users WHERE id = ?', [u.id]);
+      if (existing.rows[0] && (existing.rows[0].houseId !== callerHouseId || !['GARDENER', 'SEASONAL'].includes(existing.rows[0].role))) {
+        return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+      }
+    } else {
+      // GARDENER / SEASONAL can only update their own personalAiKey fields
+      if (u.id !== callerId) {
+        return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+      }
+      await query(
+        'UPDATE users SET personalAiKey = ?, personalAiKeyTestedAt = ? WHERE id = ?',
+        [u.personalAiKey ?? null, u.personalAiKeyTestedAt ?? null, callerId]
+      );
+      return res.json({ status: "ok" });
+    }
+
     await query('INSERT OR REPLACE INTO users (id, email, name, role, houseId, personalAiKey, personalAiKeyTestedAt, deletedAt, caretakerStart, caretakerEnd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [u.id, email, typeof u.name === 'object' ? JSON.stringify(u.name) : u.name, u.role, u.houseId, u.personalAiKey, u.personalAiKeyTestedAt, u.deletedAt, u.caretakerStart, u.caretakerEnd]);
-    await logSystemEvent('USER_UPDATED', `User ${u.id} updated by ${(req as any).userId || 'ADMIN'}`, 'INFO');
+    await logSystemEvent('USER_UPDATED', `User ${u.id} updated by ${callerId || 'ADMIN'}`, 'INFO');
     res.json({ status: "ok" });
   } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
 });
@@ -803,8 +1352,8 @@ app.get('/env-config.js', async (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
   
   res.send(`window._ENV_ = ${JSON.stringify({
-    GOOGLE_CLIENT_ID: (process.env.GOOGLE_CLIENT_ID || '').trim(),
-    API_KEY: (process.env.GEMINI_API_KEY || process.env.API_KEY || '').trim()
+    AUTH_MODE: 'WEBAUTHN',
+    ROOT_OWNER_EMAIL: (process.env.VITE_ROOT_OWNER_EMAIL || process.env.ROOT_OWNER_EMAIL || '').trim(),
   })};`);
 });
 
@@ -853,6 +1402,8 @@ async function initializeDatabase() {
   const tables = [
     `CREATE TABLE IF NOT EXISTS vault_key (id INTEGER PRIMARY KEY CHECK (id = 1), encrypted_key TEXT NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT, role TEXT DEFAULT 'OWNER', houseId TEXT, personalAiKey TEXT, personalAiKeyTestedAt TEXT, deletedAt TEXT, caretakerStart TEXT, caretakerEnd TEXT)`,
+    `CREATE TABLE IF NOT EXISTS webauthn_credentials (id TEXT PRIMARY KEY, userId TEXT NOT NULL, publicKey TEXT NOT NULL, counter INTEGER DEFAULT 0, transports TEXT, deviceType TEXT, backedUp INTEGER DEFAULT 0, label TEXT, createdAt TEXT, lastUsedAt TEXT)`,
+    `CREATE TABLE IF NOT EXISTS webauthn_challenges (id TEXT PRIMARY KEY, challenge TEXT NOT NULL, userId TEXT, email TEXT, type TEXT NOT NULL, expiresAt TEXT NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS plants (id TEXT PRIMARY KEY, houseId TEXT, species TEXT, nickname TEXT, images TEXT, logs TEXT, lastWatered TEXT, updatedAt TEXT, data TEXT)`,
     `CREATE TABLE IF NOT EXISTS houses (id TEXT PRIMARY KEY, name TEXT, createdAt TEXT, data TEXT)`,
     `CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, houseId TEXT, plantIds TEXT, type TEXT, title TEXT, description TEXT, date TEXT, completed INTEGER, completedAt TEXT, recurrence TEXT, data TEXT)`,

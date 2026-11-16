@@ -3,13 +3,6 @@
 // Relative path allows the Nginx proxy to handle routing internally via Docker
 export const API_URL = ''; 
 
-// Authentication - User must provide this via .env on Proxmox host
-export const getGoogleClientId = (): string => {
-  const id = (window as any)._ENV_?.GOOGLE_CLIENT_ID;
-  if (id === undefined) return 'MISSING_CLIENT_ID';
-  return id;
-};
-
 // Gemini API Key - Also injected at runtime
 export const getGeminiApiKey = (): string => {
   let envKey = '';
