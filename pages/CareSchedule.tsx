@@ -73,45 +73,45 @@ const CareActionItem: React.FC<{
     const actionKey = `${plant.id}-${type.toLowerCase()}`;
     
     return (
-        <div className={`group flex items-center gap-3 p-2 md:p-3 rounded-2xl border transition-all duration-300 bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 hover:border-verdant/50 hover:shadow-lg`}>
+        <div className="group flex items-center gap-3.5 p-3 md:p-4 rounded-[20px] m3-card-elevated border border-md-outline-variant/30 hover:shadow-md transition-all duration-200">
             {/* Plant Image */}
-            <div className="w-12 h-12 md:w-16 md:h-16 rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 shrink-0 shadow-inner">
+            <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl overflow-hidden bg-md-surface-container-highest shrink-0">
                 {plant.images?.[0] ? (
                     <img src={plant.images[0]} alt={lv(plant.nickname)} className="w-full h-full object-cover" />
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-300 dark:text-slate-700 font-black text-xs md:text-sm">?</div>
+                    <div className="w-full h-full flex items-center justify-center text-md-on-surface-variant font-bold text-sm">?</div>
                 )}
             </div>
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                    <h3 className="font-black text-gray-900 dark:text-white uppercase tracking-tight text-base md:text-lg truncate">
+                <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-md-on-surface text-base md:text-lg truncate">
                         {lv(plant.nickname)}
                     </h3>
-                    {isOverdue && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping shrink-0" />}
+                    {isOverdue && <span className="w-2 h-2 rounded-full bg-md-error animate-ping shrink-0" />}
                 </div>
-                <p className="text-xs md:text-sm text-gray-400 dark:text-slate-500 truncate font-sans font-normal normal-case">
+                <p className="text-xs md:text-sm text-md-on-surface-variant truncate">
                     {type === 'WATER' ? t('lbl_watering_schedule') : t('lbl_rotation_schedule')}
                 </p>
                 <div className="flex items-center gap-2 mt-1.5">
-                    <span className={`px-2 md:px-2.5 py-0.5 rounded-full text-xs md:text-sm font-black uppercase tracking-widest border shadow-sm ${isOverdue ? 'bg-red-500 text-white border-red-400' : type === 'WATER' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200/50' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200/50'}`}>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${isOverdue ? 'bg-md-error-container text-md-on-error-container' : type === 'WATER' ? 'bg-md-tertiary-container text-md-on-tertiary-container' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200'}`}>
                         {type === 'WATER' ? '💧' : '🔄'} {isOverdue ? (daysDue === 0 ? t('due_today') : t('care_days_overdue', { days: Math.abs(daysDue).toString() })) : t('care_due_in', { days: daysDue.toString() })}
                     </span>
                 </div>
             </div>
 
             {/* Actions */}
-            <div className="flex gap-1.5 md:gap-2">
+            <div className="flex gap-2">
                 <motion.button 
-                    whileTap={{ scale: 0.92 }}
+                    whileTap={{ scale: 0.94 }}
                     onClick={() => onAction(plant, type)}
-                    className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all shadow-sm border-b-2 ${lastLoggedAction === actionKey ? 'bg-emerald-500 border-emerald-700 text-white' : isOverdue ? (type === 'WATER' ? 'bg-red-600 hover:bg-red-700 border-red-800' : 'bg-amber-600 hover:bg-amber-700 border-amber-800') : (type === 'WATER' ? 'bg-blue-600 hover:bg-blue-700 border-blue-800' : 'bg-indigo-600 hover:bg-indigo-700 border-indigo-800')} text-white`}
+                    className={`m3-state-layer w-11 h-11 rounded-full flex items-center justify-center transition-all shadow-sm ${lastLoggedAction === actionKey ? 'bg-md-primary text-md-on-primary' : isOverdue ? 'bg-md-error text-md-on-error' : type === 'WATER' ? 'bg-md-tertiary text-md-on-tertiary' : 'bg-md-secondary-container text-md-on-secondary-container'}`}
                 >
                     {type === 'WATER' ? (
-                        <span className="text-xs md:text-sm">💧</span>
+                        <span className="text-base">💧</span>
                     ) : (
-                        <PotRotationIcon className="w-5 h-5 md:w-6 md:h-6" />
+                        <PotRotationIcon className="w-5 h-5" />
                     )}
                 </motion.button>
             </div>

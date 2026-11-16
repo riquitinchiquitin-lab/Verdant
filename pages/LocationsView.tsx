@@ -29,44 +29,46 @@ const LocationAccordion: React.FC<{
     }, [name, t]);
 
     return (
-        <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl md:rounded-2xl overflow-hidden transition-all duration-300 shadow-sm hover:shadow-md">
-            <div className="p-3 md:p-5 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800/50" onClick={() => setIsOpen(!isOpen)}>
-                <div className="flex items-center gap-3 md:gap-4">
-                    <div className={`p-1.5 md:p-2 rounded-lg md:rounded-xl ${isOpen ? 'bg-verdant text-white' : 'bg-gray-100 dark:bg-slate-800 text-gray-400'}`}><svg className="w-4 h-4 md:w-5 md:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg></div>
+        <div className="m3-card-elevated border border-md-outline-variant/30 rounded-[24px] overflow-hidden transition-all duration-200">
+            <div className="m3-state-layer p-4 md:p-5 flex items-center justify-between cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+                <div className="flex items-center gap-3.5">
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-colors ${isOpen ? 'bg-md-primary-container text-md-on-primary-container' : 'bg-md-surface-container-highest text-md-on-surface-variant'}`}>
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+                    </div>
                     <div>
-                        <h3 className="font-black text-gray-900 dark:text-white flex items-center gap-1.5 md:gap-2 uppercase tracking-tight text-xs md:text-base">
+                        <h3 className="font-bold text-md-on-surface flex items-center gap-2 text-sm md:text-base">
                             {translatedRoomName}
-                            {!isCustom && <span className="text-[8px] md:text-[10px] bg-gray-100 dark:bg-slate-800 text-gray-400 px-1 md:px-1.5 py-0.5 rounded font-black tracking-tighter">{t('predefined_location_tag')}</span>}
+                            {!isCustom && <span className="text-[11px] bg-md-surface-container-highest text-md-on-surface-variant px-2 py-0.5 rounded-full font-medium">{t('predefined_location_tag')}</span>}
                         </h3>
-                        <p className="text-[8px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest">{plants.length} {t('menu_my_plants')}</p>
+                        <p className="text-xs font-medium text-md-on-surface-variant">{plants.length} {t('menu_my_plants')}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2 md:gap-3">
-                    {isCustom && <button onClick={(e) => { e.stopPropagation(); onDelete(name); }} className="p-1.5 md:p-2 text-gray-400 hover:text-red-500 transition-colors border border-gray-100 dark:border-slate-800 rounded-lg"><svg className="w-4 h-4 md:w-5 md:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>}
-                    <svg className={`w-4 h-4 md:w-5 md:h-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                <div className="flex items-center gap-2">
+                    {isCustom && <button onClick={(e) => { e.stopPropagation(); onDelete(name); }} className="m3-state-layer w-9 h-9 flex items-center justify-center text-md-on-surface-variant hover:text-md-error rounded-full transition-colors"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>}
+                    <svg className={`w-5 h-5 text-md-on-surface-variant transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                 </div>
             </div>
             {isOpen && (
-                <div className="p-3 md:p-4 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 space-y-2 animate-in slide-in-from-top-2 duration-300">
+                <div className="p-4 border-t border-md-outline-variant/30 bg-md-surface-container space-y-2 animate-in slide-in-from-top-2 duration-200">
                     {plants.length > 0 ? (
-                        <div {...accordionScroll.props} className={`flex gap-2 pb-2 ${accordionScroll.props.className}`}>
+                        <div {...accordionScroll.props} className={`flex gap-2.5 pb-1 ${accordionScroll.props.className}`}>
                             {plants.map(plant => (
-                              <div key={plant.id} onClick={() => onPlantClick(plant)} className="w-48 flex-shrink-0 flex items-center gap-2 md:gap-3 p-1.5 md:p-2 rounded-lg md:rounded-xl bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-700 cursor-pointer hover:border-verdant transition-colors shadow-sm">
-                                <div className="w-8 h-8 md:w-10 md:h-10 rounded-md md:rounded-lg overflow-hidden shrink-0 bg-gray-100">
+                              <div key={plant.id} onClick={() => onPlantClick(plant)} className="w-52 flex-shrink-0 flex items-center gap-3 p-2.5 rounded-2xl bg-md-surface-container-lowest border border-md-outline-variant/30 cursor-pointer hover:border-md-primary transition-colors shadow-xs">
+                                <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-md-surface-container-highest">
                                   {plant.images && plant.images[0] ? (
                                     <img src={plant.images[0]} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                   ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-gray-300 text-[8px] md:text-[10px]">?</div>
+                                    <div className="w-full h-full flex items-center justify-center text-md-on-surface-variant text-xs">?</div>
                                   )}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="text-[10px] md:text-sm font-bold text-gray-900 dark:text-white truncate leading-tight">{lv(plant.nickname)}</p>
-                                  <p className="text-[8px] md:text-[10px] text-gray-400 font-sans font-normal normal-case truncate leading-none">{plant.species}</p>
+                                  <p className="text-sm font-semibold text-md-on-surface truncate leading-tight">{lv(plant.nickname)}</p>
+                                  <p className="text-xs text-md-on-surface-variant truncate">{plant.species}</p>
                                 </div>
                               </div>
                             ))}
                         </div>
-                    ) : <p className="text-center py-4 md:py-6 text-[8px] md:text-[10px] font-black uppercase tracking-widest text-gray-400 italic">{t('empty_jungle')}</p>}
+                    ) : <p className="text-center py-5 text-xs font-medium text-md-on-surface-variant">{t('empty_jungle')}</p>}
                 </div>
             )}
         </div>

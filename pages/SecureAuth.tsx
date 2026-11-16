@@ -127,77 +127,70 @@ export const SecureAuth: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen w-full flex flex-col bg-white dark:bg-slate-950 items-center justify-start md:justify-center p-6 font-sans relative overflow-y-auto transition-colors duration-500">
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/5 blur-[120px] rounded-full pointer-events-none"></div>
+    <div className="min-h-screen w-full flex flex-col bg-md-surface text-md-on-surface items-center justify-start md:justify-center p-6 font-sans relative overflow-y-auto transition-colors duration-300">
+      <div className="absolute top-[-10%] left-[-10%] w-[45%] h-[45%] bg-md-primary-container/30 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] bg-md-tertiary-container/25 blur-[120px] rounded-full pointer-events-none" />
 
-      <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] right-[calc(1rem+env(safe-area-inset-right))] md:top-8 md:right-8 z-20 flex items-center gap-3">
+      <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] right-[calc(1rem+env(safe-area-inset-right))] md:top-8 md:right-8 z-20 flex items-center gap-2">
         <ThemeToggle />
         <LanguageSelector variant="filled" align="right" />
       </div>
 
-      <div className="max-w-md w-full z-10 space-y-8 md:space-y-10 py-12 md:py-0">
-        <div className="bg-white dark:bg-slate-900 border-2 border-emerald-500/30 rounded-[32px] md:rounded-[40px] shadow-xl dark:shadow-[0_0_100px_rgba(16,185,129,0.1)] p-8 md:p-10 space-y-6 relative overflow-hidden transition-all duration-700 hover:border-emerald-500/50">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-emerald-500 to-transparent"></div>
-
-          <div className="text-center space-y-4">
-            <div className="mx-auto h-20 w-20 drop-shadow-[0_0_15px_rgba(16,185,129,0.4)] hover:scale-110 transition-transform duration-500">
-              <Logo />
+      <div className="max-w-md w-full z-10 space-y-6 py-12 md:py-0">
+        <div className="m3-card-elevated rounded-[28px] border border-md-outline-variant/40 p-7 md:p-9 space-y-6 relative overflow-hidden">
+          <div className="text-center space-y-3">
+            <div className="mx-auto h-16 w-16 rounded-2xl bg-md-primary-container text-md-on-primary-container p-2.5 flex items-center justify-center shadow-sm">
+              <Logo className="w-full h-full" />
             </div>
-            <div className="space-y-2">
-              <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-[0.15em] uppercase leading-none italic">
+            <div>
+              <h2 className="text-2xl font-bold text-md-on-surface tracking-tight">
                 Verdant
-                <span className="text-[10px] md:text-xs font-black italic tracking-[0.2em] text-slate-400 dark:text-white/40 mt-2 block">
-                  Argon2id + FIDO2 Security
-                </span>
               </h2>
-            </div>
-          </div>
-
-          <div className="relative py-2.5 px-4 text-center">
-            <div className="absolute inset-0 bg-emerald-500/5 rounded-[24px] blur-xl"></div>
-            <div className="relative">
-              <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-100 font-medium italic mb-1 tracking-tight">
-                "{t('genesis_quote')}"
+              <p className="text-xs font-medium text-md-on-surface-variant mt-1">
+                Argon2id + FIDO2 Security
               </p>
-              <p className="text-[9px] text-emerald-600 dark:text-emerald-500 font-black uppercase tracking-[0.3em]">{t('genesis_ref')}</p>
             </div>
           </div>
 
-          <div className="h-px w-full bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent"></div>
+          <div className="py-3 px-4 rounded-2xl bg-md-surface-container text-center space-y-1">
+            <p className="text-sm leading-relaxed text-md-on-surface font-medium italic">
+              "{t('genesis_quote')}"
+            </p>
+            <p className="text-[11px] text-md-primary font-semibold tracking-wide">{t('genesis_ref')}</p>
+          </div>
 
           {status && !status.hasUsers && (
-            <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-left space-y-1.5">
-              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">
-                <Terminal className="w-3.5 h-3.5" />
+            <div className="p-4 bg-amber-100/70 dark:bg-amber-950/50 border border-amber-500/30 rounded-2xl text-left space-y-1.5">
+              <div className="flex items-center gap-2 text-xs font-semibold text-amber-800 dark:text-amber-300">
+                <Terminal className="w-4 h-4" />
                 Server Initialization Required
               </div>
-              <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+              <p className="text-xs text-md-on-surface-variant leading-relaxed">
                 No administrator account exists yet. Preset the Owner account on your Proxmox/Linux host:
               </p>
-              <code className="block p-2 rounded-lg bg-slate-900 text-emerald-400 text-[10px] font-mono">
+              <code className="block p-2.5 rounded-xl bg-md-surface-container-lowest text-md-primary text-xs font-mono border border-md-outline-variant/30">
                 ./scripts/change-password.sh
               </code>
             </div>
           )}
 
           {loading ? (
-            <div className="flex flex-col items-center gap-4 py-6">
-              <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-widest animate-pulse">
+            <div className="flex flex-col items-center gap-4 py-8">
+              <div className="w-10 h-10 border-4 border-md-primary border-t-transparent rounded-full animate-spin" />
+              <p className="text-xs font-semibold text-md-primary tracking-wide animate-pulse">
                 {t('sys_handshake')}
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-              <form onSubmit={handlePasswordLogin} className="space-y-3">
+              <form onSubmit={handlePasswordLogin} className="space-y-3.5">
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="personnel@domain.com"
-                  className="w-full h-12 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
+                  className="w-full h-13 bg-md-surface-container-highest text-md-on-surface placeholder:text-md-on-surface-variant/70 rounded-2xl px-4 text-sm font-medium outline-none border border-md-outline/40 focus:border-md-primary focus:ring-2 focus:ring-md-primary/20 transition-all"
                 />
                 <input
                   type="password"
@@ -205,19 +198,19 @@ export const SecureAuth: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Password (Argon2id)"
-                  className="w-full h-12 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 text-sm font-bold outline-none border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/30"
+                  className="w-full h-13 bg-md-surface-container-highest text-md-on-surface placeholder:text-md-on-surface-variant/70 rounded-2xl px-4 text-sm font-medium outline-none border border-md-outline/40 focus:border-md-primary focus:ring-2 focus:ring-md-primary/20 transition-all"
                 />
                 {totpStep && (
-                  <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2.5 animate-in fade-in duration-200">
+                  <div className="p-4 rounded-2xl bg-md-primary-container/40 border border-md-primary/30 space-y-2.5 animate-in fade-in duration-200">
                     <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
-                        <Smartphone className="w-3.5 h-3.5" />
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-md-on-primary-container">
+                        <Smartphone className="w-4 h-4" />
                         {useRecoveryCode ? 'One-Time Recovery Code' : '2FA Authenticator Code'}
                       </span>
                       <button
                         type="button"
                         onClick={() => { setUseRecoveryCode(!useRecoveryCode); setAuthError(null); }}
-                        className="text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-emerald-600 underline"
+                        className="text-xs font-semibold text-md-primary hover:underline"
                       >
                         {useRecoveryCode ? 'Use 6-digit TOTP' : 'Use Recovery Code'}
                       </button>
@@ -229,7 +222,7 @@ export const SecureAuth: React.FC = () => {
                         value={recoveryCode}
                         onChange={(e) => setRecoveryCode(e.target.value)}
                         placeholder="XXXX-XXXX"
-                        className="w-full h-11 bg-white dark:bg-slate-900 rounded-xl px-4 text-sm font-mono font-bold tracking-widest outline-none border border-emerald-500/30 dark:text-white"
+                        className="w-full h-12 bg-md-surface-container-lowest text-md-on-surface rounded-xl px-4 text-sm font-mono font-semibold tracking-widest outline-none border border-md-outline/40 focus:border-md-primary"
                       />
                     ) : (
                       <input
@@ -241,25 +234,27 @@ export const SecureAuth: React.FC = () => {
                         value={totpCode}
                         onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                         placeholder="000000"
-                        className="w-full h-11 bg-white dark:bg-slate-900 rounded-xl px-4 text-center text-lg font-mono font-black tracking-[0.4em] outline-none border border-emerald-500/30 dark:text-white"
+                        className="w-full h-12 bg-md-surface-container-lowest text-md-on-surface rounded-xl px-4 text-center text-lg font-mono font-bold tracking-[0.4em] outline-none border border-md-outline/40 focus:border-md-primary"
                       />
                     )}
                   </div>
                 )}
                 {webAuthnSupported && !totpStep && (
-                  <label className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer px-1">
+                  <label className="flex items-center gap-2.5 text-xs font-medium text-md-on-surface-variant cursor-pointer px-1">
                     <input
                       type="checkbox"
                       checked={requireFido2}
                       onChange={(e) => setRequireFido2(e.target.checked)}
-                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      className="w-4 h-4 rounded accent-md-primary"
                     />
                     Require FIDO2 2nd Factor
                   </label>
                 )}
                 <Button
                   type="submit"
-                  className="w-full h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
+                  variant="primary"
+                  size="lg"
+                  className="w-full"
                 >
                   <Lock className="w-4 h-4" />
                   {totpStep ? 'Verify 2FA & Sign In' : 'Sign In with Password'}
@@ -269,19 +264,20 @@ export const SecureAuth: React.FC = () => {
               {webAuthnSupported && (
                 <>
                   <div className="relative flex items-center py-1">
-                    <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-                    <span className="flex-shrink mx-3 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                    <div className="flex-grow border-t border-md-outline-variant/50" />
+                    <span className="flex-shrink mx-3 text-xs font-medium text-md-on-surface-variant">
                       Or FIDO2 Passkey
                     </span>
-                    <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+                    <div className="flex-grow border-t border-md-outline-variant/50" />
                   </div>
 
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-1 gap-2.5">
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="tonal"
+                      size="lg"
                       onClick={() => handlePasskeyLogin(false)}
-                      className="w-full h-11 rounded-xl border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
+                      className="w-full"
                     >
                       <Fingerprint className="w-4 h-4" />
                       Sign in with Passkey
@@ -289,11 +285,12 @@ export const SecureAuth: React.FC = () => {
                     {email.trim() && (
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="outlined"
+                        size="md"
                         onClick={() => handlePasskeyLogin(true)}
-                        className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
+                        className="w-full"
                       >
-                        <KeyRound className="w-3.5 h-3.5 text-emerald-500" />
+                        <KeyRound className="w-4 h-4" />
                         Verify Security Key for {email.trim()}
                       </Button>
                     )}
@@ -304,22 +301,22 @@ export const SecureAuth: React.FC = () => {
           )}
 
           {authError && (
-            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-center">
-              <p className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest leading-relaxed">
+            <div className="p-4 bg-md-error-container text-md-on-error-container rounded-2xl text-center">
+              <p className="text-xs font-semibold leading-relaxed">
                 {authError}
               </p>
             </div>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-4 pt-2 opacity-60">
+        <div className="flex flex-wrap items-center justify-center gap-4 pt-1">
           {serviceLinks.map((link) => (
             <a
               key={link.name}
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-emerald-500 transition-colors"
+              className="text-xs font-medium text-md-on-surface-variant hover:text-md-primary transition-colors"
             >
               {link.name}
             </a>

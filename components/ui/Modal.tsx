@@ -37,27 +37,29 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] bg-black/60 backdrop-blur-sm" 
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] bg-black/50 backdrop-blur-xs animate-in fade-in duration-200" 
       role="dialog"
+      aria-modal="true"
       onClick={onClose}
     >
       <div 
-        className={`bg-white dark:bg-slate-950 rounded-2xl shadow-2xl w-full ${sizeClasses[size]} transform transition-all border border-transparent dark:border-slate-800 flex flex-col max-h-[90vh] overflow-hidden mb-[env(safe-area-inset-bottom)]`}
+        className={`bg-md-surface-container-high text-md-on-surface rounded-[28px] shadow-2xl w-full ${sizeClasses[size]} transform transition-all border border-md-outline-variant/40 flex flex-col max-h-[90vh] overflow-hidden mb-[env(safe-area-inset-bottom)]`}
         ref={overlayRef}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-950 sticky top-0 z-20">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">{title}</h3>
+        <div className="flex items-center justify-between px-6 py-5 border-b border-md-outline-variant/30 bg-md-surface-container-high sticky top-0 z-20">
+          <h3 className="text-xl font-semibold text-md-on-surface tracking-tight">{title}</h3>
           <button 
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors border border-gray-100 dark:border-slate-800 rounded-lg"
+            aria-label="Close dialog"
+            className="m3-state-layer w-10 h-10 flex items-center justify-center text-md-on-surface-variant hover:text-md-on-surface rounded-full transition-colors"
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-        <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-md-surface-container-low">
           {children}
         </div>
       </div>

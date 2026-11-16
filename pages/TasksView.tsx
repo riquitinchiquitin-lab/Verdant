@@ -24,39 +24,39 @@ const TaskItem: React.FC<{
     const taskPlants = plants.filter(p => plantIds.includes(p.id));
 
     return (
-        <div className={`group flex items-center gap-3 p-2 md:p-3 rounded-2xl border transition-all duration-300 ${task.completed ? 'bg-gray-50/50 dark:bg-slate-900/30 border-gray-100 dark:border-slate-800 opacity-60' : 'bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 hover:border-verdant/50 hover:shadow-lg'}`}>
+        <div className={`group flex items-center gap-3.5 p-3.5 md:p-4 rounded-[20px] border transition-all duration-200 ${task.completed ? 'bg-md-surface-container/50 border-md-outline-variant/20 opacity-65' : 'm3-card-elevated border-md-outline-variant/30 hover:shadow-md'}`}>
             <button 
                 onClick={() => onToggle(task.id)}
                 disabled={!can('complete_tasks')}
-                className={`w-5 h-5 md:w-6 md:h-6 shrink-0 rounded-full border-2 flex items-center justify-center transition-all ${!can('complete_tasks') ? 'opacity-50 cursor-not-allowed' : ''} ${task.completed ? 'bg-verdant border-verdant' : isOverdue ? 'border-red-400 bg-red-50 dark:bg-red-900/20' : 'border-gray-300 hover:border-verdant'}`}
+                className={`w-6 h-6 shrink-0 rounded-full border-2 flex items-center justify-center transition-all ${!can('complete_tasks') ? 'opacity-50 cursor-not-allowed' : ''} ${task.completed ? 'bg-md-primary border-md-primary text-md-on-primary' : isOverdue ? 'border-md-error bg-md-error-container/40' : 'border-md-outline hover:border-md-primary'}`}
             >
-                {task.completed && <svg className="w-3 h-3 md:w-3.5 md:h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                {task.completed && <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
             </button>
             
             <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onEdit(task)}>
-                <div className="flex items-center gap-1.5">
-                    <h3 className={`font-black text-gray-900 dark:text-white uppercase tracking-tight text-base md:text-lg ${task.completed ? 'line-through text-gray-400' : ''}`}>
+                <div className="flex items-center gap-2">
+                    <h3 className={`font-bold text-md-on-surface text-base md:text-lg ${task.completed ? 'line-through text-md-on-surface-variant' : ''}`}>
                         {lv(task.title)}
                     </h3>
                     {task.recurrence?.type && task.recurrence.type !== 'NONE' && (
-                        <span className="text-[8px] md:text-[9px] bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-md font-black uppercase tracking-widest">
+                        <span className="text-[11px] bg-md-tertiary-container text-md-on-tertiary-container px-2 py-0.5 rounded-full font-semibold">
                             {task.recurrence.type}
                         </span>
                     )}
                 </div>
                 {task.description && (
-                    <p className="text-sm md:text-base text-gray-500 dark:text-slate-400 font-medium leading-tight mt-1 line-clamp-2">
+                    <p className="text-sm text-md-on-surface-variant leading-snug mt-0.5 line-clamp-2">
                         {lv(task.description as any)}
                     </p>
                 )}
-                <div className="flex items-center gap-2 mt-1.5">
-                    <p className={`text-xs md:text-sm font-black uppercase tracking-widest ${isOverdue ? 'text-red-500' : 'text-gray-400 dark:text-slate-500'}`}>
+                <div className="flex items-center gap-2.5 mt-1.5">
+                    <p className={`text-xs font-semibold ${isOverdue ? 'text-md-error' : 'text-md-on-surface-variant'}`}>
                         {taskDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                     </p>
                     {taskPlants.length > 0 && (
                         <div className="flex -space-x-1.5">
                             {taskPlants.slice(0, 5).map(p => (
-                                <div key={p.id} className="w-4 h-4 md:w-5 md:h-5 rounded-full border border-white dark:border-slate-900 overflow-hidden bg-gray-200 shadow-sm" title={lv(p.nickname)}>
+                                <div key={p.id} className="w-5 h-5 rounded-full border border-md-surface overflow-hidden bg-md-surface-container-highest shadow-xs" title={lv(p.nickname)}>
                                     <img src={p.images?.[0]} alt="" className="w-full h-full object-cover" />
                                 </div>
                             ))}
@@ -70,15 +70,15 @@ const TaskItem: React.FC<{
                     <>
                         <button 
                             onClick={() => onEdit(task)}
-                            className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1.5 text-gray-400 md:text-gray-300 hover:text-verdant transition-all transform hover:scale-110 border border-gray-100 dark:border-slate-800 rounded-lg"
+                            className="m3-state-layer opacity-100 md:opacity-0 md:group-hover:opacity-100 w-9 h-9 flex items-center justify-center text-md-on-surface-variant hover:text-md-primary rounded-full transition-all"
                         >
-                            <svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                         </button>
                         <button 
                             onClick={() => onDelete(task.id)}
-                            className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1.5 text-gray-400 md:text-gray-300 hover:text-red-500 transition-all transform hover:scale-110 border border-gray-100 dark:border-slate-800 rounded-lg"
+                            className="m3-state-layer opacity-100 md:opacity-0 md:group-hover:opacity-100 w-9 h-9 flex items-center justify-center text-md-on-surface-variant hover:text-md-error rounded-full transition-all"
                         >
-                            <svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                     </>
                 )}

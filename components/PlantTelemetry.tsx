@@ -37,37 +37,38 @@ export const PlantTelemetry: React.FC = () => {
     }, [plants, user?.houseId, isAdmin]);
 
     return (
-        <div className="px-6 md:px-10 mb-8">
-            <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-[32px] p-6 grid grid-cols-1 md:grid-cols-2 gap-6 shadow-xl dark:shadow-2xl relative overflow-hidden">
-                {/* Decorative Grid Background */}
-                <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
-                
-                <div className="relative z-10 flex flex-col gap-1">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Database className="w-3 h-3 text-verdant" />
-                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t('lbl_specimen_count')}</span>
+        <div className="px-4 md:px-10 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="m3-card-elevated rounded-[24px] p-5 border border-md-outline-variant/30 flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-md-primary-container text-md-on-primary-container flex items-center justify-center">
+                            <Database className="w-4 h-4" />
+                        </div>
+                        <span className="text-xs font-semibold text-md-on-surface-variant">{t('lbl_specimen_count')}</span>
                     </div>
-                    <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">{stats.total}</span>
-                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">{t('lbl_units')}</span>
+                    <div className="flex items-baseline gap-1.5 mt-1">
+                        <span className="text-3xl font-bold text-md-on-surface tracking-tight">{stats.total}</span>
+                        <span className="text-xs font-medium text-md-on-surface-variant">{t('lbl_units')}</span>
                     </div>
-                    <div className="mt-2 h-1 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                        <div className="h-full bg-verdant w-full opacity-50" />
+                    <div className="mt-1 h-1.5 w-full bg-md-surface-container-highest rounded-full overflow-hidden">
+                        <div className="h-full bg-md-primary w-full rounded-full opacity-75" />
                     </div>
                 </div>
 
-                <div className="relative z-10 flex flex-col gap-1">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Droplets className="w-3 h-3 text-blue-500 dark:text-blue-400" />
-                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t('lbl_hydration_index')}</span>
+                <div className="m3-card-elevated rounded-[24px] p-5 border border-md-outline-variant/30 flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-md-tertiary-container text-md-on-tertiary-container flex items-center justify-center">
+                            <Droplets className="w-4 h-4" />
+                        </div>
+                        <span className="text-xs font-semibold text-md-on-surface-variant">{t('lbl_hydration_index')}</span>
                     </div>
-                    <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">{stats.hydrationLevel}</span>
-                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">%</span>
+                    <div className="flex items-baseline gap-1 mt-1">
+                        <span className="text-3xl font-bold text-md-on-surface tracking-tight">{stats.hydrationLevel}</span>
+                        <span className="text-sm font-semibold text-md-on-surface-variant">%</span>
                     </div>
-                    <div className="mt-2 h-1 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div className="mt-1 h-1.5 w-full bg-md-surface-container-highest rounded-full overflow-hidden">
                         <div 
-                            className="h-full bg-blue-500 dark:bg-blue-400 transition-all duration-1000" 
+                            className="h-full bg-md-tertiary rounded-full transition-all duration-700" 
                             style={{ width: `${stats.hydrationLevel}%` }} 
                         />
                     </div>

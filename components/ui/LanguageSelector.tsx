@@ -30,25 +30,25 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   }, []);
 
   const baseButtonStyles = variant === 'filled' 
-    ? "bg-slate-800/50 hover:bg-slate-800 border border-white/5" 
-    : "hover:bg-gray-100 dark:hover:bg-slate-800";
+    ? "bg-md-surface-container-high text-md-on-surface border border-md-outline-variant/40" 
+    : "text-md-on-surface-variant hover:text-md-on-surface";
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all ${baseButtonStyles}`}
+        className={`m3-state-layer flex items-center gap-2 px-3 h-10 rounded-full transition-colors ${baseButtonStyles}`}
       >
-        <span className="text-xl">{currentLanguage.flag}</span>
-        <span className="text-[10px] font-black text-gray-600 dark:text-slate-400 uppercase tracking-widest">{currentLanguage.code}</span>
+        <span className="text-lg leading-none">{currentLanguage.flag}</span>
+        <span className="text-xs font-semibold uppercase tracking-wide">{currentLanguage.code}</span>
       </button>
 
       {isOpen && (
-        <div className={`absolute ${direction === 'up' ? 'bottom-full mb-3' : 'top-full mt-3'} ${align === 'right' ? 'right-0' : 'left-0'} w-64 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-[24px] shadow-2xl z-[100] py-3 animate-in fade-in zoom-in-95 duration-200`}>
-          <div className="px-4 pb-2 mb-2 border-b border-gray-50 dark:border-slate-800">
-             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Select Language</p>
+        <div className={`absolute ${direction === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'} ${align === 'right' ? 'right-0' : 'left-0'} w-64 bg-md-surface-container-high border border-md-outline-variant/40 rounded-[20px] shadow-xl z-[100] py-2 animate-in fade-in zoom-in-95 duration-150`}>
+          <div className="px-4 py-2 border-b border-md-outline-variant/30">
+             <p className="text-[11px] font-semibold text-md-on-surface-variant">Select Language</p>
           </div>
-          <div className="max-h-64 overflow-y-auto no-scrollbar">
+          <div className="max-h-64 overflow-y-auto no-scrollbar py-1">
             {LANGUAGES.map((lang) => (
               <button
                 key={lang.code}
@@ -56,10 +56,10 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
                   setLanguage(lang.code);
                   setIsOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors ${currentLanguage.code === lang.code ? 'bg-verdant/5 text-verdant' : 'text-gray-700 dark:text-slate-300'}`}
+                className={`m3-state-layer w-full flex items-center gap-3 px-4 py-2.5 transition-colors ${currentLanguage.code === lang.code ? 'bg-md-secondary-container text-md-on-secondary-container' : 'text-md-on-surface'}`}
               >
-                <span className="text-xl">{lang.flag}</span>
-                <span className="text-[11px] font-black uppercase tracking-wider">{lang.label}</span>
+                <span className="text-lg leading-none">{lang.flag}</span>
+                <span className="text-xs font-semibold">{lang.label}</span>
               </button>
             ))}
           </div>

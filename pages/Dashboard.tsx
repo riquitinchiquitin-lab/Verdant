@@ -127,43 +127,41 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 pb-20 transition-all">
+    <div className="max-w-7xl mx-auto space-y-6 pb-20 transition-all">
         <AddPlantModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSave={addPlant} />
         <PlantDetailsModal isOpen={!!selectedPlant} plant={selectedPlant} onClose={() => setSelectedPlant(null)} />
         <QrScannerModal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} onScanSuccess={handleScanSuccess} />
 
-        {/* CLEAN HEADER */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 px-6 md:px-10 pt-10 pb-4">
-            <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white dark:bg-slate-900 rounded-2xl shadow-sm flex items-center justify-center border border-gray-100 dark:border-white/5">
-                    <Logo className="w-8 h-8 text-verdant" />
+        {/* M3 PAGE HEADER */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-4 md:px-10 pt-6 pb-2">
+            <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 bg-md-primary-container text-md-on-primary-container rounded-2xl flex items-center justify-center p-2 shadow-xs">
+                    <Logo className="w-full h-full" />
                 </div>
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tighter uppercase leading-none">Verdant</h1>
+                    <h1 className="text-2xl md:text-3xl font-bold text-md-on-surface tracking-tight leading-none">{t('menu_my_plants')}</h1>
+                    <p className="text-xs font-medium text-md-on-surface-variant mt-1">{filtered.length} {t('lbl_units')}</p>
                 </div>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
                 {isAdmin && (
-                    <div className="flex flex-col md:flex-row items-end md:items-center gap-3">
-                        <select 
-                            className="h-12 px-4 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all appearance-none min-w-[160px]"
-                            value={selectedHouseFilter}
-                            onChange={(e) => setSelectedHouseFilter(e.target.value as any)}
-                        >
-                            <option value="ALL">{t('labels_all_global_properties')}</option>
-                            <option value="UNATTRIBUTED">{t('lbl_unattributed')}</option>
-                            {houses.map(h => (
-                                <option key={h.id} value={h.id}>{lv(h.name)}</option>
-                            ))}
-                        </select>
-
-
-                    </div>
+                    <select 
+                        className="h-10 px-4 bg-md-surface-container-high border border-md-outline-variant/60 rounded-full text-xs font-semibold text-md-on-surface outline-none focus:ring-2 focus:ring-md-primary/30 transition-all min-w-[160px]"
+                        value={selectedHouseFilter}
+                        onChange={(e) => setSelectedHouseFilter(e.target.value as any)}
+                    >
+                        <option value="ALL">{t('labels_all_global_properties')}</option>
+                        <option value="UNATTRIBUTED">{t('lbl_unattributed')}</option>
+                        {houses.map(h => (
+                            <option key={h.id} value={h.id}>{lv(h.name)}</option>
+                        ))}
+                    </select>
                 )}
                 <Button
+                    variant="primary"
+                    size="md"
                     onClick={() => setIsAddModalOpen(true)}
-                    className="h-12 px-6 bg-verdant text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-verdant/20 hover:scale-105 transition-all flex items-center gap-2"
                 >
                     <Plus className="w-4 h-4" />
                     {t('btn_add_plant')}
@@ -173,11 +171,11 @@ export const Dashboard: React.FC = () => {
 
         <PlantTelemetry />
 
-        <div className="px-6 md:px-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 pb-8">
+        <div className="px-4 md:px-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 pb-8">
             {featured && (
                 <div key={featured.id} className="relative group">
                     {!featured.houseId && (
-                        <div className="absolute -top-3 -right-3 z-20 bg-amber-500 text-white text-[8px] font-black px-2 py-1 rounded-full shadow-lg border-2 border-white dark:border-slate-900 uppercase tracking-widest animate-bounce">
+                        <div className="absolute -top-2 -right-2 z-20 bg-amber-400 text-amber-950 text-[11px] font-semibold px-2.5 py-0.5 rounded-full shadow-md">
                             {t('lbl_unattributed')}
                         </div>
                     )}
@@ -187,7 +185,7 @@ export const Dashboard: React.FC = () => {
             {others.map(plant => (
                 <div key={plant.id} className="relative group">
                     {!plant.houseId && (
-                        <div className="absolute -top-3 -right-3 z-20 bg-amber-500 text-white text-[8px] font-black px-2 py-1 rounded-full shadow-lg border-2 border-white dark:border-slate-900 uppercase tracking-widest animate-bounce">
+                        <div className="absolute -top-2 -right-2 z-20 bg-amber-400 text-amber-950 text-[11px] font-semibold px-2.5 py-0.5 rounded-full shadow-md">
                             {t('lbl_unattributed')}
                         </div>
                     )}
@@ -197,9 +195,9 @@ export const Dashboard: React.FC = () => {
         </div>
         
         {filtered.length === 0 && (
-            <div className="py-24 text-center border-4 border-dashed border-gray-100 dark:border-slate-800 rounded-[48px]">
-                <p className="text-gray-400 font-black uppercase tracking-[0.4em]">{t('empty_jungle')}</p>
-                <Button variant="primary" className="mt-8 rounded-2xl" onClick={restoreDemoData}>{t('restore_examples')}</Button>
+            <div className="mx-4 md:mx-10 py-20 text-center bg-md-surface-container-low border border-dashed border-md-outline-variant rounded-[28px]">
+                <p className="text-md-on-surface-variant font-semibold text-sm">{t('empty_jungle')}</p>
+                <Button variant="tonal" className="mt-6" onClick={restoreDemoData}>{t('restore_examples')}</Button>
             </div>
         )}
     </div>

@@ -148,74 +148,66 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
     return (
         <div 
             onClick={onClick} 
-            className={`group bg-white dark:bg-slate-900 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-500 flex flex-col overflow-hidden ${onClick ? 'cursor-pointer' : ''} ${className}`}
+            className={`group m3-card-elevated rounded-[24px] border border-md-outline-variant/30 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex flex-col overflow-hidden ${onClick ? 'cursor-pointer' : ''} ${className}`}
         >
             {/* IMAGE SECTION */}
-            <div className="relative h-48 md:h-64 bg-verdant-bone dark:bg-slate-800 overflow-hidden m-3 rounded-[24px]">
+            <div className="relative h-48 md:h-60 bg-md-surface-container-highest overflow-hidden m-2.5 rounded-[20px]">
                 <img 
                     src={imageUrl} 
                     alt={lv(plant.nickname)} 
-                    className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-1000" 
+                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" 
                     referrerPolicy="no-referrer"
                 />
                 
-                <div className="absolute top-3 left-3 flex flex-wrap gap-2.5 z-10 max-w-[calc(100%-80px)]">
-                     <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-[0.15em] border shadow-sm whitespace-nowrap ${plant.isPetSafe ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-red-600 text-white border-red-500'}`}>
+                <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 z-10 max-w-[calc(100%-90px)]">
+                     <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold shadow-xs whitespace-nowrap ${plant.isPetSafe ? 'bg-md-primary-container text-md-on-primary-container' : 'bg-md-error-container text-md-on-error-container'}`}>
                         {plant.isPetSafe ? t('status_safe') : t('status_toxic')}
                      </span>
                      {plant.category && (
-                        <span className="px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-[0.15em] border bg-white dark:bg-slate-900 text-gray-900 dark:text-white border-gray-200 dark:border-slate-700 shadow-sm whitespace-nowrap">
+                        <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-md-surface-container-high/90 text-md-on-surface backdrop-blur-xs shadow-xs whitespace-nowrap">
                             {lv(plant.category as any)}
                         </span>
                      )}
                 </div>
                 
-                <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-2">
+                <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1.5">
                     {plant.isPriority && (
-                        <div className="bg-amber-500 text-white p-1.5 rounded-full shadow-lg border border-amber-400 animate-in zoom-in duration-300">
-                            <span className="text-xs">⭐</span>
+                        <div className="bg-amber-400 text-amber-950 px-2 py-0.5 rounded-full shadow-sm text-xs font-bold">
+                            ⭐
                         </div>
                     )}
-                    <span className={`text-[8px] font-black px-3 py-1 rounded-full shadow-sm border uppercase tracking-[0.15em] ${status.color}`}>
+                    <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-xs border ${status.color}`}>
                         {status.label}
                     </span>
                 </div>
 
-                {/* Hardware Decoration: Serial Number */}
-                <div className="absolute bottom-3 left-3 z-10 flex items-center gap-2 opacity-40">
-                    <div className="w-1 h-1 rounded-full bg-white animate-pulse" />
-                    <span className="text-[7px] font-mono text-white uppercase tracking-[0.2em]">{t('lbl_serial_number')}: {plant.id?.substring(0, 8)}</span>
-                </div>
-
-                {/* Hardware Decoration: Dot Grid */}
-                <div className="absolute bottom-3 right-3 z-10 opacity-20 grid grid-cols-3 gap-0.5">
-                    {[...Array(9)].map((_, i) => (
-                        <div key={i} className="w-0.5 h-0.5 bg-white rounded-full" />
-                    ))}
+                <div className="absolute bottom-2.5 left-3 z-10 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-xs">
+                    <div className="w-1.5 h-1.5 rounded-full bg-white/80" />
+                    <span className="text-[10px] font-mono text-white/90">{plant.id?.substring(0, 8)}</span>
                 </div>
             </div>
 
             {/* CONTENT SECTION */}
-            <div className="px-5 pb-5 pt-1 flex-1 flex flex-col gap-3">
+            <div className="px-5 pb-5 pt-2 flex-1 flex flex-col gap-3">
                 <div>
-                    <h3 className="text-gray-900 dark:text-white font-black text-xl md:text-2xl tracking-tighter leading-tight truncate">
+                    <h3 className="text-md-on-surface font-bold text-lg md:text-xl tracking-tight leading-snug truncate">
                         {lv(plant.nickname)}
                     </h3>
-                    <p className="text-verdant font-sans font-normal normal-case text-xs md:text-sm truncate opacity-70">
+                    <p className="text-md-primary font-medium text-xs md:text-sm truncate">
                         {plant.species}
                     </p>
                 </div>
 
                 <div className="space-y-1.5">
-                    <div className="flex justify-between items-end">
-                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">{t('lbl_hydration')}</span>
-                        <span className={`text-[8px] font-black tracking-widest ${status.daysLeft === 0 ? 'text-red-500' : status.daysLeft === '?' ? 'text-gray-400' : 'text-verdant'}`}>
-                            {status.daysLeft === 0 ? t('status_due_now') : status.daysLeft === '?' ? '?' : `${status.daysLeft}D`}
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs font-medium text-md-on-surface-variant">{t('lbl_hydration')}</span>
+                        <span className={`text-xs font-semibold ${status.daysLeft === 0 ? 'text-md-error' : status.daysLeft === '?' ? 'text-md-on-surface-variant' : 'text-md-primary'}`}>
+                            {status.daysLeft === 0 ? t('status_due_now') : status.daysLeft === '?' ? '?' : `${status.daysLeft}d`}
                         </span>
                     </div>
-                    <div className="h-1 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-1.5 w-full bg-md-surface-container-highest rounded-full overflow-hidden">
                         <div 
-                            className={`h-full rounded-full transition-all duration-1000 ${status.daysLeft === 0 ? 'bg-red-500 animate-pulse' : 'bg-verdant'}`} 
+                            className={`h-full rounded-full transition-all duration-700 ${status.daysLeft === 0 ? 'bg-md-error animate-pulse' : 'bg-md-primary'}`} 
                             style={{ width: `${status.percent}%` }} 
                         />
                     </div>
@@ -224,8 +216,9 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
                 {showActions && (
                     <div className="mt-auto pt-1">
                         <Button 
-                            variant="primary"
-                            className={`w-full rounded-xl h-10 font-black text-[9px] uppercase tracking-widest shadow-sm transition-all ${lastLoggedAction === 'WATER' ? 'bg-emerald-500 text-white' : status.daysLeft === 0 ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} 
+                            variant={lastLoggedAction === 'WATER' ? 'primary' : status.daysLeft === 0 ? 'danger' : 'tonal'}
+                            size="md"
+                            className="w-full"
                             onClick={async (e) => { 
                                 e.stopPropagation(); 
                                 await addLog(plant.id!, { id: `l-${generateUUID()}`, date: new Date().toISOString(), type: 'WATER' }); 
@@ -237,7 +230,8 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
                                 setTimeout(() => setAlertMessage(null), 4000);
                             }}
                         >
-                            <span className="text-lg">💧</span>
+                            <span>💧</span>
+                            <span>{t('log_action_watered') || 'Water'}</span>
                         </Button>
                     </div>
                 )}
