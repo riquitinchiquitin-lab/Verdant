@@ -176,12 +176,12 @@ export const generatePlantDetails = async (
     - Web Grounding: ${JSON.stringify(limitedGrounding)}
     
     REQUIREMENTS:
-    1. Extract: species, scientificAuthor, rank, family, genus, category, growthRate, maxHeight (cm), avgHeight (cm), flowers (bool), edible (bool), vegetable (bool).
-    2. Specs: min/max moisture (%), temp (C), light (Lux), soil EC, humidity (%).
-    3. Care: Estimate 'wateringInterval' (days) and 'repottingFrequency' (months) based on species needs.
-    4. Lifecycle: Synthesize 'propagationMethods' (localized array of strings), a detailed 'propagationInstructions' (localized string with step-by-step guide), and a detailed 'repottingInstructions' (localized string with step-by-step guide) using data from all provided sources. Include 'lastPotSize' (string) and 'citesStatus' (Appendix I, II, or III).
+    1. Extract: species, scientificAuthor, rank, family, genus, category, growthRate, maxHeight (cm), avgHeight (cm), flowers (bool), edible (bool), vegetable (bool), droughtTolerant (bool, from Perenual drought_tolerant or species traits).
+    2. Specs: min/max moisture (%), temp (C), light (Lux), soil EC (minSoilEc, maxSoilEc), humidity (minEnvHumid, maxEnvHumid %).
+    3. Care & Seasonal Cadence: Estimate 'wateringInterval' (days), 'summerWateringInterval' (days), 'winterWateringInterval' (days), 'repottingFrequency' (months), 'careDifficulty' (Easy/Moderate/Challenging from Perenual care_level), 'windowExposure' (e.g. South / West Bright Indirect from Perenual sunlight), 'potMaterial' (recommended pot material, e.g. Terracotta or Glazed Ceramic), 'dormancyPeriod' (e.g. Winter or None), 'npkRatio' (e.g. "2-7-7" or "10-10-10 Half Strength"), 'bloomSeason' (from Trefle bloom_months), 'pruningMonths' (from Perenual pruning_month).
+    4. Lifecycle & Pests: Synthesize 'propagationMethods' (localized array of strings), 'susceptiblePests' (localized array of common pests/diseases from Perenual pest_susceptibility or species profile, e.g. Mealybugs, Spider Mites, Root Rot), a detailed 'propagationInstructions' (localized string with step-by-step guide), and a detailed 'repottingInstructions' (localized string with step-by-step guide) using data from all provided sources. Include 'lastPotSize' (string) and 'citesStatus' (Appendix I, II, or III).
     5. Technical: Suggest 'targetPh', 'targetEc', 'targetVpd', 'targetDli' for optimal growth.
-    6. Localization: Translate ALL text fields (nickname, description, category, growthRate, citesStatus, origin, distribution, advice fields, petSafety, aiInsight, propagationInstructions, repottingInstructions, etc.) into these 11 codes: ${TARGET_LANGS.join(',')}.
+    6. Localization: Translate ALL text fields (nickname, description, category, growthRate, citesStatus, origin, distribution, advice fields, petSafety, aiInsight, propagationInstructions, repottingInstructions, careDifficulty, potMaterial, windowExposure, dormancyPeriod, bloomSeason, pruningMonths, susceptiblePests, etc.) into these 11 codes: ${TARGET_LANGS.join(',')}.
     7. Toxicity: Detail pet-safety in 'petSafety' (isPetSafe bool).
     8. Soil: Breakdown 'soilComposition' into percentages with localized component names.
     9. Insights: Provide a unique 'aiInsight' about this specimen.
@@ -210,10 +210,25 @@ export const generatePlantDetails = async (
             flowers: { type: Type.BOOLEAN },
             edible: { type: Type.BOOLEAN },
             vegetable: { type: Type.BOOLEAN },
+            droughtTolerant: { type: Type.BOOLEAN },
             isPetSafe: { type: Type.BOOLEAN },
             wateringInterval: { type: Type.INTEGER },
+            summerWateringInterval: { type: Type.INTEGER },
+            winterWateringInterval: { type: Type.INTEGER },
             repottingFrequency: { type: Type.INTEGER },
             lastPotSize: { type: Type.STRING },
+            npkRatio: { type: Type.STRING },
+            careDifficulty: translationSchema,
+            potMaterial: translationSchema,
+            windowExposure: translationSchema,
+            dormancyPeriod: translationSchema,
+            bloomSeason: translationSchema,
+            pruningMonths: translationSchema,
+            susceptiblePests: {
+              type: Type.OBJECT,
+              properties: TARGET_LANGS.reduce((a:any, l) => ({...a, [l]: {type: Type.ARRAY, items: {type: Type.STRING}}}), {}),
+              required: TARGET_LANGS
+            },
             propagationMethods: {
               type: Type.OBJECT,
               properties: TARGET_LANGS.reduce((a:any, l) => ({...a, [l]: {type: Type.ARRAY, items: {type: Type.STRING}}}), {}),
@@ -232,8 +247,10 @@ export const generatePlantDetails = async (
             maxTemp: { type: Type.NUMBER },
             minLightLux: { type: Type.INTEGER },
             maxLightLux: { type: Type.INTEGER },
-            minSoilEc: { type: Type.INTEGER },
+            minSoilEc: { type: Type.NUMBER },
+            maxSoilEc: { type: Type.NUMBER },
             minEnvHumid: { type: Type.INTEGER },
+            maxEnvHumid: { type: Type.INTEGER },
             nickname: translationSchema,
             description: translationSchema,
             aiInsight: translationSchema,
@@ -333,9 +350,13 @@ export const createPlant = (data: Partial<Plant>): Plant => {
     minLightLux: data.minLightLux || null,
     maxLightLux: data.maxLightLux || null,
     minSoilEc: data.minSoilEc || null,
+    maxSoilEc: data.maxSoilEc || null,
     minEnvHumid: data.minEnvHumid || null,
+    maxEnvHumid: data.maxEnvHumid || null,
     
     wateringInterval: data.wateringInterval || 7,
+    summerWateringInterval: data.summerWateringInterval || null,
+    winterWateringInterval: data.winterWateringInterval || null,
     lastWatered: data.lastWatered || null,
     createdAt: data.createdAt || new Date().toISOString(),
     updatedAt: data.updatedAt || new Date().toISOString(),
@@ -360,7 +381,17 @@ export const createPlant = (data: Partial<Plant>): Plant => {
     lastPotSize: data.lastPotSize || null,
     targetVpd: data.targetVpd || null,
     targetDli: data.targetDli || null,
-    houseId: data.houseId || null
+    houseId: data.houseId || null,
+
+    careDifficulty: data.careDifficulty || null,
+    potMaterial: data.potMaterial || null,
+    windowExposure: data.windowExposure || null,
+    dormancyPeriod: data.dormancyPeriod || null,
+    npkRatio: data.npkRatio || null,
+    susceptiblePests: data.susceptiblePests || emptyLocalizedArray,
+    bloomSeason: data.bloomSeason || null,
+    pruningMonths: data.pruningMonths || null,
+    droughtTolerant: data.droughtTolerant ?? false
   } as Plant;
 };
 

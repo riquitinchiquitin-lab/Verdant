@@ -184,6 +184,19 @@ export interface Plant {
   healthStatus?: string | null;
   variety?: string | null;
   isPriority?: boolean;
+
+  // --- 7. ENRICHED CARE & SEASONAL CADENCE ---
+  careDifficulty?: LocalizedString | null;
+  potMaterial?: LocalizedString | null;
+  windowExposure?: LocalizedString | null;
+  summerWateringInterval?: number | null;
+  winterWateringInterval?: number | null;
+  dormancyPeriod?: LocalizedString | null;
+  npkRatio?: string | null;
+  susceptiblePests?: LocalizedArray;
+  bloomSeason?: LocalizedString | null;
+  pruningMonths?: LocalizedString | null;
+  droughtTolerant?: boolean;
 }
 
 export type RecurrenceType = 'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY';
