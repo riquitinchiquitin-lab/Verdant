@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Leaf, Camera, Edit3, Activity, QrCode, Droplets, FileText, Star, FlaskConical, Scissors, Sprout, Flower2, ArrowLeftRight, Globe, Ruler, Tag, Home, Sun, X } from 'lucide-react';
+import { Leaf, Camera, Edit3, Activity, QrCode, Droplets, FileText, Star, FlaskConical, Scissors, Sprout, Flower2, ArrowLeftRight, Globe, Ruler, Tag, Home, Sun, X, RefreshCw, Calendar, Dna, Wheat, Snowflake, Trash2 } from 'lucide-react';
 import { Plant, Log, LogType, LocalizedString } from '../types';
 import { Button } from './ui/Button';
 import { usePlants } from '../context/PlantContext';
@@ -69,23 +69,18 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
   );
 
   const TechMetric = ({ label, min, max, unit, advice }: { label: string, min?: number | null, max?: number | null, unit: string, advice: string }) => (
-    <div className="relative space-y-4 p-6 bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden group hover:scale-105 transition-all duration-300 cursor-pointer">
-      {/* Hardware Decoration: Corner Accent */}
-      <div className="absolute top-0 right-0 w-8 h-8 opacity-10">
-        <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-verdant" />
-      </div>
-      
-      <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">{label}</p>
-      <div className="flex items-baseline gap-1">
-        <span className="text-4xl font-black text-gray-900 dark:text-white tracking-tighter">
+    <div className="relative space-y-4 p-6 m3-card-elevated rounded-[24px] border border-md-outline-variant/30 overflow-hidden group hover:scale-[1.02] transition-all duration-300 cursor-pointer">
+      <p className="text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider">{label}</p>
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-3xl font-bold text-md-on-surface tracking-tight">
           {min !== undefined && min !== null && max !== undefined && max !== null ? `${min}-${max}` : (min ?? max ?? t('lbl_na'))}
         </span>
-        <span className="text-xs font-bold text-verdant uppercase tracking-widest">{unit}</span>
+        <span className="text-xs font-semibold text-md-primary uppercase tracking-wider">{unit}</span>
       </div>
-      <div className="h-0.5 w-full bg-gray-50 dark:bg-slate-800 rounded-full overflow-hidden">
-        <div className="h-full bg-verdant w-2/3 opacity-30 group-hover:w-full transition-all duration-700" />
+      <div className="h-1 w-full bg-md-surface-container-highest rounded-full overflow-hidden">
+        <div className="h-full bg-md-primary w-2/3 opacity-40 group-hover:w-full transition-all duration-700" />
       </div>
-      <p className="text-[13px] font-serif italic text-slate-600 dark:text-slate-300 leading-relaxed">"{advice}"</p>
+      <p className="text-[13px] text-md-on-surface-variant leading-relaxed">{advice}</p>
     </div>
   );
 
@@ -329,30 +324,30 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
   const getLogIcon = (log: Log): React.ReactNode => {
     if (log.type === 'PHENOPHASE' && log.metadata?.phase) {
       switch(log.metadata.phase) {
-        case 'FIRST_BUD': return '🌱';
-        case 'FULL_BLOOM': return '🌸';
-        case 'SEED_SET': return '🌾';
-        case 'DORMANCY_ENTRANCE': return '🍂';
-        case 'FIRST_LEAF_SPRING': return '🌿';
-        case 'BUDDING': return '🎋';
-        case 'IN_FLOWER': return '🌺';
-        case 'DORMANCY_START': return '❄️';
+        case 'FIRST_BUD': return <Sprout className="w-5 h-5" />;
+        case 'FULL_BLOOM': return <Flower2 className="w-5 h-5" />;
+        case 'SEED_SET': return <Wheat className="w-5 h-5" />;
+        case 'DORMANCY_ENTRANCE': return <Leaf className="w-5 h-5" />;
+        case 'FIRST_LEAF_SPRING': return <Leaf className="w-5 h-5" />;
+        case 'BUDDING': return <Sprout className="w-5 h-5" />;
+        case 'IN_FLOWER': return <Flower2 className="w-5 h-5" />;
+        case 'DORMANCY_START': return <Snowflake className="w-5 h-5" />;
       }
     }
     switch(log.type) {
-        case 'WATER': return '💧';
-        case 'FERTILIZED': return '🧪';
-        case 'REPOTTED': return '🪴';
-        case 'PRUNED': return '✂️';
-        case 'NEW_LEAF': return '🌿';
-        case 'FLOWER': return '🌸';
-        case 'DISEASE_CHECK': return '✚';
-        case 'IMAGE': return '📸';
-        case 'NOTE': return '📝';
-        case 'MOISTURE': return <MoistureProbeIcon className="w-6 h-6" />;
-        case 'PHENOPHASE': return '🧬';
-        case 'ROTATED': return <PotRotationIcon className="w-6 h-6" />;
-        default: return '📍';
+        case 'WATER': return <Droplets className="w-5 h-5" />;
+        case 'FERTILIZED': return <FlaskConical className="w-5 h-5" />;
+        case 'REPOTTED': return <Sprout className="w-5 h-5" />;
+        case 'PRUNED': return <Scissors className="w-5 h-5" />;
+        case 'NEW_LEAF': return <Leaf className="w-5 h-5" />;
+        case 'FLOWER': return <Flower2 className="w-5 h-5" />;
+        case 'DISEASE_CHECK': return <Activity className="w-5 h-5" />;
+        case 'IMAGE': return <Camera className="w-5 h-5" />;
+        case 'NOTE': return <FileText className="w-5 h-5" />;
+        case 'MOISTURE': return <MoistureProbeIcon className="w-5 h-5" />;
+        case 'PHENOPHASE': return <Dna className="w-5 h-5" />;
+        case 'ROTATED': return <PotRotationIcon className="w-5 h-5" />;
+        default: return <Tag className="w-5 h-5" />;
     }
   };
 
@@ -667,10 +662,10 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                     )}
 
                     {activeTab === 'TECH' && (
-                        <div className="space-y-8">
-                            <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-10">
-                                <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-verdant">{t('lbl_atmospheric_soil_bounds')}</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+                        <div className="space-y-6">
+                            <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">
+                                <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">{t('lbl_atmospheric_soil_bounds')}</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                     <TechMetric label={t('lbl_moisture')} min={plant.minSoilMoist} max={plant.maxSoilMoist} unit="%" advice={lv(plant.moistureAdvice)} />
                                     <TechMetric label={t('lbl_temperature')} min={plant.minTemp} max={plant.maxTemp} unit="°C" advice={lv(plant.tempAdvice)} />
                                     <TechMetric label={t('lbl_illuminance')} min={plant.minLightLux} unit="Lux" advice={lv(plant.lightAdvice)} />
@@ -683,43 +678,45 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                 </div>
                             </section>
 
-                            <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-10">
-                                <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-verdant">{t('lbl_environmental_guards')}</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                                    <div className="p-8 bg-gray-50 dark:bg-slate-800/50 rounded-3xl border border-gray-100 dark:border-slate-800">
-                                        <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-4">{t('lbl_watering_delta')}</p>
-                                        <p className="text-2xl font-black text-gray-900 dark:text-white">{plant.wateringInterval} {t('days').toUpperCase()}</p>
-                                        <p className="text-xs text-gray-700 dark:text-slate-200 mt-2 italic">{t('lbl_watering_delta_desc')}</p>
+                            <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">
+                                <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">{t('lbl_environmental_guards')}</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="p-6 bg-md-surface-container-highest/50 rounded-2xl border border-md-outline-variant/30">
+                                        <p className="text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider mb-3">{t('lbl_watering_delta')}</p>
+                                        <p className="text-2xl font-bold text-md-on-surface">{plant.wateringInterval} {t('days').toUpperCase()}</p>
+                                        <p className="text-xs text-md-on-surface-variant mt-2">{t('lbl_watering_delta_desc')}</p>
                                     </div>
-                                    <div className="p-8 bg-gray-50 dark:bg-slate-800/50 rounded-3xl border border-gray-100 dark:border-slate-800">
-                                        <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-4">{t('lbl_last_observed_action')}</p>
-                                        <p className="text-2xl font-black text-gray-900 dark:text-white uppercase">{lastWateredDate}</p>
-                                        <p className="text-xs text-gray-700 dark:text-slate-200 mt-2 italic">{t('lbl_last_observed_action_desc')}</p>
+                                    <div className="p-6 bg-md-surface-container-highest/50 rounded-2xl border border-md-outline-variant/30">
+                                        <p className="text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider mb-3">{t('lbl_last_observed_action')}</p>
+                                        <p className="text-2xl font-bold text-md-on-surface uppercase">{lastWateredDate}</p>
+                                        <p className="text-xs text-md-on-surface-variant mt-2">{t('lbl_last_observed_action_desc')}</p>
                                     </div>
                                 </div>
                             </section>
 
-                            <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-8">
-                                <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-verdant">{t('lbl_upcoming_care_schedule')}</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">
+                                <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">{t('lbl_upcoming_care_schedule')}</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Watering Schedule */}
                                     {plant.wateringInterval && (
                                         <div className="space-y-3">
-                                            <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest px-2">{t('lbl_watering_schedule')}</p>
+                                            <p className="text-[11px] font-semibold text-md-tertiary uppercase tracking-wider px-1">{t('lbl_watering_schedule')}</p>
                                             {[1, 2, 3].map(i => {
                                                 const lastDate = plant.lastWatered ? new Date(plant.lastWatered) : new Date();
                                                 const nextDate = new Date(lastDate.getTime() + i * (plant.wateringInterval || 7) * 86400000);
                                                 const daysAway = Math.ceil((nextDate.getTime() - Date.now()) / 86400000);
                                                 return (
-                                                    <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-800/50 rounded-2xl border border-gray-100 dark:border-slate-800">
-                                                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500 text-sm">💧</div>
+                                                    <div key={i} className="flex items-center gap-3 p-3.5 bg-md-surface-container-highest/50 rounded-2xl border border-md-outline-variant/30">
+                                                        <div className="w-9 h-9 rounded-xl bg-md-tertiary-container text-md-on-tertiary-container flex items-center justify-center shrink-0">
+                                                            <Droplets className="w-4 h-4" />
+                                                        </div>
                                                         <div className="flex-1">
-                                                            <p className="text-xs font-bold text-gray-900 dark:text-white">
+                                                            <p className="text-xs font-semibold text-md-on-surface">
                                                                 {nextDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                                                             </p>
                                                         </div>
-                                                        <div className="text-[9px] font-black text-blue-500 uppercase tracking-widest">
-                                                            {daysAway > 0 ? t('care_due_in', { days: daysAway.toString() }) : t('due_today')}
+                                                        <div className={`text-[10px] font-semibold uppercase tracking-wider ${daysAway < 0 ? 'text-md-error' : 'text-md-tertiary'}`}>
+                                                            {daysAway > 0 ? t('care_due_in', { days: daysAway.toString() }) : (daysAway === 0 ? t('due_today') : t('care_days_overdue', { days: Math.abs(daysAway).toString() }))}
                                                         </div>
                                                     </div>
                                                 );
@@ -730,21 +727,23 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                     {/* Rotation Schedule */}
                                     {plant.rotationFrequency && (
                                         <div className="space-y-3">
-                                            <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest px-2">{t('lbl_rotation_schedule')}</p>
+                                            <p className="text-[11px] font-semibold text-md-secondary uppercase tracking-wider px-1">{t('lbl_rotation_schedule')}</p>
                                             {[1, 2, 3].map(i => {
                                                 const lastDate = plant.lastRotated ? new Date(plant.lastRotated) : new Date();
                                                 const nextDate = new Date(lastDate.getTime() + i * (plant.rotationFrequency || 30) * 86400000);
                                                 const daysAway = Math.ceil((nextDate.getTime() - Date.now()) / 86400000);
                                                 return (
-                                                    <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-800/50 rounded-2xl border border-gray-100 dark:border-slate-800">
-                                                        <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 text-sm">🔄</div>
+                                                    <div key={i} className="flex items-center gap-3 p-3.5 bg-md-surface-container-highest/50 rounded-2xl border border-md-outline-variant/30">
+                                                        <div className="w-9 h-9 rounded-xl bg-md-secondary-container text-md-on-secondary-container flex items-center justify-center shrink-0">
+                                                            <PotRotationIcon className="w-4 h-4" />
+                                                        </div>
                                                         <div className="flex-1">
-                                                            <p className="text-xs font-bold text-gray-900 dark:text-white">
+                                                            <p className="text-xs font-semibold text-md-on-surface">
                                                                 {nextDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                                                             </p>
                                                         </div>
-                                                        <div className="text-[9px] font-black text-amber-500 uppercase tracking-widest">
-                                                            {daysAway > 0 ? t('care_due_in', { days: daysAway.toString() }) : t('due_today')}
+                                                        <div className={`text-[10px] font-semibold uppercase tracking-wider ${daysAway < 0 ? 'text-md-error' : 'text-md-secondary'}`}>
+                                                            {daysAway > 0 ? t('care_due_in', { days: daysAway.toString() }) : (daysAway === 0 ? t('due_today') : t('care_days_overdue', { days: Math.abs(daysAway).toString() }))}
                                                         </div>
                                                     </div>
                                                 );
@@ -757,132 +756,136 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                     )}
 
                     {activeTab === 'PHENOPHASE' && (
-                        <div className="space-y-8">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                                <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-8">
-                                    <h3 className="text-[11px] font-serif font-black uppercase tracking-[0.3em] text-verdant">{t('lbl_biological_milestones')}</h3>
-                                    <div className="grid grid-cols-1 gap-8">
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">
+                                    <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">{t('lbl_biological_milestones')}</h3>
+                                    <div className="grid grid-cols-1 gap-6">
                                         <PassportItem 
-                                            icon="🔄" 
+                                            icon={<RefreshCw className="w-4 h-4" />} 
                                             label={t('lbl_repot_cadence')} 
                                             value={plant.repottingFrequency ? `${t('lbl_every')} ${plant.repottingFrequency} ${t('lbl_months')}` : `${t('lbl_every')} ${getSuggestedRepotFrequency(plant)} ${t('lbl_months')}`} 
                                             subValue={!plant.repottingFrequency ? '(Suggested based on species)' : undefined}
                                         />
                                         <PassportItem 
-                                            icon="🪴" 
+                                            icon={<Sprout className="w-4 h-4" />} 
                                             label={t('lbl_last_pot_size')} 
                                             value={plant.lastPotSizeCm || plant.lastPotSizeInches ? `${plant.lastPotSizeCm || '--'} cm / ${plant.lastPotSizeInches || '--'} in` : (plant.lastPotSize ? (String(plant.lastPotSize).match(/^\d+(\.\d+)?$/) ? `${plant.lastPotSize} cm` : String(plant.lastPotSize)) : t('lbl_na'))}
                                         />
                                         <PassportItem 
-                                            icon="🔄" 
+                                            icon={<PotRotationIcon className="w-4 h-4" />} 
                                             label={t('lbl_rotation_frequency')} 
                                             value={plant.rotationFrequency ? `${plant.rotationFrequency} ${t('days')}` : t('lbl_na')} 
                                         />
                                         <PassportItem 
-                                            icon="📅" 
+                                            icon={<Calendar className="w-4 h-4" />} 
                                             label={t('lbl_last_rotated')} 
                                             value={plant.lastRotated ? new Date(plant.lastRotated).toLocaleDateString() : t('lbl_na')}
                                         />
                                         <PassportItem 
-                                            icon="💧" 
+                                            icon={<Droplets className="w-4 h-4" />} 
                                             label={t('lbl_last_watered_date')} 
                                             value={plant.lastWatered ? new Date(plant.lastWatered).toLocaleDateString() : t('lbl_na')} 
                                         />
-                                        <PassportItem icon="🧬" label={t('lbl_propagation')} value={lva(plant.propagationMethods as any)?.join(', ') || t('lbl_na')} />
+                                        <PassportItem icon={<Dna className="w-4 h-4" />} label={t('lbl_propagation')} value={lva(plant.propagationMethods as any)?.join(', ') || t('lbl_na')} />
                                     </div>
                                 </section>
 
                                 {lv(plant.propagationInstructions) ? (
-                                    <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-8">
-                                        <h3 className="text-[11px] font-serif font-black uppercase tracking-[0.3em] text-verdant">{t('lbl_propagation_instructions')}</h3>
-                                        <p className="text-sm font-serif italic text-gray-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap">
+                                    <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">
+                                        <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">{t('lbl_propagation_instructions')}</h3>
+                                        <p className="text-sm text-md-on-surface leading-relaxed whitespace-pre-wrap">
                                             {lv(plant.propagationInstructions)}
                                         </p>
                                     </section>
                                 ) : (
-                                    <section className="bg-white/50 dark:bg-slate-900/50 rounded-[40px] p-10 border border-dashed border-gray-200 dark:border-slate-800 space-y-4 flex flex-col items-center justify-center text-center">
-                                        <div className="w-12 h-12 bg-gray-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-2xl grayscale opacity-50">🧬</div>
-                                        <div className="space-y-1">
-                                            <h3 className="text-[11px] font-serif font-black uppercase tracking-[0.2em] text-slate-400">{t('lbl_propagation_instructions')}</h3>
-                                            <p className="text-xs text-slate-500 italic">{t('msg_no_propagation_instructions')}</p>
+                                    <section className="bg-md-surface-container-low/50 rounded-[28px] p-8 border border-dashed border-md-outline-variant/50 space-y-4 flex flex-col items-center justify-center text-center">
+                                        <div className="w-12 h-12 bg-md-surface-container-highest text-md-on-surface-variant rounded-2xl flex items-center justify-center">
+                                            <Dna className="w-6 h-6" />
                                         </div>
-                                        <Button variant="ghost" size="sm" className="text-[9px] font-black uppercase tracking-widest text-verdant" onClick={() => setIsEditOpen(true)}>
+                                        <div className="space-y-1">
+                                            <h3 className="text-xs font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_propagation_instructions')}</h3>
+                                            <p className="text-xs text-md-on-surface-variant/80">{t('msg_no_propagation_instructions')}</p>
+                                        </div>
+                                        <Button variant="ghost" size="sm" className="text-[11px] font-semibold uppercase tracking-wider text-md-primary" onClick={() => setIsEditOpen(true)}>
                                             + {t('btn_add_instructions')}
                                         </Button>
                                     </section>
                                 )}
 
-                                <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-8">
-                                    <h3 className="text-[11px] font-serif font-black uppercase tracking-[0.3em] text-verdant">{t('lbl_provenance_source')}</h3>
-                                    <div className="space-y-6">
-                                        <div className="flex justify-between items-center py-4 border-b border-gray-50 dark:border-slate-800">
-                                            <span className="text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{t('lbl_nursery_source')}</span>
-                                            <span className="text-sm font-serif italic text-gray-900 dark:text-slate-100">{plant.provenance?.nursery || t('lbl_unknown')}</span>
+                                <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">
+                                    <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">{t('lbl_provenance_source')}</h3>
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-center py-3 border-b border-md-outline-variant/25">
+                                            <span className="text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider">{t('lbl_nursery_source')}</span>
+                                            <span className="text-sm font-medium text-md-on-surface">{plant.provenance?.nursery || t('lbl_unknown')}</span>
                                         </div>
-                                        <div className="flex justify-between items-center py-4 border-b border-gray-50 dark:border-slate-800">
-                                            <span className="text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{t('lbl_acquisition_date')}</span>
-                                            <span className="text-sm font-serif italic text-gray-900 dark:text-slate-100">{plant.provenance?.dateOfPurchase ? new Date(plant.provenance.dateOfPurchase).toLocaleDateString() : t('lbl_na')}</span>
+                                        <div className="flex justify-between items-center py-3 border-b border-md-outline-variant/25">
+                                            <span className="text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider">{t('lbl_acquisition_date')}</span>
+                                            <span className="text-sm font-medium text-md-on-surface">{plant.provenance?.dateOfPurchase ? new Date(plant.provenance.dateOfPurchase).toLocaleDateString() : t('lbl_na')}</span>
                                         </div>
-                                        <div className="flex justify-between items-center py-4 border-b border-gray-50 dark:border-slate-800">
-                                            <span className="text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{t('lbl_investment')}</span>
-                                            <span className="text-sm font-serif italic text-gray-900 dark:text-slate-100">{plant.provenance?.cost ? `${plant.provenance.cost} ${plant.provenance.currency || 'USD'}` : t('lbl_na')}</span>
+                                        <div className="flex justify-between items-center py-3 border-b border-md-outline-variant/25">
+                                            <span className="text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider">{t('lbl_investment')}</span>
+                                            <span className="text-sm font-medium text-md-on-surface">{plant.provenance?.cost ? `${plant.provenance.cost} ${plant.provenance.currency || 'USD'}` : t('lbl_na')}</span>
                                         </div>
                                     </div>
                                 </section>
 
                                 {lv(plant.repottingInstructions) ? (
-                                    <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-8">
-                                        <h3 className="text-[11px] font-serif font-black uppercase tracking-[0.3em] text-verdant">{t('lbl_repotting_instructions')}</h3>
-                                        <p className="text-sm font-serif italic text-gray-900 dark:text-slate-100 leading-relaxed whitespace-pre-wrap">
+                                    <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">
+                                        <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">{t('lbl_repotting_instructions')}</h3>
+                                        <p className="text-sm text-md-on-surface leading-relaxed whitespace-pre-wrap">
                                             {lv(plant.repottingInstructions)}
                                         </p>
                                     </section>
                                 ) : (
-                                    <section className="bg-white/50 dark:bg-slate-900/50 rounded-[40px] p-10 border border-dashed border-gray-200 dark:border-slate-800 space-y-4 flex flex-col items-center justify-center text-center">
-                                        <div className="w-12 h-12 bg-gray-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-2xl grayscale opacity-50">🪴</div>
-                                        <div className="space-y-1">
-                                            <h3 className="text-[11px] font-serif font-black uppercase tracking-[0.2em] text-slate-400">{t('lbl_repotting_instructions')}</h3>
-                                            <p className="text-xs text-slate-500 italic">{t('msg_no_repotting_instructions')}</p>
+                                    <section className="bg-md-surface-container-low/50 rounded-[28px] p-8 border border-dashed border-md-outline-variant/50 space-y-4 flex flex-col items-center justify-center text-center">
+                                        <div className="w-12 h-12 bg-md-surface-container-highest text-md-on-surface-variant rounded-2xl flex items-center justify-center">
+                                            <Sprout className="w-6 h-6" />
                                         </div>
-                                        <Button variant="ghost" size="sm" className="text-[9px] font-black uppercase tracking-widest text-verdant" onClick={() => setIsEditOpen(true)}>
+                                        <div className="space-y-1">
+                                            <h3 className="text-xs font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_repotting_instructions')}</h3>
+                                            <p className="text-xs text-md-on-surface-variant/80">{t('msg_no_repotting_instructions')}</p>
+                                        </div>
+                                        <Button variant="ghost" size="sm" className="text-[11px] font-semibold uppercase tracking-wider text-md-primary" onClick={() => setIsEditOpen(true)}>
                                             + {t('btn_add_instructions')}
                                         </Button>
                                     </section>
                                 )}
                             </div>
 
-                            <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-8">
-                                <h3 className="text-[11px] font-serif font-black uppercase tracking-[0.3em] text-verdant">{t('lbl_phenophase_tracking')}</h3>
+                            <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">
+                                <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">{t('lbl_phenophase_tracking')}</h3>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left">
                                         <thead>
-                                            <tr className="border-b border-gray-100 dark:border-slate-800">
-                                                <th className="pb-4 text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{t('lbl_phase')}</th>
-                                                <th className="pb-4 text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{t('lbl_date')}</th>
-                                                <th className="pb-4 text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{t('lbl_notes')}</th>
-                                                <th className="pb-4"></th>
+                                            <tr className="border-b border-md-outline-variant/30">
+                                                <th className="pb-3 text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider">{t('lbl_phase')}</th>
+                                                <th className="pb-3 text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider">{t('lbl_date')}</th>
+                                                <th className="pb-3 text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider">{t('lbl_notes')}</th>
+                                                <th className="pb-3"></th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-50 dark:divide-slate-800">
+                                        <tbody className="divide-y divide-md-outline-variant/20">
                                             {plant.logs?.filter(l => l.type === 'PHENOPHASE').map(log => (
                                                 <tr key={log.id}>
-                                                    <td className="py-4 text-sm font-serif font-bold text-gray-900 dark:text-white">{t(`PHASE_${log.metadata?.phase}` as any)}</td>
-                                                    <td className="py-4 text-sm font-serif text-gray-700 dark:text-slate-200">{new Date(log.date).toLocaleDateString()}</td>
-                                                    <td className="py-4 text-sm font-serif text-gray-700 dark:text-slate-200 italic">{lv(log.localizedNote)}</td>
+                                                    <td className="py-4 text-sm font-semibold text-md-on-surface">{t(`PHASE_${log.metadata?.phase}` as any)}</td>
+                                                    <td className="py-4 text-sm text-md-on-surface-variant">{new Date(log.date).toLocaleDateString()}</td>
+                                                    <td className="py-4 text-sm text-md-on-surface-variant">{lv(log.localizedNote)}</td>
                                                     <td className="py-4 text-right">
                                                         <button 
                                                             onClick={() => deleteLog(plant.id, log.id)}
-                                                            className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                                                            className="p-2 text-md-on-surface-variant hover:text-md-error transition-colors rounded-lg"
                                                             title={t('btn_delete')}
                                                         >
-                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                            <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     </td>
                                                 </tr>
                                             ))}
                                             {(!plant.logs || plant.logs.filter(l => l.type === 'PHENOPHASE').length === 0) && (
                                                 <tr>
-                                                    <td colSpan={3} className="py-8 text-center text-xs font-serif text-slate-600 dark:text-slate-300 italic">{t('msg_no_phenophase')}</td>
+                                                    <td colSpan={4} className="py-8 text-center text-xs text-md-on-surface-variant">{t('msg_no_phenophase')}</td>
                                                 </tr>
                                             )}
                                         </tbody>
@@ -890,7 +893,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                 </div>
                                 <Button 
                                     variant="secondary" 
-                                    className="w-full rounded-2xl border-dashed border-2 border-gray-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-verdant hover:border-verdant transition-all"
+                                    className="w-full rounded-2xl border-dashed border-2 border-md-outline-variant/50 text-md-on-surface-variant hover:text-md-primary hover:border-md-primary transition-all"
                                     onClick={() => handleLogAction('PHENOPHASE')}
                                 >
                                     + {t('btn_record_phenophase')}
@@ -900,43 +903,39 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                     )}
 
                     {activeTab === 'TIMELINE' && (
-                        <div className="space-y-8">
-                            <section className="bg-white dark:bg-slate-900 rounded-[40px] p-10 border border-gray-100 dark:border-slate-800 shadow-sm space-y-8">
-                                <h3 className="text-[11px] font-serif font-black uppercase tracking-[0.3em] text-verdant">{t('tab_history')}</h3>
-                                <div className="divide-y divide-gray-50 dark:divide-slate-800">
+                        <div className="space-y-6">
+                            <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">
+                                <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">{t('tab_history')}</h3>
+                                <div className="divide-y divide-md-outline-variant/20">
                                     {plant.logs && plant.logs.length > 0 ? (
                                         plant.logs.map((log) => (
-                                            <div key={log.id} className="flex gap-6 items-start py-8 first:pt-0 last:pb-0">
-                                                <div className="w-12 h-12 bg-gray-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-2xl shrink-0">
+                                            <div key={log.id} className="flex gap-4 md:gap-5 items-start py-6 first:pt-0 last:pb-0">
+                                                <div className="w-11 h-11 bg-md-surface-container-highest text-md-primary rounded-2xl flex items-center justify-center shrink-0">
                                                     {getLogIcon(log)}
                                                 </div>
-                                                <div className="flex-1 space-y-2">
+                                                <div className="flex-1 space-y-1.5">
                                                     <div className="flex justify-between items-center">
-                                                        <p className="text-[11px] font-serif font-black uppercase tracking-widest text-verdant">
+                                                        <p className="text-[11px] font-semibold uppercase tracking-wider text-md-primary">
                                                             {log.type === 'PHENOPHASE' && log.metadata?.phase 
                                                                 ? t(`PHASE_${log.metadata.phase}`) 
                                                                 : t('lbl_record_type', { type: t(`log_${log.type.toLowerCase()}`) })}
                                                         </p>
-                                                        <span className="text-[11px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{new Date(log.date).toLocaleDateString(language)}</span>
+                                                        <span className="text-[11px] font-medium text-md-on-surface-variant uppercase tracking-wider">{new Date(log.date).toLocaleDateString(language)}</span>
                                                     </div>
                                                     <div className="flex justify-between items-start gap-4">
-                                                        <p className="text-sm md:text-base text-gray-900 dark:text-slate-100 font-serif italic leading-relaxed flex-1">"{lv(log.localizedNote) || log.note || '...'}"</p>
+                                                        <p className="text-sm md:text-base text-md-on-surface leading-relaxed flex-1">{lv(log.localizedNote) || log.note || '...'}</p>
                                                         <button 
                                                             onClick={() => deleteLog(plant.id, log.id)}
-                                                            className="p-2 text-slate-400 hover:text-red-500 transition-colors shrink-0"
+                                                            className="p-2 text-md-on-surface-variant hover:text-md-error transition-colors shrink-0 rounded-lg"
                                                             title={t('btn_delete')}
                                                         >
-                                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                            <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     </div>
                                                     {log.imageUrl && (
                                                         <div 
-                                                            className="mt-4 w-32 h-32 rounded-2xl overflow-hidden border border-gray-100 dark:border-slate-800 shadow-sm cursor-pointer hover:scale-105 transition-transform"
+                                                            className="mt-3 w-32 h-32 rounded-2xl overflow-hidden border border-md-outline-variant/30 shadow-sm cursor-pointer hover:scale-105 transition-transform"
                                                             onClick={() => {
-                                                                // We'll use a temporary state or just open it in a simple way.
-                                                                // For now, let's just use the enlargedImageIndex logic but we need to handle non-plant.images.
-                                                                // Actually, let's just open it in a new tab or a simple modal if it's a log image.
-                                                                // Or better, I'll add a state for `enlargedLogImage`.
                                                                 setEnlargedLogImage(log.imageUrl || null);
                                                             }}
                                                         >
@@ -944,12 +943,12 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                                         </div>
                                                     )}
                                                     {log.type === 'DISEASE_CHECK' && log.metadata?.recoveryPlan && (
-                                                      <div className="mt-4 space-y-2">
-                                                        <p className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">{t('lbl_recovery_plan')}</p>
+                                                      <div className="mt-3 space-y-1.5">
+                                                        <p className="text-[10px] font-semibold text-md-primary uppercase tracking-wider">{t('lbl_recovery_plan')}</p>
                                                         <div className="space-y-1">
                                                           {lva(log.metadata.recoveryPlan).map((step, sidx) => (
-                                                            <div key={sidx} className="flex gap-2 items-start text-xs text-gray-600 dark:text-slate-400">
-                                                              <span className="shrink-0 text-emerald-500">•</span>
+                                                            <div key={sidx} className="flex gap-2 items-start text-xs text-md-on-surface-variant">
+                                                              <span className="shrink-0 text-md-primary">•</span>
                                                               <span>{step}</span>
                                                             </div>
                                                           ))}
@@ -961,7 +960,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                         ))
                                     ) : (
                                         <div className="py-12 text-center">
-                                            <p className="text-[10px] font-serif font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest italic">{t('msg_no_history')}</p>
+                                            <p className="text-xs font-medium text-md-on-surface-variant uppercase tracking-wider">{t('msg_no_history')}</p>
                                         </div>
                                     )}
                                 </div>
