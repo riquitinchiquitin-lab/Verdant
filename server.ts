@@ -1125,7 +1125,10 @@ app.get('/api/system/logs', checkAuth, async (req, res) => {
   }
 });
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024, files: 10 },
+});
 
 app.post('/api/system/track-usage', checkAuth, async (req, res) => {
   const { type, tokens } = req.body;
