@@ -188,7 +188,15 @@ export const SecureAuth: React.FC = () => {
                   type="email"
                   required
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (totpStep) {
+                      setTotpStep(false);
+                      setUseRecoveryCode(false);
+                      setTotpCode('');
+                      setRecoveryCode('');
+                    }
+                  }}
                   placeholder="personnel@domain.com"
                   className="w-full h-13 bg-md-surface-container-highest text-md-on-surface placeholder:text-md-on-surface-variant/70 rounded-2xl px-4 text-sm font-medium outline-none border border-md-outline/40 focus:border-md-primary focus:ring-2 focus:ring-md-primary/20 transition-all"
                 />
@@ -196,7 +204,15 @@ export const SecureAuth: React.FC = () => {
                   type="password"
                   required
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (totpStep) {
+                      setTotpStep(false);
+                      setUseRecoveryCode(false);
+                      setTotpCode('');
+                      setRecoveryCode('');
+                    }
+                  }}
                   placeholder="Password (Argon2id)"
                   className="w-full h-13 bg-md-surface-container-highest text-md-on-surface placeholder:text-md-on-surface-variant/70 rounded-2xl px-4 text-sm font-medium outline-none border border-md-outline/40 focus:border-md-primary focus:ring-2 focus:ring-md-primary/20 transition-all"
                 />

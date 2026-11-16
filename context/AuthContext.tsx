@@ -132,6 +132,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const now = new Date();
         const start = state.user.caretakerStart ? new Date(state.user.caretakerStart) : null;
         const end = state.user.caretakerEnd ? new Date(state.user.caretakerEnd) : null;
+        if (start) start.setHours(0, 0, 0, 0);
+        if (end) end.setHours(23, 59, 59, 999);
         if (start && now < start) return false;
         if (end && now > end) return false;
         return ['log_data', 'read_plants', 'consume_inventory', 'complete_tasks'].includes(action);

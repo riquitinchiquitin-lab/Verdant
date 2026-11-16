@@ -1212,7 +1212,10 @@ app.post('/api/system/track-usage', checkAuth, async (req, res) => {
 // BOTANICAL PROXY CLUSTER
 app.post('/api/proxy/identify', checkAuth, upload.array('images'), async (req, res) => {
   try {
-    const files = req.files as Express.Multer.File[];
+    const files = req.files as Express.Multer.File[] | undefined;
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: "NO_IMAGES_PROVIDED" });
+    }
     const formData = new FormData();
     files.forEach(file => {
       formData.append('images', file.buffer, { filename: file.originalname, contentType: file.mimetype });
@@ -1514,6 +1517,15 @@ const assertRecordHouseOwnership = async (
   return { allowed: true };
 };
 
+const safeRowParse = (data: any) => {
+  if (!data) return {};
+  try {
+    return typeof data === 'string' ? JSON.parse(data) : data;
+  } catch {
+    return {};
+  }
+};
+
 // PLANTS
 app.get('/api/plants', checkAuth, async (req, res) => {
   try {
@@ -1526,7 +1538,7 @@ app.get('/api/plants', checkAuth, async (req, res) => {
       params.push(houseId);
     }
     const result = await query(sql, params);
-    res.json(result.rows.map((r: any) => ({ ...JSON.parse(r.data), id: r.id, houseId: r.houseId })));
+    res.json(result.rows.map((r: any) => ({ ...safeRowParse(r.data), id: r.id, houseId: r.houseId })));
   } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
 });
 
@@ -1558,6 +1570,73 @@ app.delete('/api/plants/:id', checkAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
 });
 
+// LOGS BULK CLEAR
+app.post('/api/logs/clear', checkAuth, async (req, res) => {
+  try {
+    const role = (req as any).userRole;
+    const houseId = (req as any).userHouseId;
+    if (!['OWNER', 'CO_CEO', 'LEAD_HAND'].includes(role)) {
+      return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    }
+    let sql = 'SELECT * FROM plants';
+    const params: any[] = [];
+    if (!['OWNER', 'CO_CEO'].includes(role)) {
+      sql += ' WHERE houseId = ?';
+      params.push(houseId);
+    }
+    const result = await query(sql, params);
+    const now = new Date().toISOString();
+    for (const r of result.rows) {
+      const plantData = { ...safeRowParse(r.data), id: r.id, houseId: r.houseId, logs: [], lastModified: now };
+      await query(
+        'UPDATE plants SET logs = ?, updatedAt = ?, data = ? WHERE id = ?',
+        [JSON.stringify([]), now, JSON.stringify(plantData), r.id]
+      );
+    }
+    await logSystemEvent('LOGS_CLEARED', `All logs cleared by ${(req as any).userId || 'ADMIN'}`, 'WARN');
+    res.json({ status: "ok" });
+  } catch (e) {
+    res.status(500).json({ error: "DB_FAULT" });
+  }
+});
+
+app.post('/api/logs/clear-day', checkAuth, async (req, res) => {
+  try {
+    const role = (req as any).userRole;
+    const houseId = (req as any).userHouseId;
+    if (!['OWNER', 'CO_CEO', 'LEAD_HAND'].includes(role)) {
+      return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    }
+    const date = typeof req.body?.date === 'string' ? req.body.date.trim() : '';
+    if (!date) return res.status(400).json({ error: "DATE_REQUIRED" });
+
+    let sql = 'SELECT * FROM plants';
+    const params: any[] = [];
+    if (!['OWNER', 'CO_CEO'].includes(role)) {
+      sql += ' WHERE houseId = ?';
+      params.push(houseId);
+    }
+    const result = await query(sql, params);
+    const now = new Date().toISOString();
+    for (const r of result.rows) {
+      const parsed = safeRowParse(r.data);
+      const existingLogs = Array.isArray(parsed.logs) ? parsed.logs : [];
+      const filteredLogs = existingLogs.filter((l: any) => !(typeof l?.date === 'string' && l.date.startsWith(date)));
+      if (filteredLogs.length !== existingLogs.length) {
+        const plantData = { ...parsed, id: r.id, houseId: r.houseId, logs: filteredLogs, lastModified: now };
+        await query(
+          'UPDATE plants SET logs = ?, updatedAt = ?, data = ? WHERE id = ?',
+          [JSON.stringify(filteredLogs), now, JSON.stringify(plantData), r.id]
+        );
+      }
+    }
+    await logSystemEvent('LOGS_CLEARED_DAY', `Logs for ${date} cleared by ${(req as any).userId || 'ADMIN'}`, 'WARN');
+    res.json({ status: "ok" });
+  } catch (e) {
+    res.status(500).json({ error: "DB_FAULT" });
+  }
+});
+
 // HOUSES
 app.get('/api/houses', checkAuth, async (req, res) => {
   try {
@@ -1571,7 +1650,7 @@ app.get('/api/houses', checkAuth, async (req, res) => {
       params.push(houseId);
     }
     const result = await query(sql, params);
-    res.json(result.rows.map((r: any) => ({ ...JSON.parse(r.data), id: r.id })));
+    res.json(result.rows.map((r: any) => ({ ...safeRowParse(r.data), id: r.id })));
   } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
 });
 
@@ -1628,7 +1707,7 @@ app.get('/api/tasks', checkAuth, async (req, res) => {
       params.push(houseId);
     }
     const result = await query(sql, params);
-    res.json(result.rows.map((r: any) => ({ ...JSON.parse(r.data), id: r.id })));
+    res.json(result.rows.map((r: any) => ({ ...safeRowParse(r.data), id: r.id })));
   } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
 });
 
@@ -1672,7 +1751,7 @@ app.get('/api/inventory', checkAuth, async (req, res) => {
       params.push(houseId);
     }
     const result = await query(sql, params);
-    res.json(result.rows.map((r: any) => ({ ...JSON.parse(r.data), id: r.id })));
+    res.json(result.rows.map((r: any) => ({ ...safeRowParse(r.data), id: r.id })));
   } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
 });
 

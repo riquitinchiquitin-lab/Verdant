@@ -11,12 +11,14 @@ export const fetchWithAuth = async (endpoint: string, token: string, options: Re
   let userRole = '';
   let userHouseId = '';
   let userId = '';
+  let userEmail = '';
   if (storedUser) {
     try { 
       const u = JSON.parse(storedUser);
-      userRole = u.role; 
-      userHouseId = u.houseId;
-      userId = u.id;
+      userRole = u.role || ''; 
+      userHouseId = u.houseId || '';
+      userId = u.id || '';
+      userEmail = u.email || '';
     } catch (e) {}
   }
   
@@ -27,7 +29,7 @@ export const fetchWithAuth = async (endpoint: string, token: string, options: Re
     ...(userRole ? { 'x-user-role': userRole } : {}),
     ...(userHouseId ? { 'x-user-house-id': userHouseId } : {}),
     ...(userId ? { 'x-user-id': userId } : {}),
-    ...(storedUser ? { 'x-user-email': JSON.parse(storedUser).email } : {}),
+    ...(userEmail ? { 'x-user-email': userEmail } : {}),
     ...((options.headers as Record<string, string>) || {}),
   };
 
@@ -86,6 +88,7 @@ export const fetchWithAuth = async (endpoint: string, token: string, options: Re
                   }
               } else {
                   console.warn("[API] Non-admin user detected. Falling back to unencrypted retry.");
+                  localStorage.removeItem('verdant_master_key');
                   processedOptions.body = options.body;
                   delete (processedOptions.headers as Record<string, string>)['X-Payload-Encryption'];
                   return fetch(`${API_URL}${endpoint}`, processedOptions);

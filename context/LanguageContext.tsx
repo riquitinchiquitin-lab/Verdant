@@ -8662,8 +8662,13 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const lva = useCallback((localized?: LocalizedArray | null): string[] => {
     if (!localized) return [];
-    const val = localized[language] || localized['en'] || Object.values(localized)[0] || [];
-    return (Array.isArray(val) ? val : [String(val)]) as string[];
+    const pick = (v: any) => (Array.isArray(v) ? v : v ? [String(v)] : []);
+    const primary = pick(localized[language]);
+    if (primary.length > 0) return primary;
+    const en = pick(localized['en']);
+    if (en.length > 0) return en;
+    const firstNonEmpty = Object.values(localized).map(pick).find(arr => arr.length > 0);
+    return firstNonEmpty || [];
   }, [language]);
 
   const getLocalizedString = useCallback((key: string): LocalizedString => {

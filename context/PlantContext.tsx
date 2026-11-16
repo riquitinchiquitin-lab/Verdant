@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { Plant, Log, Task, House, LocalizedString } from '../types';
 import { ROOM_TYPES, getGeminiApiKey } from '../constants';
 import { fetchWithAuth } from '../services/api';
@@ -175,6 +175,8 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, [plants, houses, tasks, isPersistenceReady, token]);
 
+  const lastThirstyNotifyKeyRef = useRef<string>('');
+
   // Automated Thirsty Plant Notifications
   useEffect(() => {
     if (!isPersistenceReady || plants.length === 0) return;
@@ -188,7 +190,9 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         return next < new Date();
       });
 
-      if (thirstyPlants.length > 0) {
+      const key = thirstyPlants.map(p => p.id).sort().join(',');
+      if (thirstyPlants.length > 0 && key !== lastThirstyNotifyKeyRef.current) {
+        lastThirstyNotifyKeyRef.current = key;
         const names = thirstyPlants.map(p => lv(p.nickname)).join(', ');
         sendNotification(t('app_name'), {
           body: thirstyPlants.length === 1 
@@ -196,6 +200,8 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             : t('notification_thirsty_multiple', { count: thirstyPlants.length.toString() }),
           icon: '/logo.svg'
         });
+      } else if (thirstyPlants.length === 0) {
+        lastThirstyNotifyKeyRef.current = '';
       }
     };
 
@@ -624,9 +630,11 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setPlants(updatedPlants);
     if (token) {
       try {
-        await fetchWithAuth('/api/logs/clear', token, { method: 'POST' });
+        const res = await fetchWithAuth('/api/logs/clear', token, { method: 'POST' });
+        if (!res.ok) throw new Error(`HTTP_${res.status}`);
       } catch (e) {
         console.error("Failed to clear logs on server:", e);
+        await refreshAllData();
       }
     }
   };
@@ -640,9 +648,11 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setPlants(updatedPlants);
     if (token) {
       try {
-        await fetchWithAuth('/api/logs/clear-day', token, { method: 'POST', body: JSON.stringify({ date }) });
+        const res = await fetchWithAuth('/api/logs/clear-day', token, { method: 'POST', body: JSON.stringify({ date }) });
+        if (!res.ok) throw new Error(`HTTP_${res.status}`);
       } catch (e) {
         console.error("Failed to clear day logs on server:", e);
+        await refreshAllData();
       }
     }
   };

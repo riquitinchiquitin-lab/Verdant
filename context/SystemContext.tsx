@@ -54,10 +54,16 @@ export const SystemProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return () => clearInterval(interval);
   }, []);
 
+  const cooldownTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const recordHit = useCallback((isError: boolean = false) => {
     if (isError) {
       setStatus('COOLDOWN');
-      setTimeout(() => setStatus('STABLE'), 30000);
+      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+      cooldownTimerRef.current = setTimeout(() => {
+        setStatus('STABLE');
+        cooldownTimerRef.current = null;
+      }, 30000);
     }
     setHits(prev => [...prev, Date.now()]);
   }, []);

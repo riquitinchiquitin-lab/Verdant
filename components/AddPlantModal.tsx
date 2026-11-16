@@ -116,6 +116,12 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
     setIdentifiedPlant(null);
     setEditNickname('');
     setEditRoom('');
+    setSelectedHouseId(user?.houseId || null);
+    setEditWateringInterval(7);
+    setEditRepottingFrequency(12);
+    setEditLastPotSize('');
+    setEditLastPotSizeInches(null);
+    setEditLastPotSizeCm(null);
     setNursery('');
     setDateOfPurchase(new Date().toISOString().split('T')[0]);
     setEditLastWateredDate(null);
@@ -458,12 +464,21 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
                   setScanMode('PROCESSING');
                   try {
                     const details = await generatePlantDetails(identifiedPlant.species, undefined, undefined, getEffectiveApiKey());
-                    setIdentifiedPlant(createPlant({
+                    const manualPropInstr = identifiedPlant.propagationInstructions;
+                    const manualRepotInstr = identifiedPlant.repottingInstructions;
+                    const newPlant = createPlant({
                       ...details,
                       nickname: identifiedPlant.nickname || details.nickname,
+                      propagationInstructions: (manualPropInstr && lv(manualPropInstr)) ? manualPropInstr : details.propagationInstructions,
+                      repottingInstructions: (manualRepotInstr && lv(manualRepotInstr)) ? manualRepotInstr : details.repottingInstructions,
                       houseId: selectedHouseId,
                       createdAt: new Date().toISOString()
-                    }));
+                    });
+                    setIdentifiedPlant(newPlant);
+                    setEditNickname(lv(newPlant.nickname) || identifiedPlant.species);
+                    setEditWateringInterval(newPlant.wateringInterval || 7);
+                    setEditRepottingFrequency(newPlant.repottingFrequency || 12);
+                    setCompatibleItems(getCompatibleItems(newPlant, inventory));
                     setScanMode('REVIEW');
                   } catch (err: any) {
                     setError(err.message);
