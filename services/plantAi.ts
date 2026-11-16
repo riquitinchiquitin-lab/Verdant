@@ -84,7 +84,13 @@ export const identifyPlantWithPlantNet = async (imageBlobs: Blob[]): Promise<any
             return {
                 bestMatch: data.results[0].species.scientificNameWithoutAuthor,
                 score: data.results[0].score,
-                commonNames: data.results[0].species.commonNames || []
+                commonNames: data.results[0].species.commonNames || [],
+                gbifId: data.results[0].gbif?.id || null,
+                powoId: data.results[0].powo?.id || null,
+                alternatives: data.results.slice(1, 3).map((r: any) => ({
+                    species: r.species?.scientificNameWithoutAuthor,
+                    score: r.score
+                }))
             };
         }
     }
@@ -176,13 +182,13 @@ export const generatePlantDetails = async (
     - Web Grounding: ${JSON.stringify(limitedGrounding)}
     
     REQUIREMENTS:
-    1. Extract: species, scientificAuthor, rank, family, genus, category, growthRate, maxHeight (cm), avgHeight (cm), flowers (bool), edible (bool), vegetable (bool), droughtTolerant (bool, from Perenual drought_tolerant or species traits).
-    2. Specs: min/max moisture (%), temp (C), light (Lux), soil EC (minSoilEc, maxSoilEc), humidity (minEnvHumid, maxEnvHumid %).
-    3. Care & Seasonal Cadence: Estimate 'wateringInterval' (days), 'summerWateringInterval' (days), 'winterWateringInterval' (days), 'repottingFrequency' (months), 'careDifficulty' (Easy/Moderate/Challenging from Perenual care_level), 'windowExposure' (e.g. South / West Bright Indirect from Perenual sunlight), 'potMaterial' (recommended pot material, e.g. Terracotta or Glazed Ceramic), 'dormancyPeriod' (e.g. Winter or None), 'npkRatio' (e.g. "2-7-7" or "10-10-10 Half Strength"), 'bloomSeason' (from Trefle bloom_months), 'pruningMonths' (from Perenual pruning_month).
-    4. Lifecycle & Pests: Synthesize 'propagationMethods' (localized array of strings), 'susceptiblePests' (localized array of common pests/diseases from Perenual pest_susceptibility or species profile, e.g. Mealybugs, Spider Mites, Root Rot), a detailed 'propagationInstructions' (localized string with step-by-step guide), and a detailed 'repottingInstructions' (localized string with step-by-step guide) using data from all provided sources. Include 'lastPotSize' (string) and 'citesStatus' (Appendix I, II, or III).
-    5. Technical: Suggest 'targetPh', 'targetEc', 'targetVpd', 'targetDli' for optimal growth.
-    6. Localization: Translate ALL text fields (nickname, description, category, growthRate, citesStatus, origin, distribution, advice fields, petSafety, aiInsight, propagationInstructions, repottingInstructions, careDifficulty, potMaterial, windowExposure, dormancyPeriod, bloomSeason, pruningMonths, susceptiblePests, etc.) into these 11 codes: ${TARGET_LANGS.join(',')}.
-    7. Toxicity: Detail pet-safety in 'petSafety' (isPetSafe bool).
+    1. Extract: species, scientificAuthor, rank, family, genus, category, growthRate, maxHeight (cm), avgHeight (cm), flowers (bool), edible (bool), vegetable (bool), droughtTolerant (bool, from Perenual drought_tolerant or species traits), synonyms (array of botanical synonym strings from Trefle).
+    2. Specs: min/max moisture (%), temp (C), light (Lux), soil EC (minSoilEc, maxSoilEc), humidity (minEnvHumid, maxEnvHumid %), minPh & maxPh (from Trefle main_species.growth.ph_minimum/ph_maximum), minRootDepthCm (from Trefle minimum_root_depth.cm), frostFreeDaysMin (from Trefle frost_free_days_minimum), hardinessZoneMin & hardinessZoneMax (from Perenual hardiness.min/max).
+    3. Care & Seasonal Cadence: Estimate 'wateringInterval' (days), 'summerWateringInterval' (days), 'winterWateringInterval' (days), 'repottingFrequency' (months), 'careDifficulty' (Easy/Moderate/Challenging from Perenual care_level), 'windowExposure' (e.g. South / West Bright Indirect from Perenual sunlight), 'potMaterial' (recommended pot material, e.g. Terracotta or Glazed Ceramic), 'dormancyPeriod' (e.g. Winter or None), 'npkRatio' (e.g. "2-7-7" or "10-10-10 Half Strength"), 'bloomSeason' (from Trefle bloom_months or Perenual flowering_season), 'pruningMonths' (from Perenual pruning_month).
+    4. Lifecycle, Morphology & Ecology: Synthesize 'propagationMethods' (localized array of strings), 'susceptiblePests' (localized array from Perenual pest_susceptibility or species profile), 'attracts' (localized array of pollinators/wildlife from Perenual attracts), 'nativeRegions' (localized array from Trefle distribution.native), 'foliageTraits' & 'flowerTraits' (concise localized descriptions from Trefle foliage/flower), 'ecologicalFlags' ({ indoor, tropical, thorny, saltTolerant, medicinal, invasive } booleans from Perenual), a detailed 'propagationInstructions' (localized string), and 'repottingInstructions' (localized string). Include 'lastPotSize' (string) and 'citesStatus' (Appendix I, II, or III).
+    5. Technical: Suggest 'targetPh', 'targetEc', 'targetVpd', 'targetDli' (use OPB min_light_mmol/max_light_mmol to inform DLI if available).
+    6. Localization: Translate ALL localized text fields into these 11 codes: ${TARGET_LANGS.join(',')}.
+    7. Toxicity: Detail pet-safety in 'petSafety' (isPetSafe bool from Perenual poisonous_to_pets) AND human-safety in 'humanSafety' (isHumanSafe bool from Perenual poisonous_to_humans).
     8. Soil: Breakdown 'soilComposition' into percentages with localized component names.
     9. Insights: Provide a unique 'aiInsight' about this specimen.
   `;
@@ -203,6 +209,7 @@ export const generatePlantDetails = async (
             rank: { type: Type.STRING },
             family: { type: Type.STRING },
             genus: { type: Type.STRING },
+            synonyms: { type: Type.ARRAY, items: { type: Type.STRING } },
             category: translationSchema,
             growthRate: translationSchema,
             maxHeight: { type: Type.INTEGER },
@@ -212,6 +219,24 @@ export const generatePlantDetails = async (
             vegetable: { type: Type.BOOLEAN },
             droughtTolerant: { type: Type.BOOLEAN },
             isPetSafe: { type: Type.BOOLEAN },
+            isHumanSafe: { type: Type.BOOLEAN },
+            hardinessZoneMin: { type: Type.STRING },
+            hardinessZoneMax: { type: Type.STRING },
+            minPh: { type: Type.NUMBER },
+            maxPh: { type: Type.NUMBER },
+            minRootDepthCm: { type: Type.INTEGER },
+            frostFreeDaysMin: { type: Type.INTEGER },
+            ecologicalFlags: {
+              type: Type.OBJECT,
+              properties: {
+                indoor: { type: Type.BOOLEAN },
+                tropical: { type: Type.BOOLEAN },
+                thorny: { type: Type.BOOLEAN },
+                saltTolerant: { type: Type.BOOLEAN },
+                medicinal: { type: Type.BOOLEAN },
+                invasive: { type: Type.BOOLEAN }
+              }
+            },
             wateringInterval: { type: Type.INTEGER },
             summerWateringInterval: { type: Type.INTEGER },
             winterWateringInterval: { type: Type.INTEGER },
@@ -224,7 +249,20 @@ export const generatePlantDetails = async (
             dormancyPeriod: translationSchema,
             bloomSeason: translationSchema,
             pruningMonths: translationSchema,
+            foliageTraits: translationSchema,
+            flowerTraits: translationSchema,
+            humanSafety: translationSchema,
             susceptiblePests: {
+              type: Type.OBJECT,
+              properties: TARGET_LANGS.reduce((a:any, l) => ({...a, [l]: {type: Type.ARRAY, items: {type: Type.STRING}}}), {}),
+              required: TARGET_LANGS
+            },
+            attracts: {
+              type: Type.OBJECT,
+              properties: TARGET_LANGS.reduce((a:any, l) => ({...a, [l]: {type: Type.ARRAY, items: {type: Type.STRING}}}), {}),
+              required: TARGET_LANGS
+            },
+            nativeRegions: {
               type: Type.OBJECT,
               properties: TARGET_LANGS.reduce((a:any, l) => ({...a, [l]: {type: Type.ARRAY, items: {type: Type.STRING}}}), {}),
               required: TARGET_LANGS
@@ -290,11 +328,13 @@ export const generatePlantDetails = async (
     }
 
     const parsed = JSON.parse(cleanJson(response.text || "{}"));
+    const fallbackApiImage = opb?.image_url || trefle?.image_url || perenual?.default_image?.medium_url || perenual?.default_image?.regular_url;
     return createPlant({
         ...parsed,
         trefleId: trefle?.id,
         opbId: opb?.pid,
-        images: base64Image ? [base64Image] : []
+        perenualId: perenual?.id || null,
+        images: base64Image ? [base64Image] : (fallbackApiImage ? [fallbackApiImage] : [])
     });
   } catch (error: any) {
     onLog?.(`Uplink Error: ${error.message}`, "DEBUG");
@@ -391,7 +431,23 @@ export const createPlant = (data: Partial<Plant>): Plant => {
     susceptiblePests: data.susceptiblePests || emptyLocalizedArray,
     bloomSeason: data.bloomSeason || null,
     pruningMonths: data.pruningMonths || null,
-    droughtTolerant: data.droughtTolerant ?? false
+    droughtTolerant: data.droughtTolerant ?? false,
+
+    perenualId: data.perenualId || null,
+    hardinessZoneMin: data.hardinessZoneMin || null,
+    hardinessZoneMax: data.hardinessZoneMax || null,
+    isHumanSafe: data.isHumanSafe ?? true,
+    humanSafety: data.humanSafety || emptyLocalized,
+    minPh: data.minPh || null,
+    maxPh: data.maxPh || null,
+    minRootDepthCm: data.minRootDepthCm || null,
+    frostFreeDaysMin: data.frostFreeDaysMin || null,
+    foliageTraits: data.foliageTraits || null,
+    flowerTraits: data.flowerTraits || null,
+    attracts: data.attracts || emptyLocalizedArray,
+    nativeRegions: data.nativeRegions || emptyLocalizedArray,
+    synonyms: data.synonyms || [],
+    ecologicalFlags: data.ecologicalFlags || {}
   } as Plant;
 };
 

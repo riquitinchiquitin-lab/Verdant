@@ -758,8 +758,119 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                                 value={lv(plant.dormancyPeriod as any)}
                                               />
                                             )}
+                                            {(plant.hardinessZoneMin || plant.hardinessZoneMax) && (
+                                              <PassportItem
+                                                icon={<Globe className="w-4 h-4" />}
+                                                label={t('lbl_hardiness_zones') || 'USDA Hardiness'}
+                                                value={
+                                                  plant.hardinessZoneMin && plant.hardinessZoneMax
+                                                    ? `Zones ${plant.hardinessZoneMin}–${plant.hardinessZoneMax}`
+                                                    : `Zone ${plant.hardinessZoneMin || plant.hardinessZoneMax}`
+                                                }
+                                              />
+                                            )}
                                         </div>
+
+                                        {(plant.trefleId || plant.opbId || plant.gbifId || plant.powoId) && (
+                                          <div className="pt-4 border-t border-md-outline-variant/25 flex flex-wrap items-center gap-2">
+                                            <span className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant mr-1">
+                                              {t('lbl_taxon_links') || 'Archives'}:
+                                            </span>
+                                            {plant.gbifId && (
+                                              <a
+                                                href={`https://www.gbif.org/species/${plant.gbifId}`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-md-surface-container-highest text-md-primary hover:bg-md-primary-container transition-colors"
+                                              >
+                                                GBIF #{plant.gbifId}
+                                              </a>
+                                            )}
+                                            {plant.powoId && (
+                                              <a
+                                                href={`https://powo.science.kew.org/taxon/${plant.powoId}`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-md-surface-container-highest text-md-primary hover:bg-md-primary-container transition-colors"
+                                              >
+                                                POWO
+                                              </a>
+                                            )}
+                                            {plant.trefleId && (
+                                              <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-md-surface-container-highest text-md-on-surface-variant">
+                                                Trefle #{plant.trefleId}
+                                              </span>
+                                            )}
+                                            {plant.opbId && (
+                                              <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-md-surface-container-highest text-md-on-surface-variant">
+                                                OPB: {plant.opbId}
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
                                     </section>
+
+                                    {(lv(plant.foliageTraits as any) || lv(plant.flowerTraits as any) || (lva(plant.nativeRegions as any)?.length > 0) || (lva(plant.attracts as any)?.length > 0) || (plant.ecologicalFlags && Object.values(plant.ecologicalFlags).some(Boolean))) && (
+                                      <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-5">
+                                        <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">
+                                          {t('lbl_morphology_ecology') || 'Morphology & Ecology'}
+                                        </h3>
+
+                                        {plant.ecologicalFlags && Object.values(plant.ecologicalFlags).some(Boolean) && (
+                                          <div className="flex flex-wrap gap-2">
+                                            {plant.ecologicalFlags.indoor && <span className="px-3 py-1 rounded-full text-xs font-semibold bg-md-primary-container/60 text-md-on-primary-container">Indoor</span>}
+                                            {plant.ecologicalFlags.tropical && <span className="px-3 py-1 rounded-full text-xs font-semibold bg-md-tertiary-container/60 text-md-on-tertiary-container">Tropical</span>}
+                                            {plant.ecologicalFlags.medicinal && <span className="px-3 py-1 rounded-full text-xs font-semibold bg-md-secondary-container text-md-on-secondary-container">Medicinal</span>}
+                                            {plant.ecologicalFlags.saltTolerant && <span className="px-3 py-1 rounded-full text-xs font-semibold bg-md-surface-container-highest text-md-on-surface">Salt Tolerant</span>}
+                                            {plant.ecologicalFlags.thorny && <span className="px-3 py-1 rounded-full text-xs font-semibold bg-md-error-container/50 text-md-on-error-container">Thorny</span>}
+                                            {plant.ecologicalFlags.invasive && <span className="px-3 py-1 rounded-full text-xs font-semibold bg-md-error-container/70 text-md-on-error-container">Invasive</span>}
+                                          </div>
+                                        )}
+
+                                        {(lv(plant.foliageTraits as any) || lv(plant.flowerTraits as any)) && (
+                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {lv(plant.foliageTraits as any) && (
+                                              <div className="p-4 rounded-2xl bg-md-surface-container-low border border-md-outline-variant/25 space-y-1">
+                                                <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_foliage') || 'Foliage'}</p>
+                                                <p className="text-xs text-md-on-surface leading-relaxed">{lv(plant.foliageTraits as any)}</p>
+                                              </div>
+                                            )}
+                                            {lv(plant.flowerTraits as any) && (
+                                              <div className="p-4 rounded-2xl bg-md-surface-container-low border border-md-outline-variant/25 space-y-1">
+                                                <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_flowers') || 'Flowers'}</p>
+                                                <p className="text-xs text-md-on-surface leading-relaxed">{lv(plant.flowerTraits as any)}</p>
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+
+                                        {lva(plant.nativeRegions as any)?.length > 0 && (
+                                          <div className="space-y-2">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_native_regions') || 'Native Distribution'}</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                              {lva(plant.nativeRegions as any).slice(0, 12).map((region, idx) => (
+                                                <span key={idx} className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-md-surface-container-highest text-md-on-surface">
+                                                  {region}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {lva(plant.attracts as any)?.length > 0 && (
+                                          <div className="space-y-2">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_attracts') || 'Attracts Wildlife'}</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                              {lva(plant.attracts as any).map((item, idx) => (
+                                                <span key={idx} className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-md-secondary-container/70 text-md-on-secondary-container">
+                                                  {item}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </section>
+                                    )}
 
                                     {lv(plant.aiInsight) && (
                                       <section className="rounded-[28px] p-6 md:p-7 bg-md-secondary-container/30 border border-md-outline-variant/30 space-y-2.5">
@@ -779,6 +890,12 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                             {t('lbl_toxicity')}
                                         </h3>
                                         <p className="text-sm text-md-on-surface leading-relaxed">"{lv(plant.petSafety)}"</p>
+                                        {lv(plant.humanSafety as any) && (
+                                          <p className="text-xs text-md-on-surface-variant pt-2 border-t border-md-outline-variant/20">
+                                            <span className="font-semibold uppercase tracking-wider mr-1.5">{t('lbl_human_safety') || 'Humans'}:</span>
+                                            {lv(plant.humanSafety as any)}
+                                          </p>
+                                        )}
                                     </div>
 
                                     {plant.soilComposition && plant.soilComposition.length > 0 && (
@@ -824,7 +941,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                     <TechMetric label={t('lbl_illuminance')} min={plant.minLightLux} max={plant.maxLightLux} unit="Lux" advice={lv(plant.lightAdvice)} scaleMin={0} scaleMax={Math.max(25000, plant.maxLightLux || 25000)} />
                                     <TechMetric label={t('lbl_soil_ec')} min={plant.minSoilEc} max={plant.maxSoilEc} unit="mS/cm" advice={lv(plant.nutritionAdvice)} scaleMin={0} scaleMax={4} />
                                     <TechMetric label={t('lbl_humidity')} min={plant.minEnvHumid} max={plant.maxEnvHumid} unit="%" advice={lv(plant.humidityAdvice)} scaleMin={0} scaleMax={100} />
-                                    <TechMetric label={t('lbl_target_ph')} min={plant.targetPh} unit="pH" advice={t('lbl_target_ph_desc')} scaleMin={3} scaleMax={9} />
+                                    <TechMetric label={t('lbl_target_ph')} min={plant.minPh ?? plant.targetPh} max={plant.maxPh} unit="pH" advice={t('lbl_target_ph_desc')} scaleMin={3} scaleMax={9} />
                                     <TechMetric label={t('lbl_target_ec')} min={plant.targetEc} unit="mS/cm" advice={t('lbl_target_ec_desc')} scaleMin={0} scaleMax={4} />
                                     <TechMetric label={t('lbl_target_vpd')} min={plant.targetVpd} unit="kPa" advice={t('lbl_target_vpd_desc')} scaleMin={0} scaleMax={3} />
                                     <TechMetric label={t('lbl_target_dli')} min={plant.targetDli} unit="mol/m²/d" advice={t('lbl_target_dli_desc')} scaleMin={0} scaleMax={40} />
@@ -920,6 +1037,18 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                         <p className="text-2xl font-bold text-md-on-surface uppercase">{lastWateredDate}</p>
                                         <p className="text-xs text-md-on-surface-variant mt-2">{t('lbl_last_observed_action_desc')}</p>
                                     </div>
+                                    {plant.minRootDepthCm ? (
+                                      <div className="p-6 bg-md-surface-container-highest/50 rounded-2xl border border-md-outline-variant/30">
+                                        <p className="text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider mb-3">{t('lbl_min_root_depth') || 'Min Root Depth'}</p>
+                                        <p className="text-2xl font-bold text-md-on-surface">{plant.minRootDepthCm} cm</p>
+                                      </div>
+                                    ) : null}
+                                    {plant.frostFreeDaysMin ? (
+                                      <div className="p-6 bg-md-surface-container-highest/50 rounded-2xl border border-md-outline-variant/30">
+                                        <p className="text-[11px] font-semibold text-md-on-surface-variant uppercase tracking-wider mb-3">{t('lbl_frost_free_days') || 'Frost-Free Days'}</p>
+                                        <p className="text-2xl font-bold text-md-on-surface">{plant.frostFreeDaysMin} {t('days').toUpperCase()}</p>
+                                      </div>
+                                    ) : null}
                                 </div>
                             </section>
 

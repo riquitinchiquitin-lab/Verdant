@@ -1404,8 +1404,11 @@ app.post('/api/proxy/opb/token', checkAuth, async (req, res) => {
 
 app.get('/api/proxy/trefle', checkAuth, async (req, res) => {
   try {
-    const q = req.query.q;
-    const response = await fetch(`https://trefle.io/api/v1/plants/search?token=${process.env.TREFLE_TOKEN}&q=${encodeURIComponent(q as string)}`);
+    const { q, id } = req.query;
+    const url = id
+      ? `https://trefle.io/api/v1/plants/${encodeURIComponent(id as string)}?token=${process.env.TREFLE_TOKEN}`
+      : `https://trefle.io/api/v1/plants/search?token=${process.env.TREFLE_TOKEN}&q=${encodeURIComponent((q as string) || '')}`;
+    const response = await fetch(url);
     const data = await response.json();
     res.json(data);
   } catch (e) {
@@ -1432,8 +1435,11 @@ app.post('/api/proxy/serper', checkAuth, async (req, res) => {
 
 app.get('/api/proxy/perenual', checkAuth, async (req, res) => {
   try {
-    const { q, page } = req.query;
-    const response = await fetch(`https://perenual.com/api/species-list?key=${process.env.PERENUAL_API_KEY}&q=${encodeURIComponent(q as string)}&page=${page || 1}`);
+    const { q, page, id } = req.query;
+    const url = id
+      ? `https://perenual.com/api/species/details/${encodeURIComponent(id as string)}?key=${process.env.PERENUAL_API_KEY}`
+      : `https://perenual.com/api/species-list?key=${process.env.PERENUAL_API_KEY}&q=${encodeURIComponent((q as string) || '')}&page=${page || 1}`;
+    const response = await fetch(url);
     const data = await response.json();
     res.json(data);
   } catch (e) {

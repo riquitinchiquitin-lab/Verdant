@@ -197,6 +197,30 @@ export interface Plant {
   bloomSeason?: LocalizedString | null;
   pruningMonths?: LocalizedString | null;
   droughtTolerant?: boolean;
+
+  // --- 8. DEEP API METADATA (TREFLE / PERENUAL / PLANTNET / OPB) ---
+  perenualId?: number | null;
+  hardinessZoneMin?: string | null;
+  hardinessZoneMax?: string | null;
+  isHumanSafe?: boolean;
+  humanSafety?: LocalizedString | null;
+  minPh?: number | null;
+  maxPh?: number | null;
+  minRootDepthCm?: number | null;
+  frostFreeDaysMin?: number | null;
+  foliageTraits?: LocalizedString | null;
+  flowerTraits?: LocalizedString | null;
+  attracts?: LocalizedArray;
+  nativeRegions?: LocalizedArray;
+  synonyms?: string[];
+  ecologicalFlags?: {
+    indoor?: boolean;
+    tropical?: boolean;
+    thorny?: boolean;
+    saltTolerant?: boolean;
+    medicinal?: boolean;
+    invasive?: boolean;
+  };
 }
 
 export type RecurrenceType = 'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY';

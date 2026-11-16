@@ -22,7 +22,19 @@ export const fetchTrefleData = async (scientificName: string) => {
     if (!response.ok) return null;
     trackUsage('trefle');
     const json = await response.json();
-    return json.data?.[0] || null;
+    const match = json.data?.[0];
+    if (!match) return null;
+
+    if (match.id) {
+      const detailRes = await fetch(`${API_URL}/api/proxy/trefle?id=${encodeURIComponent(String(match.id))}`, {
+        headers: getAuthHeaders()
+      });
+      if (detailRes.ok) {
+        const detailJson = await detailRes.json();
+        if (detailJson?.data) return detailJson.data;
+      }
+    }
+    return match;
   } catch (e) {
     return null;
   }
@@ -77,7 +89,18 @@ export const fetchPerenualData = async (query: string, page: number = 1) => {
     });
     if (!response.ok) return null;
     trackUsage('perenual');
-    return await response.json();
+    const json = await response.json();
+    const match = json?.data?.[0];
+    if (match?.id) {
+      const detailRes = await fetch(`${API_URL}/api/proxy/perenual?id=${encodeURIComponent(String(match.id))}`, {
+        headers: getAuthHeaders()
+      });
+      if (detailRes.ok) {
+        const detailJson = await detailRes.json();
+        if (detailJson?.id) return detailJson;
+      }
+    }
+    return json;
   } catch (e) {
     return null;
   }
