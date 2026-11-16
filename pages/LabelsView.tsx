@@ -1,20 +1,34 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Bluetooth, Download, FileSpreadsheet, Tag, Check } from 'lucide-react';
 import { usePlants } from '../context/PlantContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { exportPlantsToNiimbotExcel } from '../services/exportService';
+import {
+  D110_LABEL_W_PX,
+  D110_LABEL_H_PX,
+  isNiimbotWebBluetoothSupported,
+  printLabelsToNiimbotD110,
+  renderD110LabelCanvas,
+} from '../services/barcodeService';
 
 export const LabelsView: React.FC = () => {
   const { plants, houses } = usePlants();
   const { t, lv } = useLanguage();
   const { user } = useAuth();
-  
+
   const [selectedHouseId, setSelectedHouseId] = useState<string>(user?.houseId || 'ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [printStatus, setPrintStatus] = useState<string | null>(null);
+  const [printError, setPrintError] = useState<string | null>(null);
+
+  const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const isGlobalUser = ['OWNER', 'CO_CEO'].includes(user?.role || '');
+  const bleSupported = isNiimbotWebBluetoothSupported();
 
   const filteredPlants = useMemo(() => {
     return plants.filter(p => {
@@ -24,17 +38,60 @@ export const LabelsView: React.FC = () => {
       const q = searchQuery.toLowerCase();
       const matchesSearch = !q ||
         (lv(p.nickname) || '').toLowerCase().includes(q) ||
-        (p.species || '').toLowerCase().includes(q);
+        (p.species || '').toLowerCase().includes(q) ||
+        (p.id || '').toLowerCase().includes(q);
       return matchesHouse && matchesSearch;
     });
   }, [plants, selectedHouseId, searchQuery, lv, isGlobalUser, user?.houseId]);
 
+  const previewPlant = useMemo(() => {
+    const firstSelected = filteredPlants.find(p => selectedIds.has(p.id));
+    return firstSelected || filteredPlants[0] || null;
+  }, [filteredPlants, selectedIds]);
+
+  useEffect(() => {
+    if (previewPlant && previewCanvasRef.current) {
+      renderD110LabelCanvas(previewPlant, lv(previewPlant.nickname), previewCanvasRef.current);
+    }
+  }, [previewPlant, lv]);
+
   const handleExport = () => {
     const plantsToExport = plants.filter(p => selectedIds.has(p.id));
     if (plantsToExport.length === 0) return;
-    
-    const fileName = `verdant_labels_${selectedHouseId.toLowerCase()}_${new Date().getTime()}.xlsx`;
+
+    const fileName = `verdant_labels_${selectedHouseId.toLowerCase()}_${Date.now()}.xlsx`;
     exportPlantsToNiimbotExcel(plantsToExport, lv, fileName);
+  };
+
+  const handleDownloadPreviewPng = () => {
+    if (!previewPlant || !previewCanvasRef.current) return;
+    const url = previewCanvasRef.current.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.download = `label_${previewPlant.id}_15x50mm.png`;
+    link.href = url;
+    link.click();
+  };
+
+  const handlePrintD110 = async () => {
+    const plantsToPrint = plants.filter(p => selectedIds.has(p.id));
+    if (plantsToPrint.length === 0 || isPrinting) return;
+
+    setIsPrinting(true);
+    setPrintError(null);
+    setPrintStatus(`Connecting to Niimbot D110 (${plantsToPrint.length} label${plantsToPrint.length > 1 ? 's' : ''})...`);
+    try {
+      await printLabelsToNiimbotD110(plantsToPrint, lv, (info) => {
+        if (info.page && info.total) {
+          setPrintStatus(`Printing ${info.page} / ${info.total}...`);
+        }
+      });
+      setPrintStatus(`Printed ${plantsToPrint.length} label${plantsToPrint.length > 1 ? 's' : ''} to Niimbot D110.`);
+    } catch (err: any) {
+      setPrintError(err?.message || 'Failed to print to Niimbot D110.');
+      setPrintStatus(null);
+    } finally {
+      setIsPrinting(false);
+    }
   };
 
   const toggleSelectAll = () => {
@@ -56,48 +113,111 @@ export const LabelsView: React.FC = () => {
     setSelectedIds(newSelected);
   };
 
-  const sanitize = (val: string | null | undefined, fallback: string) => 
-    (val || fallback).replace(/\|/g, '').trim();
-
   return (
-    <div className="p-4 md:p-10 max-w-6xl mx-auto space-y-6 md:space-y-10 pb-32">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-6">
-        <div>
-          <h1 className="text-2xl md:text-4xl font-black text-gray-900 dark:text-white tracking-tighter uppercase leading-none">{t('menu_labels')}</h1>
-          <p className="text-gray-500 dark:text-slate-400 mt-1.5 md:mt-2 text-[10px] md:text-sm font-bold uppercase tracking-widest">{t('labels_niimbot_handshake')}</p>
+    <div className="p-4 md:p-10 max-w-7xl mx-auto space-y-6 pb-32 transition-all">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-md-outline-variant/30 pb-6">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 bg-md-primary-container text-md-on-primary-container rounded-2xl flex items-center justify-center shadow-xs">
+            <Tag className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-md-on-surface tracking-tight leading-none">
+              {t('menu_labels')}
+            </h1>
+            <p className="text-xs font-medium text-md-on-surface-variant mt-1">
+              Niimbot D110 · 15 × 50 mm Code 128 Barcode (203 DPI)
+            </p>
+          </div>
         </div>
-        
-        <div className="flex items-center gap-3 md:gap-4 w-full md:w-auto">
-          {selectedIds.size > 0 && (
-            <div className="text-right hidden md:block">
-              <p className="text-[10px] font-black text-verdant uppercase tracking-widest leading-none mb-1">{t('labels_queue_ready')}</p>
-              <p className="text-sm font-bold text-gray-900 dark:text-white">{selectedIds.size} {t('labels_specimens')}</p>
-            </div>
-          )}
-          <Button 
+
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
+          <Button
+            variant="tonal"
+            size="md"
             onClick={handleExport}
             disabled={selectedIds.size === 0}
-            className="flex-1 md:flex-none h-12 md:h-14 px-6 md:px-8 rounded-xl md:rounded-2xl shadow-xl shadow-verdant/20 font-black uppercase tracking-widest flex items-center justify-center gap-2 md:gap-3 transition-all disabled:grayscale text-[10px] md:text-base"
+            className="flex-1 sm:flex-none"
           >
-            <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
+            <FileSpreadsheet className="w-4 h-4" />
             {t('labels_export_selected', { count: selectedIds.size.toString() })}
+          </Button>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handlePrintD110}
+            disabled={selectedIds.size === 0 || isPrinting}
+            isLoading={isPrinting}
+            className="flex-1 sm:flex-none"
+          >
+            <Bluetooth className="w-4 h-4" />
+            Print D110 ({selectedIds.size})
           </Button>
         </div>
       </div>
 
+      {/* Print Feedback */}
+      {printStatus && (
+        <div className="p-3.5 rounded-2xl bg-md-primary-container/40 border border-md-primary/30 text-xs font-semibold text-md-on-primary-container">
+          {printStatus}
+        </div>
+      )}
+      {printError && (
+        <div className="p-3.5 rounded-2xl bg-md-error-container border border-md-error/30 text-xs font-semibold text-md-on-error-container">
+          {printError}
+        </div>
+      )}
+
+      {/* Live Option B Sticker Preview */}
+      {previewPlant && (
+        <div className="m3-card-elevated rounded-3xl p-4 md:p-6 border border-md-outline-variant/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-md-primary">
+                Option B Preview · 15 × 50 mm
+              </span>
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-md-surface-container-high text-md-on-surface-variant">
+                {D110_LABEL_W_PX} × {D110_LABEL_H_PX} px
+              </span>
+            </div>
+            <p className="text-xs text-md-on-surface-variant">
+              {bleSupported
+                ? 'Ready for direct Web Bluetooth printing on Chrome/Edge (Android & Desktop).'
+                : 'Web Bluetooth unavailable in this browser (iOS Safari blocks BLE). Use Bluefy on iOS or Export Excel / PNG.'}
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full md:w-auto">
+            <div className="bg-white p-2.5 rounded-2xl border border-md-outline-variant/50 shadow-xs overflow-x-auto max-w-full">
+              <canvas
+                ref={previewCanvasRef}
+                width={D110_LABEL_W_PX}
+                height={D110_LABEL_H_PX}
+                className="block h-[72px] w-auto image-rendering-pixelated"
+              />
+            </div>
+            <Button variant="outlined" size="sm" onClick={handleDownloadPreviewPng}>
+              <Download className="w-4 h-4" />
+              PNG
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
         {isGlobalUser && (
-          <div className="space-y-1">
-            <label className="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">{t('labels_property_filter')}</label>
-            <select 
-              value={selectedHouseId} 
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider px-1">
+              {t('labels_property_filter')}
+            </label>
+            <select
+              value={selectedHouseId}
               onChange={(e) => {
                 setSelectedHouseId(e.target.value);
-                setSelectedIds(new Set()); // Reset selection on house change
+                setSelectedIds(new Set());
               }}
-              className="w-full h-10 md:h-14 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl md:rounded-2xl px-4 md:px-5 font-bold outline-none focus:ring-4 focus:ring-verdant/10 transition-all dark:text-white text-xs md:text-base"
+              className="w-full h-11 bg-md-surface-container-high border border-md-outline-variant/50 rounded-2xl px-4 text-sm font-medium text-md-on-surface outline-none focus:ring-2 focus:ring-md-primary/30 transition-all"
             >
               <option value="ALL">{t('labels_all_global_properties')}</option>
               {houses.map(h => (
@@ -106,93 +226,109 @@ export const LabelsView: React.FC = () => {
             </select>
           </div>
         )}
-        <div className="space-y-1">
-          <label className="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">{t('labels_quick_filter')}</label>
-          <input 
-            type="text" 
-            placeholder={t('labels_search_specimen')} 
+        <div className="space-y-1.5">
+          <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider px-1">
+            {t('labels_quick_filter')}
+          </label>
+          <input
+            type="text"
+            placeholder={t('labels_search_specimen')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-10 md:h-14 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl md:rounded-2xl px-4 md:px-5 font-bold outline-none focus:ring-4 focus:ring-verdant/10 transition-all dark:text-white text-xs md:text-base"
+            className="w-full h-11 bg-md-surface-container-high border border-md-outline-variant/50 rounded-2xl px-4 text-sm font-medium text-md-on-surface outline-none focus:ring-2 focus:ring-md-primary/30 transition-all"
           />
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-[24px] md:rounded-[40px] border border-gray-100 dark:border-slate-800 overflow-hidden shadow-sm">
+      {/* Specimen Selection Table */}
+      <div className="m3-card-elevated rounded-3xl border border-md-outline-variant/30 overflow-hidden">
         <div className="overflow-x-auto no-scrollbar touch-pan-x">
-          <table className="w-full text-left border-collapse min-w-[600px] md:min-w-0">
+          <table className="w-full text-left border-collapse min-w-[560px] md:min-w-0">
             <thead>
-              <tr className="bg-gray-50 dark:bg-slate-800/50">
-                <th className="px-4 md:px-6 py-3 md:py-5 w-10 md:w-12">
-                  <button 
+              <tr className="bg-md-surface-container-high/60 border-b border-md-outline-variant/30">
+                <th className="px-4 md:px-6 py-3.5 w-12">
+                  <button
                     onClick={toggleSelectAll}
-                    className={`w-5 h-5 md:w-6 md:h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+                    aria-label="Select all"
+                    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
                       selectedIds.size === filteredPlants.length && filteredPlants.length > 0
-                      ? 'bg-verdant border-verdant text-white' 
-                      : 'bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-600'
+                        ? 'bg-md-primary border-md-primary text-md-on-primary'
+                        : 'bg-md-surface border-md-outline'
                     }`}
                   >
-                    {(selectedIds.size === filteredPlants.length && filteredPlants.length > 0) && (
-                      <svg className="w-3 h-3 md:w-4 md:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
+                    {selectedIds.size === filteredPlants.length && filteredPlants.length > 0 && (
+                      <Check className="w-3.5 h-3.5" strokeWidth={3} />
                     )}
                   </button>
                 </th>
-                <th className="px-4 md:px-6 py-3 md:py-5 text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest">{t('labels_specimen')}</th>
-                <th className="px-4 md:px-6 py-3 md:py-5 text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest hidden md:table-cell">{t('labels_family')}</th>
-                <th className="px-4 md:px-6 py-3 md:py-5 text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest hidden sm:table-cell">{t('labels_sync_hash')}</th>
+                <th className="px-4 md:px-6 py-3.5 text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider">
+                  {t('labels_specimen')}
+                </th>
+                <th className="px-4 md:px-6 py-3.5 text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider hidden md:table-cell">
+                  {t('labels_family')}
+                </th>
+                <th className="px-4 md:px-6 py-3.5 text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider hidden sm:table-cell">
+                  Code 128 ID
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-md-outline-variant/20">
               {filteredPlants.map(p => {
                 const isSelected = selectedIds.has(p.id);
-                const hFormatHash = `${sanitize(p.houseId, 'GLOBAL')}|${sanitize(p.id, 'ID')}|${sanitize(p.species, 'SPECIES')}|${sanitize(p.family, 'BOTANICAL')}`;
-                
+
                 return (
-                  <tr 
-                    key={p.id} 
+                  <tr
+                    key={p.id}
                     onClick={() => toggleSelection(p.id)}
-                    className={`cursor-pointer transition-all duration-300 ${
-                      isSelected 
-                      ? 'bg-verdant/5 dark:bg-verdant/10' 
-                      : 'hover:bg-gray-50/50 dark:hover:bg-slate-800/30'
+                    className={`cursor-pointer transition-colors ${
+                      isSelected
+                        ? 'bg-md-primary-container/20'
+                        : 'hover:bg-md-surface-container-low'
                     }`}
                   >
-                    <td className="px-4 md:px-6 py-3 md:py-6">
-                      <div className={`w-5 h-5 md:w-6 md:h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
-                        isSelected 
-                        ? 'bg-verdant border-verdant text-white' 
-                        : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700'
-                      }`}>
-                        {isSelected && (
-                          <svg className="w-3 h-3 md:w-4 md:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
+                    <td className="px-4 md:px-6 py-3.5">
+                      <div
+                        className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                          isSelected
+                            ? 'bg-md-primary border-md-primary text-md-on-primary'
+                            : 'bg-md-surface border-md-outline-variant'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
                       </div>
                     </td>
-                    <td className="px-4 md:px-6 py-3 md:py-6">
-                      <div className="flex items-center gap-2 md:gap-4">
+                    <td className="px-4 md:px-6 py-3.5">
+                      <div className="flex items-center gap-3">
                         {p.images && p.images[0] ? (
-                          <img src={p.images[0]} className="w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-xl object-cover shadow-sm border border-gray-100 dark:border-slate-700" alt="" referrerPolicy="no-referrer" />
+                          <img
+                            src={p.images[0]}
+                            className="w-10 h-10 rounded-xl object-cover border border-md-outline-variant/30 shrink-0"
+                            alt=""
+                            referrerPolicy="no-referrer"
+                          />
                         ) : (
-                          <div className="w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-gray-300 dark:text-slate-700 font-black text-[10px]">?</div>
+                          <div className="w-10 h-10 rounded-xl bg-md-primary-container text-md-on-primary-container flex items-center justify-center font-bold text-xs shrink-0">
+                            {(lv(p.nickname) || '?')[0]}
+                          </div>
                         )}
                         <div className="min-w-0">
-                          <p className="font-black text-gray-900 dark:text-white uppercase tracking-tight leading-none mb-0.5 md:mb-1 truncate text-xs md:text-base">{lv(p.nickname)}</p>
-                          <p className="text-[8px] md:text-[10px] font-serif italic text-gray-400 truncate">{p.species}</p>
+                          <p className="font-semibold text-sm text-md-on-surface truncate">
+                            {lv(p.nickname)}
+                          </p>
+                          <p className="text-xs italic text-md-on-surface-variant truncate">
+                            {p.species}
+                          </p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 md:px-6 py-3 md:py-6 hidden md:table-cell">
-                      <span className="text-[9px] md:text-[10px] font-black text-gray-500 dark:text-slate-400 uppercase tracking-widest bg-gray-100 dark:bg-slate-800 px-2 md:px-3 py-0.5 md:py-1 rounded-full">
+                    <td className="px-4 md:px-6 py-3.5 hidden md:table-cell">
+                      <span className="text-xs font-medium text-md-on-surface-variant bg-md-surface-container-high px-2.5 py-1 rounded-full">
                         {p.family || '-'}
                       </span>
                     </td>
-                    <td className="px-4 md:px-6 py-3 md:py-6 hidden sm:table-cell">
-                      <code className="text-[8px] md:text-[9px] font-mono text-verdant bg-verdant/5 dark:bg-slate-900/40 px-1.5 md:px-2 py-1 md:py-1.5 rounded-lg border border-verdant/10 select-all max-w-[150px] md:max-w-[250px] truncate block">
-                        {hFormatHash}
+                    <td className="px-4 md:px-6 py-3.5 hidden sm:table-cell">
+                      <code className="text-xs font-mono text-md-primary bg-md-primary-container/25 px-2.5 py-1 rounded-lg border border-md-primary/20 select-all">
+                        {p.id}
                       </code>
                     </td>
                   </tr>
@@ -202,13 +338,13 @@ export const LabelsView: React.FC = () => {
           </table>
         </div>
       </div>
-        
-        {filteredPlants.length === 0 && (
-          <div className="py-20 text-center space-y-3">
-             <p className="text-gray-300 font-black uppercase tracking-[0.3em] text-xs">{t('labels_no_specimens_found')}</p>
-             <p className="text-gray-400 text-sm italic">{t('labels_adjust_filters')}</p>
-          </div>
-        )}
-      </div>
+
+      {filteredPlants.length === 0 && (
+        <div className="py-16 text-center bg-md-surface-container-low rounded-3xl border border-dashed border-md-outline-variant/50 space-y-1.5">
+          <p className="text-sm font-semibold text-md-on-surface-variant">{t('labels_no_specimens_found')}</p>
+          <p className="text-xs text-md-on-surface-variant/80">{t('labels_adjust_filters')}</p>
+        </div>
+      )}
+    </div>
   );
 };

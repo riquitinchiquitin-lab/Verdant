@@ -25,7 +25,8 @@ export const exportPlantsToNiimbotExcel = (plants: Plant[], lv: (val: any) => st
       'nickname': lv(p.nickname),
       'species': p.species,
       'family': p.family || '-',
-      'qr': hFormatHash 
+      'barcode': plantId,
+      'qr': hFormatHash
     };
   });
 
@@ -37,6 +38,7 @@ export const exportPlantsToNiimbotExcel = (plants: Plant[], lv: (val: any) => st
     { wch: 30 }, // nickname
     { wch: 30 }, // species
     { wch: 20 }, // family
+    { wch: 24 }, // barcode (short Code 128 ID)
     { wch: 50 }, // qr (hash is long, so we give it more space)
   ];
   worksheet['!cols'] = wscols;
