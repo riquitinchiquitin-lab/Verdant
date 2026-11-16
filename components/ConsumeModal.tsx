@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { useLanguage } from '../context/LanguageContext';
@@ -16,6 +16,10 @@ export const ConsumeModal: React.FC<ConsumeModalProps> = ({ item, isOpen, onClos
   const { t, lv } = useLanguage();
   const { consumeItem } = useInventory();
   const [amount, setAmount] = useState<string>('0');
+
+  useEffect(() => {
+    if (isOpen) setAmount('0');
+  }, [isOpen, item.id]);
   
   const formatted = formatVolume(item.quantity, item.unit);
   const isOutOfStock = item.quantity <= 0;

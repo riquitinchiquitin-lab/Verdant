@@ -453,11 +453,13 @@ export const AdminView: React.FC = () => {
     const all = [...systemLogsMapped, ...careLogsMapped];
     
     const filtered = all.filter(log => {
-        const logDate = new Date(log.timestamp).toISOString().split('T')[0];
-        return logDate === selectedLogDate;
+        const d = new Date(log.timestamp);
+        if (Number.isNaN(d.getTime())) return false;
+        const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return localDate === selectedLogDate;
     });
 
-    return filtered.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return filtered.sort((a, b) => (new Date(b.timestamp).getTime() || 0) - (new Date(a.timestamp).getTime() || 0));
   }, [logs, plants, lv, selectedLogDate]);
 
   const handleRotateKey = () => {
@@ -891,7 +893,7 @@ export const AdminView: React.FC = () => {
                                             {house ? t('lbl_assigned_to', { house: lv(house.name) }) : t('lbl_unassigned')}
                                         </span>
                                         <button 
-                                            onClick={() => setMovingPlantId(plant.id)}
+                                            onClick={() => { setTargetHouseId(plant.houseId || ''); setMovingPlantId(plant.id); }}
                                             className="text-verdant font-black text-[10px] uppercase tracking-widest hover:underline border border-verdant/20 px-3 py-1 rounded-lg"
                                         >
                                             {t('btn_move_plant')}

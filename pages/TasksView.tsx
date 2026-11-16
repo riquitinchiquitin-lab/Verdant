@@ -161,8 +161,14 @@ export const TasksView: React.FC = () => {
     return d;
   }, []);
 
-  const dueToday = filteredTasks.filter(t => !t.completed && new Date(t.date) <= today);
-  const upcoming = filteredTasks.filter(t => !t.completed && new Date(t.date) > today);
+  const endOfToday = useMemo(() => {
+    const d = new Date();
+    d.setHours(23, 59, 59, 999);
+    return d;
+  }, []);
+
+  const dueToday = filteredTasks.filter(t => !t.completed && new Date(t.date) <= endOfToday);
+  const upcoming = filteredTasks.filter(t => !t.completed && new Date(t.date) > endOfToday);
   const completed = filteredTasks.filter(t => t.completed);
 
   return (

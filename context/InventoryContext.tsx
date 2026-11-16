@@ -34,22 +34,26 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({ children 
         if (Array.isArray(remoteData)) {
           setInventory(remoteData);
           setIsSynced(true);
-          setIsLoading(false); // First sync complete, data is verified
         }
       }
     } catch (e) {
       console.warn("Inventory Sync: Proxmox Node unreachable.");
+    } finally {
+      setIsLoading(false);
     }
   }, [token]);
 
-  // Initial Hydration - DISABLED for mobile data integrity (Always verify with server)
   useEffect(() => {
     const hydrate = async () => {
-      // We no longer hydrate from localStorage as requested for mobile devices (Android/iOS)
       setIsPersistenceReady(true);
-      // isLoading remains true until first successful refreshInventoryData
-      
-      if (token) await refreshInventoryData();
+      if (token) {
+        await refreshInventoryData();
+      } else {
+        setInventory([]);
+        setIsSynced(false);
+        setIsLoading(false);
+        localStorage.removeItem('verdant_inventory_v8');
+      }
     };
     hydrate();
   }, [token, refreshInventoryData]);
@@ -64,32 +68,38 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({ children 
   }, [token, refreshInventoryData]);
 
   useEffect(() => {
-    if (!isPersistenceReady) return;
+    if (!isPersistenceReady || !token) return;
     try {
       localStorage.setItem('verdant_inventory_v8', JSON.stringify(inventory));
     } catch {
       // Ignore storage quota errors
     }
-  }, [inventory, isPersistenceReady]);
+  }, [inventory, isPersistenceReady, token]);
 
   const addItem = (item: InventoryItem) => {
     setInventory(prev => [item, ...prev]);
     if (token) {
         fetchWithAuth('/api/inventory', token, { method: 'POST', body: JSON.stringify(item) })
-            .then(() => refreshInventoryData());
+            .then(() => refreshInventoryData())
+            .catch(() => refreshInventoryData());
     }
   };
 
   const updateItem = (id: string, updates: Partial<InventoryItem>) => {
-    const item = inventory.find(i => i.id === id);
-    if (!item) return;
-
-    const updatedItem = { ...item, ...updates };
-    setInventory(prev => prev.map(i => i.id === id ? updatedItem : i));
+    let updatedItem: InventoryItem | null = null;
+    setInventory(prev => prev.map(i => {
+      if (i.id === id) {
+        updatedItem = { ...i, ...updates };
+        return updatedItem;
+      }
+      return i;
+    }));
+    if (!updatedItem) return;
     
     if (token) {
         fetchWithAuth('/api/inventory', token, { method: 'POST', body: JSON.stringify(updatedItem) })
-          .then(() => refreshInventoryData());
+          .then(() => refreshInventoryData())
+          .catch(() => refreshInventoryData());
     }
   };
 
@@ -97,19 +107,25 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({ children 
     setInventory(prev => prev.filter(i => i.id !== id));
     if (token) {
         fetchWithAuth(`/api/inventory?id=${id}`, token, { method: 'DELETE' })
-            .then(() => refreshInventoryData());
+            .then(() => refreshInventoryData())
+            .catch(() => refreshInventoryData());
     }
   };
 
   const consumeItem = (id: string, amount: number) => {
-    const item = inventory.find(i => i.id === id);
-    if (!item) return;
-
-    const updatedItem = { ...item, quantity: Math.max(0, item.quantity - amount) };
-    setInventory(prev => prev.map(i => i.id === id ? updatedItem : i));
+    let updatedItem: InventoryItem | null = null;
+    setInventory(prev => prev.map(i => {
+      if (i.id === id) {
+        updatedItem = { ...i, quantity: Math.max(0, i.quantity - amount) };
+        return updatedItem;
+      }
+      return i;
+    }));
+    if (!updatedItem) return;
     
     if (token) {
-        fetchWithAuth('/api/inventory', token, { method: 'POST', body: JSON.stringify(updatedItem) });
+        fetchWithAuth('/api/inventory', token, { method: 'POST', body: JSON.stringify(updatedItem) })
+          .catch(() => refreshInventoryData());
     }
   };
 

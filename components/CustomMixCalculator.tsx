@@ -69,14 +69,25 @@ export const CustomMixCalculator: React.FC<CustomMixCalculatorProps> = ({ onSave
   ];
 
   const { totalVolume, totalUnit, ratios } = useMemo(() => {
-    const total = ingredients.reduce((sum, ing) => sum + convertValue(parseFloat(ing.quantity) || 0, ing.unit, 'ml'), 0);
-    const dominantUnit = ingredients.length > 0 ? ingredients.reduce((a, b) => (parseFloat(a.quantity) || 0) > (parseFloat(b.quantity) || 0) ? a : b).unit : 'ml';
-    const totalInDominantUnit = convertValue(total, 'ml', dominantUnit);
+    if (ingredients.length === 0) {
+      return { totalVolume: 0, totalUnit: 'ml', ratios: [] };
+    }
+    const baseUnitFor = (u: string) => {
+      const lower = u.toLowerCase().trim();
+      return ['mg', 'g', 'kg', 'oz', 'lb', 'gram', 'grams', 'kilogram', 'kilograms', 'ounce', 'ounces', 'pound', 'pounds', 'milligram', 'milligrams'].includes(lower) ? 'g' : 'ml';
+    };
+    const primaryBase = baseUnitFor(ingredients[0].unit);
+    const normalized = ingredients.map(ing => convertValue(parseFloat(ing.quantity) || 0, ing.unit, primaryBase));
+    const total = normalized.reduce((sum, v) => sum + v, 0);
 
-    const calculatedRatios = ingredients.map(ing => {
-      const ingInMl = convertValue(parseFloat(ing.quantity) || 0, ing.unit, 'ml');
-      return total > 0 ? (ingInMl / total) * 100 : 0;
-    });
+    let maxIdx = 0;
+    for (let i = 1; i < normalized.length; i++) {
+      if (normalized[i] > normalized[maxIdx]) maxIdx = i;
+    }
+    const dominantUnit = ingredients[maxIdx].unit;
+    const totalInDominantUnit = convertValue(total, primaryBase, dominantUnit);
+
+    const calculatedRatios = normalized.map(val => (total > 0 ? (val / total) * 100 : 0));
 
     return { totalVolume: totalInDominantUnit, totalUnit: dominantUnit, ratios: calculatedRatios };
   }, [ingredients]);

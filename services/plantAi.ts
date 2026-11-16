@@ -71,9 +71,14 @@ export const identifyPlantWithPlantNet = async (imageBlobs: Blob[]): Promise<any
   });
   
   try {
-    trackUsage('plantnet');
-    const response = await fetch(targetUrl, { method: 'POST', body: formData });
+    const token = localStorage.getItem('verdant_token');
+    const response = await fetch(targetUrl, {
+      method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+      body: formData
+    });
     if (response.ok) {
+        trackUsage('plantnet');
         const data = await response.json();
         if (data.results?.[0]) {
             return {

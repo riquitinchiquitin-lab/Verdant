@@ -24,17 +24,18 @@ export const checkCompatibility = (plant: Plant, item: InventoryItem): boolean =
   // 1. Explicit compatibility tags
   if (compatibilityTags.length > 0) {
     const isCompatible = compatibilityTags.some(tag => {
-      const t = tag.toLowerCase();
+      const t = tag.toLowerCase().trim();
+      if (!t) return false;
+      const speciesLower = (plant.species || '').toLowerCase();
       const plantCategory = getLocalizedValue(plant.category).toLowerCase();
       const plantNickname = getLocalizedValue(plant.nickname).toLowerCase();
       
       return (
-        plant.species.toLowerCase().includes(t) ||
-        t.includes(plant.species.toLowerCase()) ||
+        (speciesLower && (speciesLower.includes(t) || t.includes(speciesLower))) ||
         (plant.family && plant.family.toLowerCase().includes(t)) ||
         (plant.genus && plant.genus.toLowerCase().includes(t)) ||
-        plantCategory.includes(t) ||
-        plantNickname.includes(t)
+        (plantCategory && plantCategory.includes(t)) ||
+        (plantNickname && plantNickname.includes(t))
       );
     });
     if (isCompatible) return true;
@@ -43,15 +44,15 @@ export const checkCompatibility = (plant: Plant, item: InventoryItem): boolean =
   // 2. Soil compatibility
   const soilTypes = getAllStrings(item.soilTypes);
   if (item.category === 'soil' && soilTypes.length > 0) {
-    // If plant has specific soil requirements or if the item matches plant's characteristics
-    // This is a bit more complex, but we can do a basic check
     const isSoilCompatible = soilTypes.some(type => {
-      const t = type.toLowerCase();
+      const t = type.toLowerCase().trim();
+      if (!t) return false;
+      const speciesLower = (plant.species || '').toLowerCase();
       const categoryMatch = plant.category && typeof plant.category === 'object' 
         ? Object.values(plant.category).some(val => typeof val === 'string' && val.toLowerCase().includes(t))
         : false;
       return (
-        plant.species.toLowerCase().includes(t) ||
+        (speciesLower && speciesLower.includes(t)) ||
         categoryMatch
       );
     });

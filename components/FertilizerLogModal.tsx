@@ -21,8 +21,12 @@ export const FertilizerLogModal: React.FC<FertilizerLogModalProps> = ({ isOpen, 
   const [amount, setAmount] = useState<number>(0);
 
   const fertilizers = useMemo(() => {
-    return inventory.filter(item => (item.category === 'fertiliser' || (item.category === 'custom-mix' && item.mixType === 'fertiliser')) && item.quantity > 0);
-  }, [inventory]);
+    return inventory.filter(item =>
+      (item.category === 'fertiliser' || (item.category === 'custom-mix' && item.mixType === 'fertiliser')) &&
+      item.quantity > 0 &&
+      (!plant.houseId || item.houseId === plant.houseId)
+    );
+  }, [inventory, plant.houseId]);
 
   const compatibleFertilizers = useMemo(() => {
     return getCompatibleItems(plant, fertilizers);

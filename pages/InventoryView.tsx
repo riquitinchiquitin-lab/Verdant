@@ -26,7 +26,7 @@ export const InventoryView: React.FC = () => {
 
   const isAdmin = user?.role === 'OWNER' || user?.role === 'CO_CEO';
 
-  const categories: (InventoryCategory | 'all')[] = ['all', 'tools', 'insecticide', 'fertiliser', 'seeds', 'soil', 'accessories', 'pots', 'saucers', 'custom-mix'];
+  const categories: (InventoryCategory | 'all')[] = ['all', 'tools', 'insecticide', 'fungicide', 'pesticide', 'fertiliser', 'seeds', 'soil', 'accessories', 'pots', 'saucers', 'custom-mix'];
 
   const filteredByProperty = inventory.filter(i => {
     // --- STRICT INVENTORY VISIBILITY ---
@@ -142,18 +142,21 @@ export const InventoryView: React.FC = () => {
           )}
         </div>
       </Modal>
-      {selectedItem && (
-        <Modal 
-          isOpen={!!selectedItem} 
-          onClose={() => setSelectedItem(null)} 
-          title={lv(selectedItem.name) || 'Item Details'}
-          size="2xl"
-        >
-          <div className="py-2">
-            <InventoryItemDetails item={selectedItem} onClose={() => setSelectedItem(null)} />
-          </div>
-        </Modal>
-      )}
+      {selectedItem && (() => {
+        const liveSelectedItem = inventory.find(i => i.id === selectedItem.id) || selectedItem;
+        return (
+          <Modal 
+            isOpen={!!selectedItem} 
+            onClose={() => setSelectedItem(null)} 
+            title={lv(liveSelectedItem.name) || 'Item Details'}
+            size="2xl"
+          >
+            <div className="py-2">
+              <InventoryItemDetails item={liveSelectedItem} onClose={() => setSelectedItem(null)} />
+            </div>
+          </Modal>
+        );
+      })()}
       <CompatibilityModal 
         item={compatibilityItem} 
         onClose={() => setCompatibilityItem(null)} 

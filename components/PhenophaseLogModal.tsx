@@ -32,18 +32,21 @@ export const PhenophaseLogModal: React.FC<PhenophaseLogModalProps> = ({ isOpen, 
     return true;
   });
 
+  const toLocalDateStr = (d: Date = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
   const [selectedPhase, setSelectedPhase] = useState<PhenophaseType>(filteredPhases[0]?.value || PHASES[0].value);
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(toLocalDateStr());
   const [note, setNote] = useState('');
 
   React.useEffect(() => {
     if (isOpen) {
       setSelectedPhase(filteredPhases[0]?.value || PHASES[0].value);
+      setDate(toLocalDateStr());
     }
   }, [isOpen, plant.flowers]);
 
   const handleSubmit = () => {
-    onLog(selectedPhase, date, note);
+    onLog(selectedPhase, new Date(`${date}T12:00:00`).toISOString(), note);
     onClose();
     setNote('');
   };

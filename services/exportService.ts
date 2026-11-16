@@ -54,6 +54,7 @@ export const exportLogsToExcel = (plants: Plant[], lv: (val: any) => string, fil
   plants.forEach(plant => {
     (plant.logs || []).forEach(log => {
       allLogs.push({
+        _ts: new Date(log.date).getTime() || 0,
         'Date': new Date(log.date).toLocaleString(),
         'Plant ID': plant.id,
         'Plant Name': lv(plant.nickname),
@@ -66,10 +67,11 @@ export const exportLogsToExcel = (plants: Plant[], lv: (val: any) => string, fil
     });
   });
 
-  // Sort by date descending
-  allLogs.sort((a, b) => new Date(b.Date).getTime() - new Date(a.Date).getTime());
+  // Sort by raw timestamp descending
+  allLogs.sort((a, b) => b._ts - a._ts);
+  const rows = allLogs.map(({ _ts, ...rest }) => rest);
 
-  const worksheet = XLSX.utils.json_to_sheet(allLogs);
+  const worksheet = XLSX.utils.json_to_sheet(rows);
   
   const wscols = [
     { wch: 20 }, // Date

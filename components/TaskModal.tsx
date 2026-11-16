@@ -17,14 +17,21 @@ interface TaskModalProps {
   taskToEdit?: Task;
 }
 
+const toLocalDateInput = (d: Date = new Date()): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, taskToEdit }) => {
-  const { t, lv } = useLanguage();
-  const { plants } = usePlants();
+  const { t, lv, language } = useLanguage();
+  const { plants, getEffectiveApiKey } = usePlants();
   const { user } = useAuth();
   const { inventory } = useInventory();
   
   const [title, setTitle] = useState(taskToEdit ? lv(taskToEdit.title) : '');
-  const [date, setDate] = useState(taskToEdit ? new Date(taskToEdit.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(taskToEdit ? toLocalDateInput(new Date(taskToEdit.date)) : toLocalDateInput());
   const [recurrence, setRecurrence] = useState<RecurrenceSettings>(taskToEdit?.recurrence || { type: 'NONE' });
   const [selectedPlantIds, setSelectedPlantIds] = useState<string[]>(taskToEdit?.plantIds || []);
   const [type, setType] = useState<Task['type']>(taskToEdit?.type || 'GENERAL');
@@ -38,7 +45,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, t
       title: { en: title },
       description: { en: description },
       type,
-      date: new Date(date).toISOString(),
+      date: new Date(`${date}T12:00:00`).toISOString(),
       plantIds: selectedPlantIds,
       completed: false
     };
@@ -56,15 +63,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, t
 
     setIsSaving(true);
     try {
-        const titleObj = await translateInput(title);
-        const descObj = description ? await translateInput(description) : undefined;
+        const apiKey = getEffectiveApiKey();
+        const titleObj = await translateInput(title, language, apiKey);
+        const descObj = description ? await translateInput(description, language, apiKey) : undefined;
 
         const taskData: Task = {
           id: taskToEdit?.id || `t-${generateUUID()}`,
           title: titleObj,
           description: descObj,
           type,
-          date: new Date(date).toISOString(),
+          date: new Date(`${date}T12:00:00`).toISOString(),
           recurrence,
           plantIds: selectedPlantIds,
           completed: taskToEdit?.completed || false,
@@ -83,7 +91,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, t
   const handleClose = () => {
     if (!taskToEdit) {
       setTitle('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(toLocalDateInput());
       setRecurrence({ type: 'NONE' });
       setSelectedPlantIds([]);
       setType('GENERAL');
@@ -207,11 +215,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, t
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">{t('hour')}</label>
-              <input type="number" min="0" max="23" value={recurrence.hour || ''} onChange={(e) => setRecurrence(prev => ({ ...prev, hour: parseInt(e.target.value) }))} className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" />
+              <input type="number" min="0" max="23" value={recurrence.hour ?? ''} onChange={(e) => { const v = parseInt(e.target.value, 10); setRecurrence(prev => ({ ...prev, hour: Number.isNaN(v) ? undefined : v })); }} className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" />
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">{t('minute')}</label>
-              <input type="number" min="0" max="59" value={recurrence.minute || ''} onChange={(e) => setRecurrence(prev => ({ ...prev, minute: parseInt(e.target.value) }))} className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" />
+              <input type="number" min="0" max="59" value={recurrence.minute ?? ''} onChange={(e) => { const v = parseInt(e.target.value, 10); setRecurrence(prev => ({ ...prev, minute: Number.isNaN(v) ? undefined : v })); }} className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" />
             </div>
           </div>
         )}
@@ -219,7 +227,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, t
         {recurrence.type === 'WEEKLY' && (
           <div className="space-y-2">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">{t('day_of_week')}</label>
-            <select value={recurrence.dayOfWeek || ''} onChange={(e) => setRecurrence(prev => ({ ...prev, dayOfWeek: parseInt(e.target.value) }))} className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold appearance-none">
+            <select value={recurrence.dayOfWeek ?? ''} onChange={(e) => { const v = parseInt(e.target.value, 10); setRecurrence(prev => ({ ...prev, dayOfWeek: Number.isNaN(v) ? undefined : v })); }} className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold appearance-none">
               <option value="0">{t('sunday')}</option>
               <option value="1">{t('monday')}</option>
               <option value="2">{t('tuesday')}</option>
@@ -234,7 +242,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSave, t
         {recurrence.type === 'MONTHLY' && (
           <div className="space-y-2">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">{t('day_of_month')}</label>
-            <input type="number" min="1" max="31" value={recurrence.dayOfMonth || ''} onChange={(e) => setRecurrence(prev => ({ ...prev, dayOfMonth: parseInt(e.target.value) }))} className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" />
+            <input type="number" min="1" max="31" value={recurrence.dayOfMonth ?? ''} onChange={(e) => { const v = parseInt(e.target.value, 10); setRecurrence(prev => ({ ...prev, dayOfMonth: Number.isNaN(v) ? undefined : v })); }} className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" />
           </div>
         )}
 

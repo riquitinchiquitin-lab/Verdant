@@ -69,8 +69,9 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (plantRes.ok) {
         const remotePlants: Plant[] = await plantRes.json();
         if (Array.isArray(remotePlants)) {
+          const remoteIds = new Set(remotePlants.map(rp => rp.id));
           setPlants(prev => {
-            const merged = [...prev];
+            const merged = prev.filter(p => remoteIds.has(p.id));
             remotePlants.forEach(remote => {
               const localIdx = merged.findIndex(p => p.id === remote.id);
               if (localIdx === -1) {
@@ -98,12 +99,9 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               if (localIdx === -1) {
                 merged.push(remote);
               } else {
-                // If remote exists, overwrite local to ensure server consistency
                 merged[localIdx] = remote;
               }
             });
-            // Filter out houses that are not in the remote list (meaning they were deleted)
-            // UNLESS they were just created locally and haven't synced yet (but here we are after a sync)
             return merged.filter(h => remoteHouses.some(rh => rh.id === h.id) || h.id.startsWith('h-temp-'));
           });
         }
@@ -113,12 +111,11 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         if (Array.isArray(remoteTasks)) setTasks(remoteTasks);
       }
       setIsSynced(true);
-      setIsLoading(false); // First sync complete, data is verified
     } catch (e) { 
       console.warn("Sync Heartbeat Failed: Proxmox Node Offline."); 
       setIsSynced(false);
-      // If we've never loaded, we might want to allow a fallback here, 
-      // but the requirement is to verify with server.
+    } finally {
+      setIsLoading(false);
     }
   }, [token]);
 
@@ -126,21 +123,27 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   useEffect(() => {
     const hydrate = async () => {
       try {
-        // We no longer hydrate from localStorage to ensure server-side truth on startup
-        // as requested for mobile devices (Android/iOS)
         console.log("[PlantContext] Initializing... Waiting for server sync.");
       } finally { 
         setIsPersistenceReady(true); 
-        // isLoading remains true until first successful refreshAllData
       }
     };
     hydrate();
   }, []);
 
-  // Sync whenever token or refreshAllData changes
+  // Sync whenever token or refreshAllData changes; clear state on logout
   useEffect(() => {
     if (token) {
         refreshAllData();
+    } else {
+        setPlants([]);
+        setHouses([]);
+        setTasks([]);
+        setIsSynced(false);
+        setIsLoading(false);
+        localStorage.removeItem('verdant_plants_v8');
+        localStorage.removeItem('verdant_houses_v8');
+        localStorage.removeItem('verdant_tasks_v8');
     }
   }, [token, refreshAllData]);
 
@@ -152,7 +155,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [token, refreshAllData]);
 
   useEffect(() => {
-    if (!isPersistenceReady) return;
+    if (!isPersistenceReady || !token) return;
     try {
       localStorage.setItem('verdant_plants_v8', JSON.stringify(plants));
     } catch {
@@ -170,7 +173,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     } catch {
       // Ignore storage quota errors
     }
-  }, [plants, houses, tasks, isPersistenceReady]);
+  }, [plants, houses, tasks, isPersistenceReady, token]);
 
   // Automated Thirsty Plant Notifications
   useEffect(() => {
@@ -326,8 +329,12 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     
     if (hasKeyChanges) {
       console.log("Key fields changed, regenerating tasks...");
-      // Remove existing automated tasks for this plant that are not completed
-      setTasks(prev => prev.filter(t => !(t.plantIds.includes(id) && !t.completed && (t.id.startsWith('t-repot-') || t.id.startsWith('t-rotate-') || t.id.startsWith('t-fert-') || t.id.startsWith('t-water-')))));
+      const staleAutoTasks = tasks.filter(t => t.plantIds.includes(id) && !t.completed && (t.id.startsWith('t-repot-') || t.id.startsWith('t-rotate-') || t.id.startsWith('t-fert-') || t.id.startsWith('t-water-')));
+      const staleIds = new Set(staleAutoTasks.map(t => t.id));
+      setTasks(prev => prev.filter(t => !staleIds.has(t.id)));
+      if (token) {
+        await Promise.all(staleAutoTasks.map(st => fetchWithAuth(`/api/tasks/${st.id}`, token, { method: 'DELETE' }).catch(() => {})));
+      }
       await generateAutomatedTasks(updatedPlant);
     }
 
@@ -507,9 +514,9 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const getEffectiveApiKey = useCallback(() => {
-    if (!user) return getGeminiApiKey();
-    
-    // Fallback to global key
+    if (user?.personalAiKey && user.personalAiKey.trim().length > 0) {
+      return user.personalAiKey.trim();
+    }
     return getGeminiApiKey();
   }, [user]);
 
@@ -528,61 +535,66 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     };
     setPlants(prev => prev.map(p => p.id === plantId ? initialPlantUpdate : p));
 
-    // 2. Handle translations and server sync in the background
-    const processLogBackground = async () => {
-      let finalLog = { ...initialLog };
-      
-      // Ensure 11 languages translation for every log entry
-      const currentLangs = Object.keys(finalLog.localizedNote || {}).filter(k => TARGET_LANGS.includes(k));
-      if (currentLangs.length < TARGET_LANGS.length) {
-        let textToTranslate = '';
-        if (finalLog.localizedNote) {
-          textToTranslate = (finalLog.localizedNote as any)[language] || finalLog.localizedNote.en || Object.values(finalLog.localizedNote)[0] as string;
-        } else {
-          const noteKey = log.type === 'NEW_LEAF' ? 'log_new_leaf' : ('log_' + log.type.toLowerCase() + '_manual');
-          textToTranslate = t(noteKey as any);
-        }
+    // 2. Handle translations and server sync
+    let finalLog = { ...initialLog };
+    const currentLangs = Object.keys(finalLog.localizedNote || {}).filter(k => TARGET_LANGS.includes(k));
+    if (currentLangs.length < TARGET_LANGS.length) {
+      let textToTranslate = '';
+      if (finalLog.localizedNote) {
+        textToTranslate = (finalLog.localizedNote as any)[language] || finalLog.localizedNote.en || Object.values(finalLog.localizedNote)[0] as string;
+      } else {
+        const noteKey = log.type === 'NEW_LEAF' ? 'log_new_leaf' : ('log_' + log.type.toLowerCase() + '_manual');
+        textToTranslate = t(noteKey as any);
+      }
 
-        if (textToTranslate) {
-          try {
-            // Only call Gemini if we really need to (e.g. it's a custom note)
-            finalLog.localizedNote = await translateInput(textToTranslate, language, getEffectiveApiKey());
-            
-            // Update state again with translated note
-            setPlants(prev => prev.map(p => {
-              if (p.id === plantId) {
-                return {
-                  ...p,
-                  logs: (p.logs || []).map(l => l.id === finalLog.id ? finalLog : l)
-                };
-              }
-              return p;
-            }));
-          } catch (e) {
-            console.warn("Auto-translation failed in addLog:", e);
-            if (!finalLog.localizedNote) {
-              finalLog.localizedNote = { en: textToTranslate, [language]: textToTranslate };
+      if (textToTranslate) {
+        try {
+          finalLog.localizedNote = await translateInput(textToTranslate, language, getEffectiveApiKey());
+          setPlants(prev => prev.map(p => {
+            if (p.id === plantId) {
+              return {
+                ...p,
+                logs: (p.logs || []).map(l => l.id === finalLog.id ? finalLog : l)
+              };
             }
+            return p;
+          }));
+        } catch (e) {
+          console.warn("Auto-translation failed in addLog:", e);
+          if (!finalLog.localizedNote) {
+            finalLog.localizedNote = { en: textToTranslate, [language]: textToTranslate };
           }
         }
       }
-      
-      // Final sync to server
-      if (token) {
-        // Use initialPlantUpdate as base to ensure the new log is included in the sync
-        const syncPlant = {
-          ...initialPlantUpdate,
-          logs: (initialPlantUpdate.logs || []).map(l => l.id === finalLog.id ? finalLog : l),
-          lastModified: new Date().toISOString()
-        };
-        fetchWithAuth('/api/plants', token, { 
-          method: 'POST', 
-          body: JSON.stringify(syncPlant) 
-        }).catch(e => console.error("Failed to sync log addition:", e));
-      }
-    };
+    }
 
-    processLogBackground();
+    if (token) {
+      let syncPlant: Plant | null = null;
+      setPlants(prev => prev.map(p => {
+        if (p.id === plantId) {
+          syncPlant = {
+            ...p,
+            logs: (p.logs || []).map(l => l.id === finalLog.id ? finalLog : l),
+            lastModified: new Date().toISOString()
+          };
+          return syncPlant;
+        }
+        return p;
+      }));
+      const payload = syncPlant || {
+        ...initialPlantUpdate,
+        logs: (initialPlantUpdate.logs || []).map(l => l.id === finalLog.id ? finalLog : l),
+        lastModified: new Date().toISOString()
+      };
+      try {
+        await fetchWithAuth('/api/plants', token, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {
+        console.error("Failed to sync log addition:", e);
+      }
+    }
   };
   
   const deleteLog = async (plantId: string, logId: string) => {

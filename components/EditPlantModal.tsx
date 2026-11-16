@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
 import { Plant } from '../types';
@@ -61,39 +61,48 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
   const isAdmin = user?.role === 'OWNER' || user?.role === 'CO_CEO';
   const canTransfer = !isUnattributed || isAdmin;
 
+  const lastInitKeyRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (isOpen) {
-        const currentNickname = lv(plant.nickname);
-        const currentRoom = lv(plant.room as any);
-        setNickname(currentNickname);
-        setRoom(currentRoom);
-        setCategory(lv(plant.category as any));
-        setGrowthRate(lv(plant.growthRate as any));
-        setHouseId(plant.houseId || null);
-        setWateringInterval(plant.wateringInterval || null);
-        setLastWatered(plant.lastWatered || null);
-        setTargetPh(plant.targetPh || null);
-        setTargetEc(plant.targetEc || null);
-        setTargetVpd(plant.targetVpd || null);
-        setTargetDli(plant.targetDli || null);
-        setRepottingFrequency(plant.repottingFrequency || null);
-        setLastPotSize(plant.lastPotSize ? plant.lastPotSize.toString().replace(/cm$/i, '').trim() : '');
-        setLastPotSizeInches(plant.lastPotSizeInches || null);
-        setLastPotSizeCm(plant.lastPotSizeCm || null);
-        setRotationFrequency(plant.rotationFrequency || null);
-        setLastRotated(plant.lastRotated || null);
-        setPropagationMethods(lva(plant.propagationMethods as any)?.join(', ') || '');
-        setPropagationInstructions(lv(plant.propagationInstructions));
-        setRepottingInstructions(lv(plant.repottingInstructions));
-        setNursery(plant.provenance?.nursery || '');
-        setDateOfPurchase(plant.provenance?.dateOfPurchase || '');
-        setCost(plant.provenance?.cost || null);
-        setCurrency(plant.provenance?.currency || getCurrencyForLanguage(language));
-        setImages(plant.images || []);
-        const isPredefined = ROOM_TYPES.includes(currentRoom);
-        setIsCustom(!!currentRoom && !isPredefined);
+    if (!isOpen) {
+        lastInitKeyRef.current = null;
+        return;
     }
-  }, [isOpen, plant, lv, lva]);
+    const initKey = `${plant.id}`;
+    if (lastInitKeyRef.current === initKey) return;
+    lastInitKeyRef.current = initKey;
+
+    const currentNickname = lv(plant.nickname);
+    const currentRoom = lv(plant.room as any);
+    setNickname(currentNickname);
+    setRoom(currentRoom);
+    setCategory(lv(plant.category as any));
+    setGrowthRate(lv(plant.growthRate as any));
+    setHouseId(plant.houseId || null);
+    setWateringInterval(plant.wateringInterval || null);
+    setLastWatered(plant.lastWatered || null);
+    setTargetPh(plant.targetPh || null);
+    setTargetEc(plant.targetEc || null);
+    setTargetVpd(plant.targetVpd || null);
+    setTargetDli(plant.targetDli || null);
+    setRepottingFrequency(plant.repottingFrequency || null);
+    setLastPotSize(plant.lastPotSize ? plant.lastPotSize.toString().replace(/cm$/i, '').trim() : '');
+    setLastPotSizeInches(plant.lastPotSizeInches || null);
+    setLastPotSizeCm(plant.lastPotSizeCm || null);
+    setRotationFrequency(plant.rotationFrequency || null);
+    setLastRotated(plant.lastRotated || null);
+    setPropagationMethods(lva(plant.propagationMethods as any)?.join(', ') || '');
+    setPropagationInstructions(lv(plant.propagationInstructions));
+    setRepottingInstructions(lv(plant.repottingInstructions));
+    setNursery(plant.provenance?.nursery || '');
+    setDateOfPurchase(plant.provenance?.dateOfPurchase || '');
+    setCost(plant.provenance?.cost || null);
+    setCurrency(plant.provenance?.currency || getCurrencyForLanguage(language));
+    setImages(plant.images || []);
+    setRefreshedData(null);
+    const isPredefined = ROOM_TYPES.includes(currentRoom);
+    setIsCustom(!!currentRoom && !isPredefined);
+  }, [isOpen, plant, lv, lva, language]);
 
   const handleRefreshData = async () => {
     if (!plant.species) {
@@ -164,13 +173,17 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
 
           const batchResults = await translateObjectInput(toTranslate, 'en', apiKey);
 
+          const safeRefreshed = refreshedData
+            ? (({ id: _id, logs: _logs, createdAt: _ca, updatedAt: _ua, images: _imgs, houseId: _hid, ...rest }) => rest)(refreshedData)
+            : {};
+
           const finalUpdates: Partial<Plant> = { 
-              ...(refreshedData || {}),
+              ...safeRefreshed,
               species: plant.species,
-              nickname: batchResults.nickname || plant.nickname, 
-              room: batchResults.room ? batchResults.room : (isCustom ? (room || null) : (room || plant.room || null)),
-              category: batchResults.category || plant.category,
-              growthRate: batchResults.growthRate || plant.growthRate,
+              nickname: batchResults.nickname || safeRefreshed.nickname || plant.nickname, 
+              room: batchResults.room ? batchResults.room : (room.trim() ? room.trim() : null),
+              category: batchResults.category || safeRefreshed.category || plant.category,
+              growthRate: batchResults.growthRate || safeRefreshed.growthRate || plant.growthRate,
               houseId: houseId,
               wateringInterval: wateringInterval,
               lastWatered: lastWatered,
@@ -189,9 +202,9 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
                       acc[lang] = (batchResults.propagationMethods as any)[lang].split(',').map((s: string) => s.trim()).filter(Boolean);
                       return acc;
                   }, {} as any)
-                  : plant.propagationMethods,
-              propagationInstructions: batchResults.propagationInstructions || plant.propagationInstructions,
-              repottingInstructions: batchResults.repottingInstructions || plant.repottingInstructions,
+                  : (safeRefreshed.propagationMethods || plant.propagationMethods),
+              propagationInstructions: batchResults.propagationInstructions || safeRefreshed.propagationInstructions || plant.propagationInstructions,
+              repottingInstructions: batchResults.repottingInstructions || safeRefreshed.repottingInstructions || plant.repottingInstructions,
               images,
               provenance: {
                   nursery,
@@ -330,8 +343,8 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
                           <input 
                               type="date" 
                               className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold"
-                              value={lastWatered || ''}
-                              onChange={(e) => setLastWatered(e.target.value)}
+                              value={lastWatered ? lastWatered.split('T')[0] : ''}
+                              onChange={(e) => setLastWatered(e.target.value || null)}
                           />
                       </div>
                   </div>
@@ -476,7 +489,7 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
                       </div>
                       <div>
                           <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">{t('lbl_last_rotated')}</label>
-                          <input type="date" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={lastRotated || ''} onChange={e => setLastRotated(e.target.value)} />
+                          <input type="date" className="w-full h-14 px-4 border border-gray-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-verdant/10 bg-white dark:bg-slate-800 dark:text-white font-bold" value={lastRotated ? lastRotated.split('T')[0] : ''} onChange={e => setLastRotated(e.target.value || null)} />
                       </div>
                   </div>
                   <div>

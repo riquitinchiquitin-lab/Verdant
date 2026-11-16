@@ -22,13 +22,38 @@ export const UNIT_SYSTEMS = {
 
 const ALL_UNITS = [...UNIT_SYSTEMS.METRIC, ...UNIT_SYSTEMS.IMPERIAL];
 
+const UNIT_ALIASES: Record<string, string> = {
+  milliliter: 'ml', milliliters: 'ml',
+  liter: 'l', liters: 'l',
+  milligram: 'mg', milligrams: 'mg',
+  gram: 'g', grams: 'g',
+  kilogram: 'kg', kilograms: 'kg',
+  'fluid ounce': 'fl oz', 'fluid ounces': 'fl oz',
+  cups: 'cup',
+  pint: 'pt', pints: 'pt',
+  quart: 'qt', quarts: 'qt',
+  gallon: 'gal', gallons: 'gal',
+  ounce: 'oz', ounces: 'oz',
+  pound: 'lb', pounds: 'lb',
+};
+
+const resolveUnit = (unit: string) => {
+  const lower = unit.toLowerCase().trim();
+  const canonical = UNIT_ALIASES[lower] || lower;
+  return ALL_UNITS.find(u => u.value.toLowerCase() === canonical);
+};
+
+export const getUnitType = (unit: string): 'volume' | 'mass' | null => {
+  return (resolveUnit(unit)?.type as 'volume' | 'mass') || null;
+};
+
 /**
  * Converts a value from one unit to another.
  * If units are incompatible (volume vs mass), it does a straight numerical pass-through.
  */
 export const convertValue = (value: number, fromUnit: string, toUnit: string): number => {
-  const from = ALL_UNITS.find(u => u.value.toLowerCase() === fromUnit.toLowerCase());
-  const to = ALL_UNITS.find(u => u.value.toLowerCase() === toUnit.toLowerCase());
+  const from = resolveUnit(fromUnit);
+  const to = resolveUnit(toUnit);
 
   if (!from || !to || from.type !== to.type) return value;
 

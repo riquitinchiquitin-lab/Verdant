@@ -6,14 +6,21 @@
 import { API_URL } from '../constants';
 import { trackUsage } from './usageService';
 
+const getAuthHeaders = (): Record<string, string> => {
+  const token = localStorage.getItem('verdant_token');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+};
+
 /**
  * Fetches botanical metadata via Internal Proxy (Trefle)
  */
 export const fetchTrefleData = async (scientificName: string) => {
   try {
-    trackUsage('trefle');
-    const response = await fetch(`${API_URL}/api/proxy/trefle?q=${encodeURIComponent(scientificName)}`);
+    const response = await fetch(`${API_URL}/api/proxy/trefle?q=${encodeURIComponent(scientificName)}`, {
+      headers: getAuthHeaders()
+    });
     if (!response.ok) return null;
+    trackUsage('trefle');
     const json = await response.json();
     return json.data?.[0] || null;
   } catch (e) {
@@ -27,7 +34,10 @@ export const fetchTrefleData = async (scientificName: string) => {
 export const fetchOpenPlantBookData = async (scientificName: string) => {
   try {
     // 1. Get OAuth Token from secure backend
-    const tokenResponse = await fetch(`${API_URL}/api/proxy/opb/token`, { method: 'POST' });
+    const tokenResponse = await fetch(`${API_URL}/api/proxy/opb/token`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
     if (!tokenResponse.ok) return null;
     const { access_token } = await tokenResponse.json();
 
@@ -62,9 +72,11 @@ export const fetchOpenPlantBookData = async (scientificName: string) => {
  */
 export const fetchPerenualData = async (query: string, page: number = 1) => {
   try {
-    trackUsage('perenual');
-    const response = await fetch(`${API_URL}/api/proxy/perenual?q=${encodeURIComponent(query)}&page=${page}`);
+    const response = await fetch(`${API_URL}/api/proxy/perenual?q=${encodeURIComponent(query)}&page=${page}`, {
+      headers: getAuthHeaders()
+    });
     if (!response.ok) return null;
+    trackUsage('perenual');
     return await response.json();
   } catch (e) {
     return null;
@@ -76,13 +88,13 @@ export const fetchPerenualData = async (query: string, page: number = 1) => {
  */
 export const searchGroundingData = async (query: string) => {
   try {
-    trackUsage('serper');
     const response = await fetch(`${API_URL}/api/proxy/serper`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ q: query })
     });
     if (!response.ok) return null;
+    trackUsage('serper');
     return await response.json();
   } catch (e) {
     return null;

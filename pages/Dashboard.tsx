@@ -35,28 +35,16 @@ export const Dashboard: React.FC = () => {
 
   const filtered = useMemo(() => {
     return plants.filter(p => {
-      // 1. Admin House Filter (if active)
-      if (isAdmin && selectedHouseFilter !== 'ALL') {
+      // 1. Admin House Filter
+      if (isAdmin) {
+        if (selectedHouseFilter === 'ALL') return true;
         if (selectedHouseFilter === 'UNATTRIBUTED') return !p.houseId;
         return p.houseId === selectedHouseFilter;
       }
 
-      // 2. If viewing all plants (only for admins), show everything
-      if (isAdmin && viewMode === 'ALL') return true;
-      
-      // 3. If viewing "My House"
-      if (viewMode === 'MY_HOUSE') {
-        // If user has a house assigned, they see plants in that house
-        // Admins also see unattributed plants in "My House" mode
-        if (user?.houseId) {
-          return p.houseId === user.houseId || (isAdmin && !p.houseId);
-        }
-        
-        // Admins with NO house assigned see EVERYTHING in "My House" mode (since they own all houses)
-        if (isAdmin) return true;
-        
-        // If user has no house assigned and is NOT an admin, they see nothing in "My House" mode
-        return false;
+      // 2. Non-admin users see only their assigned house
+      if (user?.houseId) {
+        return p.houseId === user.houseId;
       }
       
       return false;

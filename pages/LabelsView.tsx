@@ -18,12 +18,16 @@ export const LabelsView: React.FC = () => {
 
   const filteredPlants = useMemo(() => {
     return plants.filter(p => {
-      const matchesHouse = selectedHouseId === 'ALL' || p.houseId === selectedHouseId;
-      const matchesSearch = lv(p.nickname).toLowerCase().includes(searchQuery.toLowerCase()) || 
-                           p.species.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesHouse = isGlobalUser
+        ? (selectedHouseId === 'ALL' || p.houseId === selectedHouseId)
+        : (Boolean(user?.houseId) && p.houseId === user?.houseId);
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = !q ||
+        (lv(p.nickname) || '').toLowerCase().includes(q) ||
+        (p.species || '').toLowerCase().includes(q);
       return matchesHouse && matchesSearch;
     });
-  }, [plants, selectedHouseId, searchQuery, lv]);
+  }, [plants, selectedHouseId, searchQuery, lv, isGlobalUser, user?.houseId]);
 
   const handleExport = () => {
     const plantsToExport = plants.filter(p => selectedIds.has(p.id));
@@ -34,7 +38,8 @@ export const LabelsView: React.FC = () => {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === filteredPlants.length && filteredPlants.length > 0) {
+    const allSelected = filteredPlants.length > 0 && filteredPlants.every(p => selectedIds.has(p.id));
+    if (allSelected) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(filteredPlants.map(p => p.id)));

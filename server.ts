@@ -232,9 +232,8 @@ const verifyPassword = async (hash: string, password: string): Promise<boolean> 
 
 let cachedFileSessionSecret: string | null = null;
 const getSessionSecret = (): string => {
-  if (currentVaultKey) return currentVaultKey;
-  if (process.env.MASTER_KEY && process.env.MASTER_KEY.trim().length >= 16) {
-    return process.env.MASTER_KEY.trim();
+  if (process.env.SESSION_SECRET && process.env.SESSION_SECRET.trim().length >= 32) {
+    return process.env.SESSION_SECRET.trim();
   }
   if (cachedFileSessionSecret) return cachedFileSessionSecret;
 
@@ -760,7 +759,7 @@ app.post('/api/auth/webauthn/login/verify', async (req, res) => {
   }
 });
 
-const checkAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+const checkAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
     console.warn("[AUTH] Missing authorization header");
@@ -771,15 +770,32 @@ const checkAuth = (req: express.Request, res: express.Response, next: express.Ne
   const verified = verifySessionToken(token);
 
   if (verified) {
-    (req as any).userRole = typeof verified.role === 'string' ? verified.role.toUpperCase() : undefined;
-    (req as any).userHouseId = verified.houseId;
-    (req as any).userId = verified.id;
-    (req as any).userEmail = verified.email;
-    return next();
+    try {
+      const userRes = await query(
+        'SELECT id, email, role, houseId, deletedAt, caretakerStart, caretakerEnd FROM users WHERE id = ?',
+        [verified.id]
+      );
+      const dbUser = userRes.rows[0];
+      if (!dbUser || dbUser.deletedAt) {
+        return res.status(401).json({ error: "UNAUTHORIZED" });
+      }
+      const seasonalCheck = checkSeasonalAccess(dbUser);
+      if (!seasonalCheck.ok) {
+        return res.status(403).json({ error: seasonalCheck.reason || "ACCESS_EXPIRED" });
+      }
+      (req as any).userRole = typeof dbUser.role === 'string' ? dbUser.role.toUpperCase() : undefined;
+      (req as any).userHouseId = dbUser.houseId;
+      (req as any).userId = dbUser.id;
+      (req as any).userEmail = dbUser.email;
+      return next();
+    } catch (e) {
+      console.error("[AUTH] DB revalidation error:", e);
+      return res.status(500).json({ error: "AUTH_FAULT" });
+    }
   }
 
-  // Allow dev-token in development mode only
-  if (process.env.NODE_ENV !== 'production' && token === 'dev-token') {
+  // Allow dev-token only when explicitly in development mode
+  if ((process.env.NODE_ENV === 'development' || process.env.ENABLE_DEV_AUTH === 'true') && token === 'dev-token') {
     const role = req.headers['x-user-role'];
     (req as any).userRole = typeof role === 'string' ? role.toUpperCase() : undefined;
     (req as any).userHouseId = req.headers['x-user-house-id'];
@@ -812,6 +828,15 @@ app.delete('/api/auth/webauthn/credentials/:id', checkAuth, async (req, res) => 
     const userId = (req as any).userId;
     const role = (req as any).userRole;
     if (['OWNER', 'CO_CEO'].includes(role)) {
+      if (role === 'CO_CEO') {
+        const credRes = await query(
+          'SELECT u.role FROM webauthn_credentials wc JOIN users u ON wc.userId = u.id WHERE wc.id = ?',
+          [id]
+        );
+        if (credRes.rows[0]?.role === 'OWNER') {
+          return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+        }
+      }
       await query('DELETE FROM webauthn_credentials WHERE id = ?', [id]);
     } else {
       await query('DELETE FROM webauthn_credentials WHERE id = ? AND userId = ?', [id, userId]);
@@ -832,10 +857,16 @@ app.post('/api/users/:id/reset-passkeys', checkAuth, async (req, res) => {
       return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
     }
 
+    const targetRes = await query('SELECT houseId, role FROM users WHERE id = ?', [id]);
+    const target = targetRes.rows[0];
+    if (!target) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+    if (role === 'CO_CEO' && target.role === 'OWNER') {
+      return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    }
+
     if (role === 'LEAD_HAND') {
-      const targetRes = await query('SELECT houseId, role FROM users WHERE id = ?', [id]);
-      const target = targetRes.rows[0];
-      if (!target || target.houseId !== houseId || !['GARDENER', 'SEASONAL'].includes(target.role)) {
+      if (target.houseId !== houseId || !['GARDENER', 'SEASONAL'].includes(target.role)) {
         return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
       }
     }
@@ -898,10 +929,16 @@ app.post('/api/users/:id/reset-password', checkAuth, async (req, res) => {
       return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
     }
 
+    const targetRes = await query('SELECT houseId, role FROM users WHERE id = ?', [id]);
+    const target = targetRes.rows[0];
+    if (!target) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+    if (role === 'CO_CEO' && target.role === 'OWNER') {
+      return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    }
+
     if (role === 'LEAD_HAND') {
-      const targetRes = await query('SELECT houseId, role FROM users WHERE id = ?', [id]);
-      const target = targetRes.rows[0];
-      if (!target || target.houseId !== houseId || !['GARDENER', 'SEASONAL'].includes(target.role)) {
+      if (target.houseId !== houseId || !['GARDENER', 'SEASONAL'].includes(target.role)) {
         return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
       }
     }
@@ -976,7 +1013,7 @@ app.post('/api/auth/totp/verify', checkAuth, async (req, res) => {
 app.post('/api/auth/totp/disable', checkAuth, async (req, res) => {
   try {
     const userId = (req as any).userId;
-    await query('UPDATE users SET totpEnabled = 0, totpSecret = NULL WHERE id = ?', [userId]);
+    await query('UPDATE users SET totpEnabled = 0, totpSecret = NULL, recoveryCodes = NULL WHERE id = ?', [userId]);
     await logSystemEvent('TOTP_DISABLED', `TOTP 2FA disabled for user ${userId}`, 'WARN');
     res.json({ status: "ok", totpEnabled: false });
   } catch (e) {
@@ -1001,9 +1038,15 @@ const checkHouseAccess = (req: express.Request, res: express.Response, next: exp
   const role = (req as any).userRole;
   const houseId = (req as any).userHouseId;
   if (['OWNER', 'CO_CEO'].includes(role)) return next();
-  const targetHouseId = req.params.houseId || req.body.houseId || req.query.houseId;
+  if (!houseId) {
+    return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+  }
+  const targetHouseId = req.params.houseId || req.body?.houseId || req.query.houseId;
   if (targetHouseId && targetHouseId !== houseId) {
     return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+  }
+  if (!targetHouseId && req.body && typeof req.body === 'object') {
+    req.body.houseId = houseId;
   }
   next();
 };
@@ -1050,7 +1093,7 @@ app.get('/api/system/config', checkAuth, (req, res) => {
 
 app.post('/api/system/vault-key', checkAuth, async (req, res) => {
   const role = (req as any).userRole;
-  if (!['OWNER', 'CO_CEO'].includes(role)) {
+  if (role !== 'OWNER') {
     return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
   }
   try {
@@ -1076,6 +1119,8 @@ app.get('/api/system/backup', checkAuth, async (req, res) => {
     const tasks = await query('SELECT * FROM tasks');
     const inventory = await query('SELECT * FROM inventory');
     const users = await query('SELECT * FROM users');
+    const webauthnCredentials = await query('SELECT * FROM webauthn_credentials');
+    const securityPolicy = await query('SELECT * FROM security_policy');
     const logs = await query('SELECT * FROM system_logs');
 
     const safeParse = (data: any) => {
@@ -1089,11 +1134,12 @@ app.get('/api/system/backup', checkAuth, async (req, res) => {
       houses: houses.rows.map((r: any) => ({ ...safeParse(r.data), id: r.id })),
       tasks: tasks.rows.map((r: any) => ({ ...safeParse(r.data), id: r.id })),
       inventory: inventory.rows.map((r: any) => ({ ...safeParse(r.data), id: r.id })),
-      users: users.rows.map((u: any) => {
-        const safe = parseUserRecord(u);
-        delete safe.personalAiKey;
-        return safe;
-      }),
+      users: users.rows.map((u: any) => ({
+        ...u,
+        name: safeParse(u.name),
+      })),
+      webauthn_credentials: webauthnCredentials.rows,
+      security_policy: securityPolicy.rows,
       system_logs: logs.rows,
       timestamp: new Date().toISOString(),
       version: '1.0.0'
@@ -1389,8 +1435,44 @@ app.post('/api/system/restore', checkAuth, async (req, res) => {
       if (decoded.users && Array.isArray(decoded.users)) {
         console.log(`[RESTORE] Restoring ${decoded.users.length} users...`);
         for (const u of decoded.users) {
-          await query('INSERT OR REPLACE INTO users (id, email, name, role, houseId, personalAiKey, personalAiKeyTestedAt, deletedAt, caretakerStart, caretakerEnd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [u.id, u.email, typeof u.name === 'object' ? JSON.stringify(u.name) : u.name, u.role, u.houseId, u.personalAiKey, u.personalAiKeyTestedAt, u.deletedAt, u.caretakerStart || null, u.caretakerEnd || null]);
+          await query(
+            'INSERT OR REPLACE INTO users (id, email, name, role, houseId, personalAiKey, personalAiKeyTestedAt, deletedAt, caretakerStart, caretakerEnd, passwordHash, totpSecret, totpEnabled, recoveryCodes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+              u.id,
+              u.email,
+              typeof u.name === 'object' ? JSON.stringify(u.name) : u.name,
+              u.role,
+              u.houseId,
+              u.personalAiKey || null,
+              u.personalAiKeyTestedAt || null,
+              u.deletedAt || null,
+              u.caretakerStart || null,
+              u.caretakerEnd || null,
+              u.passwordHash || null,
+              u.totpSecret || null,
+              u.totpEnabled ? 1 : 0,
+              typeof u.recoveryCodes === 'object' && u.recoveryCodes !== null ? JSON.stringify(u.recoveryCodes) : (u.recoveryCodes || null)
+            ]
+          );
+        }
+      }
+
+      if (decoded.webauthn_credentials && Array.isArray(decoded.webauthn_credentials)) {
+        console.log(`[RESTORE] Restoring ${decoded.webauthn_credentials.length} passkeys...`);
+        for (const wc of decoded.webauthn_credentials) {
+          await query(
+            'INSERT OR REPLACE INTO webauthn_credentials (id, userId, publicKey, counter, transports, deviceType, backedUp, label, createdAt, lastUsedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [wc.id, wc.userId, wc.publicKey, wc.counter ?? 0, wc.transports || null, wc.deviceType || null, wc.backedUp ? 1 : 0, wc.label || null, wc.createdAt || null, wc.lastUsedAt || null]
+          );
+        }
+      }
+
+      if (decoded.security_policy && Array.isArray(decoded.security_policy)) {
+        for (const sp of decoded.security_policy) {
+          await query(
+            'INSERT OR REPLACE INTO security_policy (id, require2faAllUsers, updatedAt) VALUES (?, ?, ?)',
+            [sp.id ?? 1, sp.require2faAllUsers ? 1 : 0, sp.updatedAt || new Date().toISOString()]
+          );
         }
       }
 
@@ -1634,6 +1716,13 @@ app.delete('/api/users/:id', checkAuth, async (req, res) => {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
 
+    if (role === 'CO_CEO') {
+      const targetRes = await query('SELECT role FROM users WHERE id = ?', [id]);
+      if (targetRes.rows[0]?.role === 'OWNER') {
+        return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+      }
+    }
+
     await query('DELETE FROM webauthn_credentials WHERE userId = ?', [id]);
     await query('DELETE FROM users WHERE id = ?', [id]);
     await logSystemEvent('USER_DELETED', `User ${id} permanently deleted by ${(req as any).userId || 'ADMIN'}`, 'WARN');
@@ -1646,6 +1735,7 @@ app.get('/api/users', checkAuth, async (req, res) => {
   try {
     const role = (req as any).userRole;
     const houseId = (req as any).userHouseId;
+    const callerId = (req as any).userId;
     let sql = 'SELECT users.*, (SELECT COUNT(*) FROM webauthn_credentials wc WHERE wc.userId = users.id) AS passkeyCount FROM users WHERE deletedAt IS NULL';
     let params: any[] = [];
     if (role === 'LEAD_HAND') {
@@ -1653,10 +1743,17 @@ app.get('/api/users', checkAuth, async (req, res) => {
       params.push(houseId);
     } else if (!['OWNER', 'CO_CEO'].includes(role)) {
       sql += ' AND id = ?';
-      params.push((req as any).userId || req.headers['x-user-id'] || '');
+      params.push(callerId || req.headers['x-user-id'] || '');
     }
     const result = await query(sql, params);
-    res.json(result.rows.map((r: any) => parseUserRecord(r)));
+    res.json(result.rows.map((r: any) => {
+      const parsed = parseUserRecord(r);
+      if (parsed.id !== callerId) {
+        parsed.hasPersonalAiKey = Boolean(parsed.personalAiKey);
+        delete parsed.personalAiKey;
+      }
+      return parsed;
+    }));
   } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
 });
 

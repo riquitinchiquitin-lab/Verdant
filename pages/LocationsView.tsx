@@ -76,7 +76,7 @@ const LocationAccordion: React.FC<{
 };
 
 export const LocationsView: React.FC = () => {
-    const { plants, allRooms, customRooms, addCustomRoom, removeCustomRoom } = usePlants();
+    const { plants, houses, allRooms, customRooms, addCustomRoom, removeCustomRoom } = usePlants();
     const { t, lv } = useLanguage();
     const { user } = useAuth();
     const [isAddOpen, setIsAddOpen] = useState(false);
@@ -95,22 +95,12 @@ export const LocationsView: React.FC = () => {
 
     const roomsWithStats = useMemo(() => {
         const filteredPlants = plants.filter(p => {
-            // 1. Admin House Filter (if active)
-            if (isAdmin && selectedHouseFilter !== 'ALL') {
+            if (isAdmin) {
+                if (selectedHouseFilter === 'ALL') return true;
                 if (selectedHouseFilter === 'UNATTRIBUTED') return !p.houseId;
                 return p.houseId === selectedHouseFilter;
             }
-
-            // 2. Admins see their property's plants AND unattributed plants.
-            // If they have no property assigned, they see everything.
-            if (isAdmin) {
-                if (!user?.houseId) return true;
-                return p.houseId === user.houseId || !p.houseId;
-            }
-            
-            // 3. Non-admins see only their property's plants
             if (user?.houseId) return p.houseId === user.houseId;
-            
             return false;
         });
 
@@ -135,7 +125,7 @@ export const LocationsView: React.FC = () => {
                         >
                             <option value="ALL">{t('labels_all_global_properties')}</option>
                             <option value="UNATTRIBUTED">{t('lbl_unattributed')}</option>
-                            {usePlants().houses.map(h => (
+                            {houses.map(h => (
                                 <option key={h.id} value={h.id}>{lv(h.name)}</option>
                             ))}
                         </select>

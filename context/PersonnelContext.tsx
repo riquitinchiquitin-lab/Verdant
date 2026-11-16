@@ -37,22 +37,25 @@ export const PersonnelProvider: React.FC<{ children: ReactNode }> = ({ children 
         const remoteUsers = await res.json();
         if (Array.isArray(remoteUsers)) {
           setUsers(remoteUsers);
-          setIsLoading(false); // First sync complete, data is verified
         }
       }
     } catch (e) {
       console.warn("Personnel Sync: Proxmox Node restricted.");
+    } finally {
+      setIsLoading(false);
     }
   }, [token, user]);
 
-  // Initial Hydration - DISABLED for mobile data integrity (Always verify with server)
   useEffect(() => {
     const hydrate = async () => {
-      // We no longer hydrate from localStorage as requested for mobile devices (Android/iOS)
       setIsPersistenceReady(true);
-      // isLoading remains true until first successful refreshPersonnelData
-      
-      if (token) await refreshPersonnelData();
+      if (token) {
+        await refreshPersonnelData();
+      } else {
+        setUsers([]);
+        setIsLoading(false);
+        localStorage.removeItem('verdant_personnel_v8');
+      }
     };
     hydrate();
   }, [token, refreshPersonnelData]);
@@ -64,13 +67,13 @@ export const PersonnelProvider: React.FC<{ children: ReactNode }> = ({ children 
   }, [token, refreshPersonnelData]);
 
   useEffect(() => {
-    if (!isPersistenceReady) return;
+    if (!isPersistenceReady || !token) return;
     try {
       localStorage.setItem('verdant_personnel_v8', JSON.stringify(users));
     } catch {
       // Ignore storage quota errors
     }
-  }, [users, isPersistenceReady]);
+  }, [users, isPersistenceReady, token]);
 
   const addUser = async (newUser: User) => {
     const userToSave = { ...newUser, createdById: user?.id };
@@ -87,6 +90,7 @@ export const PersonnelProvider: React.FC<{ children: ReactNode }> = ({ children 
       } catch (err) {
         console.error("User creation failed:", err);
         setUsers(prev => prev.filter(u => u.id !== newUser.id));
+        throw err;
       }
     }
   };
@@ -98,19 +102,21 @@ export const PersonnelProvider: React.FC<{ children: ReactNode }> = ({ children 
     const updatedUser = { ...target, ...updates };
     setUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
 
-    // If updating the currently logged-in user, sync with AuthContext
-    if (userId === user?.id) {
-      updateCurrentUser(updates);
-    }
-
     if (token) {
       try {
-        await fetchWithAuth('/api/users', token, { method: 'POST', body: JSON.stringify(updatedUser) });
+        const res = await fetchWithAuth('/api/users', token, { method: 'POST', body: JSON.stringify(updatedUser) });
+        if (!res.ok) throw new Error("API rejection");
+        if (userId === user?.id) {
+          updateCurrentUser(updates);
+        }
         await refreshPersonnelData();
       } catch (err) {
         console.error("User update failed:", err);
+        setUsers(prev => prev.map(u => u.id === userId ? target : u));
         throw err;
       }
+    } else if (userId === user?.id) {
+      updateCurrentUser(updates);
     }
   };
 
@@ -121,13 +127,17 @@ export const PersonnelProvider: React.FC<{ children: ReactNode }> = ({ children 
   };
 
   const removeUserPermanently = async (userId: string) => {
+    const prevUsers = users;
     setUsers(prev => prev.filter(u => u.id !== userId));
     if (token) {
       try {
-        await fetchWithAuth(`/api/users/${userId}`, token, { method: 'DELETE' });
+        const res = await fetchWithAuth(`/api/users/${userId}`, token, { method: 'DELETE' });
+        if (!res.ok) throw new Error("API rejection");
         await refreshPersonnelData();
       } catch (err) {
         console.error("Personnel deletion failed:", err);
+        setUsers(prevUsers);
+        throw err;
       }
     }
   };
