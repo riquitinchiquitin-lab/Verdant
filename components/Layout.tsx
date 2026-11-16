@@ -309,6 +309,51 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </div>
       </aside>
 
+      {/* M3 Tablet Navigation Rail (Medium Window Size Class: md to lg) */}
+      <aside className="hidden md:flex lg:hidden w-20 shrink-0 bg-md-surface-container-low border-r border-md-outline-variant/30 flex-col items-center py-5 justify-between z-30 no-print">
+        <div className="flex flex-col items-center gap-5 w-full">
+          <Link to="/" className="w-11 h-11 rounded-2xl bg-md-primary-container text-md-on-primary-container flex items-center justify-center p-2 shadow-xs">
+            <Logo className="w-full h-full" />
+          </Link>
+          <nav className="flex flex-col items-center gap-2 w-full px-2">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.to;
+              const Icon = item.Icon;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  title={item.label}
+                  className="flex flex-col items-center justify-center gap-1 w-full py-1 text-center group"
+                >
+                  <div className={`w-14 h-8 rounded-full flex items-center justify-center transition-colors ${
+                    isActive
+                      ? 'bg-md-secondary-container text-md-on-secondary-container'
+                      : 'text-md-on-surface-variant group-hover:bg-md-surface-container-high'
+                  }`}>
+                    <Icon className="w-5 h-5" strokeWidth={isActive ? 2.25 : 1.75} />
+                  </div>
+                  <span className={`text-[10px] truncate max-w-[68px] ${isActive ? 'font-semibold text-md-on-surface' : 'font-medium text-md-on-surface-variant'}`}>
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <ThemeToggle />
+          <button
+            onClick={logout}
+            className="m3-state-layer w-10 h-10 flex items-center justify-center text-md-on-surface-variant hover:text-md-error rounded-full transition-colors"
+            title={t('menu_sign_out')}
+            aria-label={t('menu_sign_out')}
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
+      </aside>
+
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col relative h-screen overflow-hidden bg-md-surface print:h-auto print:overflow-visible">
         {/* M3 Top App Bar with Pill Search */}
@@ -316,7 +361,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           <button
             onClick={() => setIsSidebarOpen(true)}
             aria-label="Open navigation menu"
-            className="lg:hidden m3-state-layer w-10 h-10 flex items-center justify-center text-md-on-surface-variant rounded-full shrink-0"
+            className="md:hidden m3-state-layer w-10 h-10 flex items-center justify-center text-md-on-surface-variant rounded-full shrink-0"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -368,7 +413,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </div>
 
         {/* M3 Mobile Bottom Navigation Bar */}
-        <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-md-surface-container border-t border-md-outline-variant/30 pb-[env(safe-area-inset-bottom)] z-30 no-print">
+        <nav className="md:hidden fixed bottom-0 inset-x-0 bg-md-surface-container border-t border-md-outline-variant/30 pb-[env(safe-area-inset-bottom)] z-30 no-print">
           <div className="flex items-center justify-around h-20 px-2">
             {mobilePrimaryItems.map((item) => {
               const isActive = location.pathname === item.to;

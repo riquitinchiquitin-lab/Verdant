@@ -67,68 +67,68 @@ export const InventoryItemCard: React.FC<{
   return (
     <div 
       onClick={onClick}
-      className={`bg-white dark:bg-slate-900 rounded-[32px] border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col group hover:shadow-xl hover:border-verdant/30 transition-all duration-500 ${onClick ? 'cursor-pointer' : ''}`}
+      className={`m3-card-elevated rounded-[24px] border border-md-outline-variant/30 overflow-hidden flex flex-col group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 ${onClick ? 'cursor-pointer' : ''}`}
     >
-      <div className="relative h-32 md:h-44 bg-gray-50 dark:bg-slate-800/50 overflow-hidden">
+      <div className="relative h-36 md:h-44 bg-md-surface-container-highest overflow-hidden m-2.5 rounded-[20px]">
         {item.images && item.images[0] ? (
-          <img src={item.images[0]} alt={lv(item.name)} className="w-full h-full object-contain p-4 group-hover:scale-110 transition-transform duration-700" />
+          <img src={item.images[0]} alt={lv(item.name)} className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-500" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-200 dark:text-slate-700">
+          <div className="w-full h-full flex items-center justify-center text-md-on-surface-variant/40">
             {isCustomMix ? (
               <div 
-                className="p-8 rounded-[32px] bg-white/50 dark:bg-slate-800/50 shadow-inner flex items-center justify-center transition-all group-hover:scale-110"
-                style={{ color: item.containerColor || '#5E8F47' }}
+                className="p-6 rounded-3xl bg-md-surface-container-lowest/70 shadow-inner flex items-center justify-center transition-transform group-hover:scale-105"
+                style={{ color: item.containerColor || '#456834' }}
               >
-                <ContainerIcon type={item.containerType || 'hdpe_jug'} color={item.containerColor || '#5E8F47'} className="w-16 h-16 opacity-80" />
+                <ContainerIcon type={item.containerType || 'hdpe_jug'} color={item.containerColor || '#456834'} className="w-14 h-14 opacity-85" />
               </div>
             ) : isPot ? (
                <div 
-                className="p-8 rounded-[32px] bg-white/50 dark:bg-slate-800/50 shadow-inner flex items-center justify-center transition-all group-hover:scale-110"
-                style={{ color: item.potColor || '#9CA3AF' }}
+                className="p-6 rounded-3xl bg-md-surface-container-lowest/70 shadow-inner flex items-center justify-center transition-transform group-hover:scale-105"
+                style={{ color: item.potColor || '#73796E' }}
               >
-                <PotIcon type={item.potType || 'ceramic'} color={item.potColor || '#9CA3AF'} className="w-16 h-16 opacity-80" />
+                <PotIcon type={item.potType || 'ceramic'} color={item.potColor || '#73796E'} className="w-14 h-14 opacity-85" />
               </div>
             ) : isSaucer ? (
                <div 
-                className="p-8 rounded-[32px] bg-white/50 dark:bg-slate-800/50 shadow-inner flex items-center justify-center transition-all group-hover:scale-110"
-                style={{ color: item.potColor || '#9CA3AF' }}
+                className="p-6 rounded-3xl bg-md-surface-container-lowest/70 shadow-inner flex items-center justify-center transition-transform group-hover:scale-105"
+                style={{ color: item.potColor || '#73796E' }}
               >
-                <SaucerIcon color={item.potColor || '#9CA3AF'} className="w-16 h-16 opacity-80" />
+                <SaucerIcon color={item.potColor || '#73796E'} className="w-14 h-14 opacity-85" />
               </div>
             ) : (
-              <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+              <svg className="w-14 h-14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.25} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
             )}
           </div>
         )}
         
-        <div className="absolute top-4 left-4 flex flex-col gap-2">
+        <div className="absolute top-3 left-3 flex flex-col gap-1.5">
           <span 
-            className={`${(isCustomMix || isPot) ? 'opacity-90' : 'bg-verdant/90'} backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-lg`}
-            style={isCustomMix ? { backgroundColor: item.containerColor || '#5E8F47' } : (isPot || isSaucer) ? { backgroundColor: item.potColor || '#5E8F47' } : {}}
+            className={`${(isCustomMix || isPot) ? 'opacity-95 text-white' : 'bg-md-primary text-md-on-primary'} backdrop-blur-xs text-[11px] font-semibold px-2.5 py-0.5 rounded-full shadow-xs`}
+            style={isCustomMix ? { backgroundColor: item.containerColor || '#456834' } : (isPot || isSaucer) ? { backgroundColor: item.potColor || '#456834' } : {}}
           >
             {getCategoryLabel()}
           </span>
           {isLowStock && (
-            <span className="bg-red-500/90 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-lg animate-pulse">
+            <span className="bg-md-error text-md-on-error text-[11px] font-semibold px-2.5 py-0.5 rounded-full shadow-xs animate-pulse">
               {t('out_of_stock')}
             </span>
           )}
           {isPotOrAccessory && (
-            <span className={`backdrop-blur-md text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-lg border border-white/20 truncate max-w-[120px] md:max-w-none ${associatedPlant ? 'bg-blue-500/90 text-white' : 'bg-verdant/20 text-verdant dark:text-verdant-light'}`}>
+            <span className={`backdrop-blur-xs text-[11px] font-semibold px-2.5 py-0.5 rounded-full shadow-xs truncate max-w-[140px] md:max-w-none ${associatedPlant ? 'bg-md-tertiary-container text-md-on-tertiary-container' : 'bg-md-secondary-container text-md-on-secondary-container'}`}>
               {associatedPlant ? `${t('in_use')}: ${lv(associatedPlant.nickname)}` : t('available')}
             </span>
           )}
         </div>
       </div>
 
-      <div className="p-3 md:p-5 flex-1 flex flex-col space-y-2 md:space-y-4">
+      <div className="px-4 pb-4 pt-1 md:px-5 md:pb-5 flex-1 flex flex-col space-y-3">
         <div>
-          <h3 className="font-bold text-gray-900 dark:text-white leading-tight group-hover:text-verdant transition-colors text-xs md:text-base line-clamp-2">{lv(item.name)}</h3>
+          <h3 className="font-bold text-md-on-surface leading-snug group-hover:text-md-primary transition-colors text-sm md:text-base line-clamp-2">{lv(item.name)}</h3>
           {(item.brand || item.model || item.sizeCm || item.sizeInches) && (
-            <p className="text-[8px] md:text-[10px] text-gray-500 dark:text-slate-500 font-black uppercase tracking-wider mt-0.5 md:mt-1 truncate">
+            <p className="text-xs text-md-on-surface-variant font-medium mt-0.5 truncate">
               {lv(item.brand)} {item.model ? `• ${item.model}` : ''} 
               {(item.sizeCm || item.sizeInches) && (
-                <span className="ml-1 text-verdant dark:text-verdant-light">
+                <span className="ml-1 text-md-primary font-semibold">
                   • {item.sizeCm ? `${item.sizeCm}cm` : ''} {item.sizeInches ? `(${item.sizeInches}")` : ''}
                 </span>
               )}
@@ -136,45 +136,47 @@ export const InventoryItemCard: React.FC<{
           )}
         </div>
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-auto pt-2 md:pt-3 border-t border-gray-50 dark:border-slate-800 gap-2">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-auto pt-3 border-t border-md-outline-variant/30 gap-2.5">
           {canConsume ? (
-            <div className="flex items-center gap-1 bg-gray-50 dark:bg-slate-800 rounded-xl md:rounded-2xl p-0.5 md:p-1 border border-gray-100 dark:border-slate-700/50 shadow-inner w-full sm:w-auto justify-between sm:justify-start">
-               <button 
+            <div className="flex items-center gap-1 bg-md-surface-container rounded-2xl p-1 border border-md-outline-variant/40 w-full sm:w-auto justify-between sm:justify-start">
+              <button 
                 onClick={handleDecrement}
                 disabled={isLowStock}
-                className="w-7 h-7 md:w-8 md:h-8 flex items-center justify-center bg-white dark:bg-slate-700 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 rounded-lg md:rounded-xl transition-all active:scale-90 disabled:opacity-30 shadow-sm border border-gray-100 dark:border-slate-600"
+                aria-label="Decrease quantity"
+                className="m3-state-layer w-8 h-8 flex items-center justify-center bg-md-surface-container-lowest hover:bg-md-error-container text-md-on-surface-variant hover:text-md-on-error-container rounded-xl transition-all active:scale-90 disabled:opacity-30 shadow-xs"
               >
-                <svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path d="M20 12H4" /></svg>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M20 12H4" /></svg>
               </button>
               
-              <div className="px-1.5 md:px-3 flex flex-col items-center">
-                <span className="text-[7px] md:text-[8px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-tighter leading-none mb-0.5">{formattedVolume.unit}</span>
-                <span className={`text-xs md:text-sm font-black transition-colors ${isLowStock ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>
+              <div className="px-2.5 flex flex-col items-center">
+                <span className="text-[10px] font-semibold text-md-on-surface-variant leading-none mb-0.5">{formattedVolume.unit}</span>
+                <span className={`text-xs md:text-sm font-bold transition-colors ${isLowStock ? 'text-md-error' : 'text-md-on-surface'}`}>
                   {formattedVolume.value}
                 </span>
               </div>
 
               <button 
                 onClick={handleIncrement}
-                className="w-7 h-7 md:w-8 md:h-8 flex items-center justify-center bg-white dark:bg-slate-700 hover:bg-verdant/10 dark:hover:bg-verdant/20 text-gray-400 hover:text-verdant rounded-lg md:rounded-xl transition-all active:scale-90 shadow-sm border border-gray-100 dark:border-slate-600"
+                aria-label="Increase quantity"
+                className="m3-state-layer w-8 h-8 flex items-center justify-center bg-md-surface-container-lowest hover:bg-md-primary-container text-md-on-surface-variant hover:text-md-on-primary-container rounded-xl transition-all active:scale-90 shadow-xs"
               >
-                <svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path d="M12 4v16m8-8H4" /></svg>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M12 4v16m8-8H4" /></svg>
               </button>
             </div>
           ) : (
             <div className="flex flex-col">
-              <span className="text-[8px] md:text-[9px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-[0.2em]">{t('lbl_quantity')}</span>
-              <span className="text-xs md:text-sm font-black text-gray-900 dark:text-white">
-                {formattedVolume.value} <span className="text-[9px] md:text-[10px] text-gray-400 font-bold ml-0.5">{formattedVolume.unit}</span>
+              <span className="text-[11px] font-medium text-md-on-surface-variant">{t('lbl_quantity')}</span>
+              <span className="text-sm font-bold text-md-on-surface">
+                {formattedVolume.value} <span className="text-xs text-md-on-surface-variant font-medium ml-0.5">{formattedVolume.unit}</span>
               </span>
             </div>
           )}
           
-          <div className="flex gap-1.5 md:gap-2 ml-auto sm:ml-0">
+          <div className="flex gap-2 ml-auto sm:ml-0">
             {hasCompatibility && !isCustomMix && (
               <button 
                 onClick={(e) => { e.stopPropagation(); onCompatibilityClick?.(); }}
-                className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center bg-verdant/10 dark:bg-verdant/20 text-verdant dark:text-verdant-light rounded-xl md:rounded-2xl hover:bg-verdant hover:text-white transition-all shadow-sm border border-verdant/10"
+                className="m3-state-layer w-9 h-9 md:w-10 md:h-10 flex items-center justify-center bg-md-primary-container text-md-on-primary-container rounded-xl hover:opacity-90 transition-all"
                 title={t('btn_compatibility')}
               >
                 <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -184,10 +186,10 @@ export const InventoryItemCard: React.FC<{
             {onEditClick && (
               <button 
                 onClick={(e) => { e.stopPropagation(); onEditClick(); }}
-                className={`px-2 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[8px] md:text-[10px] font-black uppercase tracking-widest transition-all shadow-sm border ${
+                className={`m3-state-layer px-3 h-9 rounded-xl text-xs font-semibold transition-all ${
                   isCustomMix 
-                    ? 'bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500 hover:text-white' 
-                    : 'bg-blue-500/10 text-blue-600 border-blue-500/20 hover:bg-blue-500 hover:text-white'
+                    ? 'bg-md-tertiary-container text-md-on-tertiary-container' 
+                    : 'bg-md-secondary-container text-md-on-secondary-container'
                 }`}
               >
                 {isCustomMix ? t('edit_mix') : t('edit')}
