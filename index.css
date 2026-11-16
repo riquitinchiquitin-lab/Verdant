@@ -94,6 +94,31 @@
   --color-verdant-sage: #A3B18A;
   --color-verdant-bone: #F5F7F2;
 
+  /* Harmonize Tailwind slate & gray with M3 botanical neutral surfaces */
+  --color-slate-50: #F8FAF3;
+  --color-slate-100: #F2F5ED;
+  --color-slate-200: #E1E4DC;
+  --color-slate-300: #C3C8BC;
+  --color-slate-400: #8D9387;
+  --color-slate-500: #73796E;
+  --color-slate-600: #5A6056;
+  --color-slate-700: #3A3F37;
+  --color-slate-800: #272B25;
+  --color-slate-900: #1D211B;
+  --color-slate-950: #11140F;
+
+  --color-gray-50: #F8FAF3;
+  --color-gray-100: #ECEFE7;
+  --color-gray-200: #E1E4DC;
+  --color-gray-300: #C3C8BC;
+  --color-gray-400: #8D9387;
+  --color-gray-500: #73796E;
+  --color-gray-600: #5A6056;
+  --color-gray-700: #3A3F37;
+  --color-gray-800: #272B25;
+  --color-gray-900: #191D17;
+  --color-gray-950: #11140F;
+
   /* Material Design 3 Semantic Color Tokens */
   --color-md-primary: var(--md-sys-color-primary);
   --color-md-on-primary: var(--md-sys-color-on-primary);
