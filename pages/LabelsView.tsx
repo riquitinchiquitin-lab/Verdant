@@ -33,7 +33,11 @@ export const LabelsView: React.FC = () => {
   const filteredPlants = useMemo(() => {
     return plants.filter(p => {
       const matchesHouse = isGlobalUser
-        ? (selectedHouseId === 'ALL' || p.houseId === selectedHouseId)
+        ? selectedHouseId === 'ALL'
+          ? true
+          : selectedHouseId === 'UNATTRIBUTED'
+            ? !p.houseId
+            : p.houseId === selectedHouseId
         : (Boolean(user?.houseId) && p.houseId === user?.houseId);
       const q = searchQuery.toLowerCase();
       const matchesSearch = !q ||
@@ -43,6 +47,9 @@ export const LabelsView: React.FC = () => {
       return matchesHouse && matchesSearch;
     });
   }, [plants, selectedHouseId, searchQuery, lv, isGlobalUser, user?.houseId]);
+
+  const allFilteredSelected =
+    filteredPlants.length > 0 && filteredPlants.every(p => selectedIds.has(p.id));
 
   const previewPlant = useMemo(() => {
     const firstSelected = filteredPlants.find(p => selectedIds.has(p.id));
@@ -95,8 +102,7 @@ export const LabelsView: React.FC = () => {
   };
 
   const toggleSelectAll = () => {
-    const allSelected = filteredPlants.length > 0 && filteredPlants.every(p => selectedIds.has(p.id));
-    if (allSelected) {
+    if (allFilteredSelected) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(filteredPlants.map(p => p.id)));
@@ -183,7 +189,7 @@ export const LabelsView: React.FC = () => {
             <p className="text-xs text-md-on-surface-variant">
               {bleSupported
                 ? 'Ready for direct Web Bluetooth printing on Chrome/Edge (Android & Desktop).'
-                : 'Web Bluetooth unavailable in this browser (iOS Safari blocks BLE). Use Bluefy on iOS or Export Excel / PNG.'}
+                : 'Web Bluetooth unavailable in this browser. Export Excel or PNG to print.'}
             </p>
           </div>
 
@@ -220,6 +226,7 @@ export const LabelsView: React.FC = () => {
               className="w-full h-11 bg-md-surface-container-high border border-md-outline-variant/50 rounded-2xl px-4 text-sm font-medium text-md-on-surface outline-none focus:ring-2 focus:ring-md-primary/30 transition-all"
             >
               <option value="ALL">{t('labels_all_global_properties')}</option>
+              <option value="UNATTRIBUTED">{t('lbl_unattributed')}</option>
               {houses.map(h => (
                 <option key={h.id} value={h.id}>{lv(h.name)}</option>
               ))}
@@ -242,8 +249,8 @@ export const LabelsView: React.FC = () => {
 
       {/* Specimen Selection Table */}
       <div className="m3-card-elevated rounded-3xl border border-md-outline-variant/30 overflow-hidden">
-        <div className="overflow-x-auto no-scrollbar touch-pan-x">
-          <table className="w-full text-left border-collapse min-w-[560px] md:min-w-0">
+        <div className="overflow-x-auto no-scrollbar">
+          <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-md-surface-container-high/60 border-b border-md-outline-variant/30">
                 <th className="px-4 md:px-6 py-3.5 w-12">
@@ -251,12 +258,12 @@ export const LabelsView: React.FC = () => {
                     onClick={toggleSelectAll}
                     aria-label="Select all"
                     className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
-                      selectedIds.size === filteredPlants.length && filteredPlants.length > 0
+                      allFilteredSelected
                         ? 'bg-md-primary border-md-primary text-md-on-primary'
                         : 'bg-md-surface border-md-outline'
                     }`}
                   >
-                    {selectedIds.size === filteredPlants.length && filteredPlants.length > 0 && (
+                    {allFilteredSelected && (
                       <Check className="w-3.5 h-3.5" strokeWidth={3} />
                     )}
                   </button>
@@ -297,7 +304,7 @@ export const LabelsView: React.FC = () => {
                         {isSelected && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
                       </div>
                     </td>
-                    <td className="px-4 md:px-6 py-3.5">
+                    <td className="px-4 md:px-6 py-3.5 max-w-0 w-full sm:w-auto sm:max-w-none">
                       <div className="flex items-center gap-3">
                         {p.images && p.images[0] ? (
                           <img
@@ -311,22 +318,25 @@ export const LabelsView: React.FC = () => {
                             {(lv(p.nickname) || '?')[0]}
                           </div>
                         )}
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="font-semibold text-sm text-md-on-surface truncate">
                             {lv(p.nickname)}
                           </p>
                           <p className="text-xs italic text-md-on-surface-variant truncate">
                             {p.species}
                           </p>
+                          <code className="sm:hidden inline-block mt-1 text-[11px] font-mono text-md-primary bg-md-primary-container/25 px-2 py-0.5 rounded-md border border-md-primary/20">
+                            {p.id}
+                          </code>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 md:px-6 py-3.5 hidden md:table-cell">
+                    <td className="px-4 md:px-6 py-3.5 hidden md:table-cell whitespace-nowrap">
                       <span className="text-xs font-medium text-md-on-surface-variant bg-md-surface-container-high px-2.5 py-1 rounded-full">
                         {p.family || '-'}
                       </span>
                     </td>
-                    <td className="px-4 md:px-6 py-3.5 hidden sm:table-cell">
+                    <td className="px-4 md:px-6 py-3.5 hidden sm:table-cell whitespace-nowrap">
                       <code className="text-xs font-mono text-md-primary bg-md-primary-container/25 px-2.5 py-1 rounded-lg border border-md-primary/20 select-all">
                         {p.id}
                       </code>
