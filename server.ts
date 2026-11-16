@@ -230,7 +230,32 @@ const verifyPassword = async (hash: string, password: string): Promise<boolean> 
   }
 };
 
-const getSessionSecret = () => currentVaultKey || process.env.MASTER_KEY || 'verdant-local-session-secret';
+let cachedFileSessionSecret: string | null = null;
+const getSessionSecret = (): string => {
+  if (currentVaultKey) return currentVaultKey;
+  if (process.env.MASTER_KEY && process.env.MASTER_KEY.trim().length >= 16) {
+    return process.env.MASTER_KEY.trim();
+  }
+  if (cachedFileSessionSecret) return cachedFileSessionSecret;
+
+  const secretPath = path.join(dataDir, 'session_secret.meta');
+  try {
+    if (fs.existsSync(secretPath)) {
+      const existing = fs.readFileSync(secretPath, 'utf8').trim();
+      if (existing.length >= 32) {
+        cachedFileSessionSecret = existing;
+        return existing;
+      }
+    }
+    const generated = crypto.randomBytes(32).toString('hex');
+    fs.writeFileSync(secretPath, generated, { encoding: 'utf8', mode: 0o600 });
+    cachedFileSessionSecret = generated;
+    return generated;
+  } catch {
+    cachedFileSessionSecret = crypto.randomBytes(32).toString('hex');
+    return cachedFileSessionSecret;
+  }
+};
 
 const createSessionToken = (user: any): string => {
   const payload = {
@@ -1064,7 +1089,11 @@ app.get('/api/system/backup', checkAuth, async (req, res) => {
       houses: houses.rows.map((r: any) => ({ ...safeParse(r.data), id: r.id })),
       tasks: tasks.rows.map((r: any) => ({ ...safeParse(r.data), id: r.id })),
       inventory: inventory.rows.map((r: any) => ({ ...safeParse(r.data), id: r.id })),
-      users: users.rows,
+      users: users.rows.map((u: any) => {
+        const safe = parseUserRecord(u);
+        delete safe.personalAiKey;
+        return safe;
+      }),
       system_logs: logs.rows,
       timestamp: new Date().toISOString(),
       version: '1.0.0'
@@ -1624,7 +1653,7 @@ app.get('/api/users', checkAuth, async (req, res) => {
       params.push((req as any).userId || req.headers['x-user-id'] || '');
     }
     const result = await query(sql, params);
-    res.json(result.rows.map((r: any) => ({ ...r, name: r.name && (r.name.startsWith('{') || r.name.startsWith('[')) ? JSON.parse(r.name) : r.name })));
+    res.json(result.rows.map((r: any) => parseUserRecord(r)));
   } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
 });
 
@@ -1668,8 +1697,21 @@ app.post('/api/users', checkAuth, async (req, res) => {
       return res.json({ status: "ok" });
     }
 
-    await query('INSERT OR REPLACE INTO users (id, email, name, role, houseId, personalAiKey, personalAiKeyTestedAt, deletedAt, caretakerStart, caretakerEnd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [u.id, email, typeof u.name === 'object' ? JSON.stringify(u.name) : u.name, u.role, u.houseId, u.personalAiKey, u.personalAiKeyTestedAt, u.deletedAt, u.caretakerStart, u.caretakerEnd]);
+    await query(
+      `INSERT INTO users (id, email, name, role, houseId, personalAiKey, personalAiKeyTestedAt, deletedAt, caretakerStart, caretakerEnd)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         email = excluded.email,
+         name = excluded.name,
+         role = excluded.role,
+         houseId = excluded.houseId,
+         personalAiKey = excluded.personalAiKey,
+         personalAiKeyTestedAt = excluded.personalAiKeyTestedAt,
+         deletedAt = excluded.deletedAt,
+         caretakerStart = excluded.caretakerStart,
+         caretakerEnd = excluded.caretakerEnd`,
+      [u.id, email, typeof u.name === 'object' ? JSON.stringify(u.name) : u.name, u.role, u.houseId, u.personalAiKey, u.personalAiKeyTestedAt, u.deletedAt, u.caretakerStart, u.caretakerEnd]
+    );
     await logSystemEvent('USER_UPDATED', `User ${u.id} updated by ${callerId || 'ADMIN'}`, 'INFO');
     res.json({ status: "ok" });
   } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
