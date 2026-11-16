@@ -100,8 +100,15 @@ else
   git reset --hard origin/main
 fi
 
-# 6. Clean install & build
+# 6. Ensure Node.js >= 22 LTS, then clean install & build
 echo -e "${CYAN}[5/7] Installing dependencies & building production bundle...${NC}"
+NODE_MAJOR=$(node -v 2>/dev/null | sed 's/^v//' | cut -d. -f1 || echo 0)
+if [ "${NODE_MAJOR:-0}" -lt 22 ]; then
+  echo -e "${YELLOW}[!] Node.js $(node -v 2>/dev/null || echo 'missing') is below v22. Upgrading to Node.js 22 LTS...${NC}"
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  apt-get install -y nodejs
+  echo -e "${GREEN}✓ Upgraded to Node.js $(node -v)${NC}"
+fi
 npm install --legacy-peer-deps --no-audit
 npm run build
 

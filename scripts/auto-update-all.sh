@@ -58,6 +58,12 @@ fi
 # 2. Node.js & npm Application Dependencies Update
 # ------------------------------------------------------------------------------
 echo -e "\n${BLUE}[2/3] Updating npm Application Dependencies...${NC}"
+NODE_MAJOR=$(node -v 2>/dev/null | sed 's/^v//' | cut -d. -f1 || echo 0)
+if [ "${NODE_MAJOR:-0}" -lt 22 ] && [[ $EUID -eq 0 ]] && command -v apt-get >/dev/null 2>&1; then
+  echo -e "  ${YELLOW}Upgrading Node.js $(node -v 2>/dev/null || echo '') -> 22 LTS...${NC}"
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null 2>&1 || true
+  apt-get install -y nodejs >/dev/null 2>&1 || true
+fi
 npm update --legacy-peer-deps --include=dev --no-audit
 npm audit fix --legacy-peer-deps --include=dev 2>/dev/null || true
 

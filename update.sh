@@ -72,8 +72,15 @@ if [ -f "$INSTALL_DIR/docker-compose.yml" ] && command -v docker >/dev/null 2>&1
   exit 0
 fi
 
-# 2. Install dependencies
+# 2. Ensure Node.js >= 22 LTS & install dependencies
 echo -e "\n${CYAN}2/4: Installing NPM dependencies...${NC}"
+NODE_MAJOR=$(node -v 2>/dev/null | sed 's/^v//' | cut -d. -f1 || echo 0)
+if [ "${NODE_MAJOR:-0}" -lt 22 ] && [[ $EUID -eq 0 ]] && command -v apt-get >/dev/null 2>&1; then
+  echo -e "${YELLOW}[!] Node.js $(node -v 2>/dev/null || echo 'missing') is below v22. Upgrading to Node.js 22 LTS...${NC}"
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  apt-get install -y nodejs
+  echo -e "${GREEN}✓ Upgraded to Node.js $(node -v)${NC}"
+fi
 npm install --legacy-peer-deps --no-audit
 
 # 3. Build production bundle (Vite)
