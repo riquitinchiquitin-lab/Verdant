@@ -207,7 +207,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const mobilePrimaryItems = navItems.slice(0, 4);
 
   return (
-    <div className="min-h-screen bg-md-surface text-md-on-surface flex transition-colors duration-300 overflow-hidden">
+    <div className="h-dvh w-full bg-md-surface text-md-on-surface flex transition-colors duration-300 overflow-hidden print:h-auto print:overflow-visible">
       <NotificationToast />
       {alertMessage && (
         <div className="fixed top-[calc(4.75rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-[900] bg-md-inverse-surface text-md-inverse-on-surface text-xs font-semibold px-5 py-2.5 rounded-2xl shadow-lg animate-in fade-in slide-in-from-top-2 whitespace-nowrap">
@@ -355,7 +355,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col relative h-screen overflow-hidden bg-md-surface print:h-auto print:overflow-visible">
+      <main className="flex-1 min-w-0 min-h-0 flex flex-col relative h-full overflow-hidden bg-md-surface print:h-auto print:overflow-visible">
         {/* M3 Top App Bar with Pill Search */}
         <header className="h-[calc(4.5rem+env(safe-area-inset-top))] md:h-20 pt-[env(safe-area-inset-top)] bg-md-surface/95 backdrop-blur-md flex items-center justify-between px-4 md:px-8 shrink-0 z-30 no-print gap-3">
           <button
@@ -406,7 +406,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </header>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto no-scrollbar pb-24 lg:pb-8 print:pb-0 print:overflow-visible">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y no-scrollbar pb-24 lg:pb-8 print:pb-0 print:overflow-visible">
           <div className="max-w-7xl mx-auto pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
             {children}
           </div>

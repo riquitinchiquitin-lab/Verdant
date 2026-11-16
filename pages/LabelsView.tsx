@@ -249,7 +249,7 @@ export const LabelsView: React.FC = () => {
 
       {/* Specimen Selection Table */}
       <div className="m3-card-elevated rounded-3xl border border-md-outline-variant/30 overflow-hidden">
-        <div className="overflow-x-auto no-scrollbar">
+        <div className="overflow-x-auto touch-pan-y no-scrollbar">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-md-surface-container-high/60 border-b border-md-outline-variant/30">
