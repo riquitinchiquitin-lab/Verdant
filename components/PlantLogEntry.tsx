@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { FileText, Droplets, FlaskConical, Sprout, Scissors, Leaf, Flower2, Activity } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { useLanguage } from '../context/LanguageContext';
@@ -28,15 +29,15 @@ export const PlantLogEntry: React.FC<PlantLogEntryProps> = ({
   const [note, setNote] = useState('');
   const [isTranslating, setIsTranslating] = useState(false);
 
-  const logTypes: { value: LogType; icon: string; label: string }[] = [
-    { value: 'NOTE', icon: '📝', label: t('log_note') || 'Note' },
-    { value: 'WATER', icon: '💧', label: t('log_water') || 'Water' },
-    { value: 'FERTILIZED', icon: '🧪', label: t('log_fertilized') || 'Fertilize' },
-    { value: 'REPOTTED', icon: '🪴', label: t('log_repotted') || 'Repot' },
-    { value: 'PRUNED', icon: '✂️', label: t('log_pruned') || 'Prune' },
-    { value: 'NEW_LEAF', icon: '🌿', label: t('log_new_leaf') || 'New Leaf' },
-    { value: 'FLOWER', icon: '🌸', label: t('log_flower') || 'Flower' },
-    { value: 'DISEASE_CHECK', icon: '✚', label: t('log_disease_check') || 'Health Check' },
+  const logTypes: { value: LogType; icon: React.ReactNode; label: string }[] = [
+    { value: 'NOTE', icon: <FileText className="w-5 h-5" />, label: t('log_note') || 'Note' },
+    { value: 'WATER', icon: <Droplets className="w-5 h-5" />, label: t('log_water') || 'Water' },
+    { value: 'FERTILIZED', icon: <FlaskConical className="w-5 h-5" />, label: t('log_fertilized') || 'Fertilize' },
+    { value: 'REPOTTED', icon: <Sprout className="w-5 h-5" />, label: t('log_repotted') || 'Repot' },
+    { value: 'PRUNED', icon: <Scissors className="w-5 h-5" />, label: t('log_pruned') || 'Prune' },
+    { value: 'NEW_LEAF', icon: <Leaf className="w-5 h-5" />, label: t('log_new_leaf') || 'New Leaf' },
+    { value: 'FLOWER', icon: <Flower2 className="w-5 h-5" />, label: t('log_flower') || 'Flower' },
+    { value: 'DISEASE_CHECK', icon: <Activity className="w-5 h-5" />, label: t('log_disease_check') || 'Health Check' },
   ];
 
   const handleConfirm = async () => {
@@ -62,50 +63,64 @@ export const PlantLogEntry: React.FC<PlantLogEntryProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={t('btn_add_log') || 'Add Log Entry'}>
       <div className="space-y-6">
-        <div className="space-y-3">
-          <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest px-1">{t('lbl_entry_type')}</label>
-          <div className="grid grid-cols-4 gap-2">
-            {logTypes.map((lt) => (
-              <button
-                key={lt.value}
-                onClick={() => setType(lt.value)}
-                className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all ${
-                  type === lt.value 
-                    ? 'bg-verdant/10 border-verdant shadow-lg' 
-                    : 'bg-white dark:bg-slate-900 border-gray-100 dark:border-slate-800 hover:border-verdant/30'
-                }`}
-              >
-                <span className="text-xl mb-1">{lt.icon}</span>
-                <span className="text-[8px] font-black uppercase tracking-tighter text-center leading-none truncate w-full">
-                  {lt.label}
-                </span>
-              </button>
-            ))}
+        <div className="space-y-2.5">
+          <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider px-1">
+            {t('lbl_entry_type')}
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            {logTypes.map((lt) => {
+              const isSelected = type === lt.value;
+              return (
+                <button
+                  key={lt.value}
+                  type="button"
+                  onClick={() => setType(lt.value)}
+                  className={`m3-state-layer flex flex-col items-center justify-center gap-2 py-3.5 px-2.5 rounded-2xl border transition-all ${
+                    isSelected
+                      ? 'bg-md-primary-container text-md-on-primary-container border-md-primary/40 shadow-xs'
+                      : 'bg-md-surface-container text-md-on-surface-variant border-md-outline-variant/30 hover:bg-md-surface-container-high hover:text-md-on-surface'
+                  }`}
+                >
+                  <span className={isSelected ? 'text-md-on-primary-container' : 'text-md-primary'}>
+                    {lt.icon}
+                  </span>
+                  <span className="text-[11px] font-semibold text-center leading-tight line-clamp-2">
+                    {lt.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div className="space-y-3">
-          <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest px-1">{t('lbl_note_will_be_translated')}</label>
+        <div className="space-y-2.5">
+          <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider px-1">
+            {t('lbl_note_will_be_translated')}
+          </label>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder={t('placeholder_write_observation')}
-            className="w-full h-32 p-4 bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl font-serif italic text-sm outline-none focus:ring-4 focus:ring-verdant/10 transition-all dark:text-white resize-none"
+            className="w-full h-32 p-4 bg-md-surface-container-low border border-md-outline-variant/40 rounded-2xl text-sm text-md-on-surface placeholder:text-md-on-surface-variant/60 outline-none focus:border-md-primary focus:ring-2 focus:ring-md-primary/20 transition-all resize-none"
           />
         </div>
 
-        <div className="flex gap-4 pt-2">
-          <button 
-            className="flex-1 h-14 bg-gray-100 dark:bg-slate-800 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] text-gray-500" 
+        <div className="flex items-center justify-end gap-3 pt-1">
+          <Button
+            variant="outlined"
+            size="lg"
             onClick={onClose}
             disabled={isTranslating}
+            className="px-6"
           >
             {t('btn_cancel') || t('cancel') || 'Cancel'}
-          </button>
-          <Button 
-            className="flex-[2] h-14 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-verdant/20" 
+          </Button>
+          <Button
+            variant="primary"
+            size="lg"
             onClick={handleConfirm}
             disabled={!note.trim() || isTranslating}
+            className="flex-1 sm:flex-none sm:min-w-[180px]"
           >
             {isTranslating ? t('lbl_translating') : t('btn_save_entry')}
           </Button>
