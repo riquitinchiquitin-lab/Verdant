@@ -1447,6 +1447,163 @@ app.get('/api/proxy/perenual', checkAuth, async (req, res) => {
   }
 });
 
+// OPEN-SOURCE BOTANICAL PROXIES (NO API KEY REQUIRED)
+app.get('/api/proxy/gbif', checkAuth, async (req, res) => {
+  try {
+    const { q, id } = req.query;
+    let speciesKey = id ? String(id) : null;
+    let matchData: any = null;
+
+    if (!speciesKey && q) {
+      const matchRes = await fetch(`https://api.gbif.org/v1/species/match?name=${encodeURIComponent(String(q))}&verbose=true`);
+      if (matchRes.ok) {
+        matchData = await matchRes.json();
+        speciesKey = matchData?.usageKey ? String(matchData.usageKey) : null;
+      }
+    }
+
+    if (!speciesKey) return res.json(null);
+
+    const [detailRes, iucnRes, vernRes] = await Promise.all([
+      fetch(`https://api.gbif.org/v1/species/${encodeURIComponent(speciesKey)}`),
+      fetch(`https://api.gbif.org/v1/species/${encodeURIComponent(speciesKey)}/iucnRedListCategory`),
+      fetch(`https://api.gbif.org/v1/species/${encodeURIComponent(speciesKey)}/vernacularNames?limit=25`)
+    ]);
+
+    const detail = detailRes.ok ? await detailRes.json() : matchData;
+    const iucn = iucnRes.ok ? await iucnRes.json() : null;
+    const vernacular = vernRes.ok ? await vernRes.json() : null;
+
+    res.json({
+      gbifId: Number(speciesKey),
+      species: detail,
+      iucnCategory: iucn?.category || null,
+      vernacularNames: vernacular?.results || []
+    });
+  } catch (e) {
+    res.status(500).json({ error: "GBIF_PROXY_FAULT" });
+  }
+});
+
+app.get('/api/proxy/powo', checkAuth, async (req, res) => {
+  try {
+    const { q, id } = req.query;
+    let fqId = id ? String(id) : null;
+
+    if (!fqId && q) {
+      const searchRes = await fetch(`https://powo.science.kew.org/api/2/search?q=${encodeURIComponent(String(q))}&f=species_f`);
+      if (searchRes.ok) {
+        const searchJson = await searchRes.json();
+        fqId = searchJson?.results?.[0]?.fqId || null;
+      }
+    }
+
+    if (!fqId) return res.json(null);
+
+    const detailRes = await fetch(`https://powo.science.kew.org/api/2/taxon/${encodeURIComponent(fqId)}?fields=distribution,descriptions,synonyms,lifeform,name,authors`);
+    if (!detailRes.ok) return res.json(null);
+    const data = await detailRes.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: "POWO_PROXY_FAULT" });
+  }
+});
+
+app.get('/api/proxy/inaturalist', checkAuth, async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) return res.json(null);
+    const taxonRes = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(String(q))}&rank=species&per_page=1`);
+    if (!taxonRes.ok) return res.json(null);
+    const taxonJson = await taxonRes.json();
+    const taxon = taxonJson?.results?.[0];
+    if (!taxon?.id) return res.json(null);
+
+    // term_id=12 = Plant Phenology, term_value_id=13 = Flowering
+    const histRes = await fetch(`https://api.inaturalist.org/v1/observations/histogram?taxon_id=${taxon.id}&date_field=observed&interval=month_of_year&term_id=12&term_value_id=13`);
+    const histJson = histRes.ok ? await histRes.json() : null;
+
+    res.json({
+      inaturalistId: taxon.id,
+      taxon,
+      floweringHistogram: histJson?.results?.month_of_year || null
+    });
+  } catch (e) {
+    res.status(500).json({ error: "INATURALIST_PROXY_FAULT" });
+  }
+});
+
+app.get('/api/proxy/geocode', checkAuth, async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) return res.status(400).json({ error: "MISSING_QUERY" });
+
+    const nomRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(String(q))}`, {
+      headers: { 'User-Agent': 'VerdantBotanicalOS/1.0' }
+    });
+    if (!nomRes.ok) return res.status(502).json({ error: "GEOCODE_FAILED" });
+    const nomJson = await nomRes.json();
+    const place = nomJson?.[0];
+    if (!place) return res.status(404).json({ error: "ADDRESS_NOT_FOUND" });
+
+    const lat = parseFloat(place.lat);
+    const lon = parseFloat(place.lon);
+
+    // Calculate USDA Hardiness Zone from 5-year annual extreme minimum temperature via Open-Meteo
+    let minWinterTempC: number | null = null;
+    try {
+      const endYear = new Date().getFullYear() - 1;
+      const startYear = endYear - 4;
+      const meteoUrl = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${startYear}-01-01&end_date=${endYear}-12-31&daily=temperature_2m_min&timezone=auto`;
+      const meteoRes = await fetch(meteoUrl);
+      if (meteoRes.ok) {
+        const meteoJson = await meteoRes.json();
+        const times: string[] = meteoJson?.daily?.time || [];
+        const mins: (number | null)[] = meteoJson?.daily?.temperature_2m_min || [];
+        const yearlyMins: Record<string, number> = {};
+        for (let i = 0; i < times.length; i++) {
+          const tVal = mins[i];
+          if (typeof tVal !== 'number') continue;
+          const yr = times[i].slice(0, 4);
+          if (yearlyMins[yr] === undefined || tVal < yearlyMins[yr]) {
+            yearlyMins[yr] = tVal;
+          }
+        }
+        const annualExtremes = Object.values(yearlyMins);
+        if (annualExtremes.length > 0) {
+          minWinterTempC = Number((annualExtremes.reduce((a, b) => a + b, 0) / annualExtremes.length).toFixed(1));
+        }
+      }
+    } catch {
+      // Fallback below
+    }
+
+    // Fallback latitude-based approximation if Open-Meteo archive is unavailable
+    if (minWinterTempC === null) {
+      const absLat = Math.abs(lat);
+      minWinterTempC = Number((22 - absLat * 0.72).toFixed(1));
+    }
+
+    const minTempF = (minWinterTempC * 9) / 5 + 32;
+    const rawStep = Math.max(0, Math.min(25, Math.floor((minTempF + 60) / 5)));
+    const zoneInteger = Math.floor(rawStep / 2) + 1;
+    const isB = rawStep % 2 === 1;
+    const hardinessZone = `${zoneInteger}${isB ? 'b' : 'a'}`;
+    const hardinessZoneNum = zoneInteger + (isB ? 0.5 : 0);
+
+    res.json({
+      displayName: place.display_name,
+      latitude: lat,
+      longitude: lon,
+      minWinterTempC,
+      hardinessZone,
+      hardinessZoneNum
+    });
+  } catch (e) {
+    res.status(500).json({ error: "GEOCODE_PROXY_FAULT" });
+  }
+});
+
 app.post('/api/proxy/gemini', checkAuth, async (req, res) => {
   try {
     const { model, contents, config, personalApiKey } = req.body;

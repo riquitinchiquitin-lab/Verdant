@@ -25,10 +25,19 @@ export const Dashboard: React.FC = () => {
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
   const [viewMode, setViewMode] = useState<'MY_HOUSE' | 'ALL'>('MY_HOUSE');
   const [selectedHouseFilter, setSelectedHouseFilter] = useState<string | 'ALL' | 'UNATTRIBUTED'>('ALL');
+  const [specimenFilter, setSpecimenFilter] = useState<'ALL' | 'PLANT' | 'TREE'>('ALL');
 
   const isAdmin = user?.role === 'OWNER' || user?.role === 'CO_CEO';
 
-  const filtered = useMemo(() => {
+  const isTreeSpecimen = (p: Plant) => {
+    if (p.specimenType === 'TREE') return true;
+    if (p.specimenType === 'PLANT') return false;
+    const cat = (p.category?.en || '').toLowerCase();
+    const habit = (p.growthHabit?.en || '').toLowerCase();
+    return cat.includes('tree') || habit.includes('tree');
+  };
+
+  const baseFiltered = useMemo(() => {
     return plants.filter(p => {
       // 1. Admin House Filter
       if (isAdmin) {
@@ -49,6 +58,15 @@ export const Dashboard: React.FC = () => {
         return (lv(p.nickname) || '').toLowerCase().includes(f) || (p.species || '').toLowerCase().includes(f);
     });
   }, [plants, user, isAdmin, viewMode, selectedHouseFilter, searchFilter, lv]);
+
+  const treeCount = useMemo(() => baseFiltered.filter(isTreeSpecimen).length, [baseFiltered]);
+  const plantOnlyCount = baseFiltered.length - treeCount;
+
+  const filtered = useMemo(() => {
+    if (specimenFilter === 'TREE') return baseFiltered.filter(isTreeSpecimen);
+    if (specimenFilter === 'PLANT') return baseFiltered.filter(p => !isTreeSpecimen(p));
+    return baseFiltered;
+  }, [baseFiltered, specimenFilter]);
 
   const { featured, others } = useMemo(() => {
     const priorityPlant = filtered.find(p => p.isPriority);
@@ -113,6 +131,29 @@ export const Dashboard: React.FC = () => {
         </div>
 
         <PlantTelemetry />
+
+        {/* SPECIMEN TYPE SECTION BAR (ALL / PLANTS / TREES) */}
+        <div className="px-4 md:px-10 flex items-center justify-between gap-3">
+          <div className="inline-flex bg-md-surface-container-high p-1 rounded-full border border-md-outline-variant/25">
+            {([
+              { id: 'ALL', label: `All (${baseFiltered.length})` },
+              { id: 'PLANT', label: `Plants (${plantOnlyCount})` },
+              { id: 'TREE', label: `Trees (${treeCount})` },
+            ] as const).map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setSpecimenFilter(tab.id)}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  specimenFilter === tab.id
+                    ? 'bg-md-primary text-md-on-primary shadow-xs'
+                    : 'text-md-on-surface-variant hover:text-md-on-surface'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className="px-4 md:px-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 pb-8">
             {featured && (

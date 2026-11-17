@@ -693,6 +693,17 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
                   className={inputClass}
                 />
               </div>
+              <div>
+                <label className={labelClass}>Specimen Type</label>
+                <select
+                  className={`${inputClass} appearance-none`}
+                  value={identifiedPlant.specimenType || 'PLANT'}
+                  onChange={(e) => setIdentifiedPlant({ ...identifiedPlant, specimenType: e.target.value as 'PLANT' | 'TREE' })}
+                >
+                  <option value="PLANT">Plant / Houseplant</option>
+                  <option value="TREE">Tree / Woody Specimen</option>
+                </select>
+              </div>
               {isAdmin && (
                 <div>
                   <label className={labelClass}>{t('lbl_house')}</label>

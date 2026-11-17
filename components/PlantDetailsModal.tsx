@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Leaf, Camera, Edit3, Activity, ScanBarcode, Droplets, FileText, Star, FlaskConical, Scissors, Sprout, Flower2, ArrowLeftRight, Globe, Ruler, Tag, Home, Sun, X, RefreshCw, Calendar, Dna, Wheat, Snowflake, Trash2, ShieldCheck, ShieldAlert, Sparkles, Bug, Plus, SlidersHorizontal, AlertTriangle } from 'lucide-react';
+import { Leaf, Camera, Edit3, Activity, ScanBarcode, Droplets, FileText, Star, FlaskConical, Scissors, Sprout, Flower2, ArrowLeftRight, Globe, Ruler, Tag, Home, Sun, X, RefreshCw, Calendar, Dna, Wheat, Snowflake, Trash2, ShieldCheck, ShieldAlert, Sparkles, Bug, Plus, SlidersHorizontal, AlertTriangle, MapPin } from 'lucide-react';
 import { Plant, Log, LogType, LocalizedString } from '../types';
 import { Button } from './ui/Button';
 import { usePlants } from '../context/PlantContext';
@@ -24,6 +24,7 @@ import { PhenophaseType } from '../types';
 import { translateInput } from '../services/translationService';
 import { generateUUID } from '../services/crypto';
 import { getShortBarcodeId } from '../services/barcodeService';
+import { checkPlantCompatibility } from '../utils/compatibility';
 
 interface PlantDetailsModalProps {
   isOpen: boolean;
@@ -49,10 +50,11 @@ const MoistureProbeIcon = ({ className }: { className?: string }) => (
 );
 
 export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, onClose, plant: initialPlant }) => {
-  const { updatePlant, plants, addLog, deleteLog, deletePlant, setAlertMessage, getEffectiveApiKey } = usePlants();
+  const { updatePlant, plants, houses, addLog, deleteLog, deletePlant, setAlertMessage, getEffectiveApiKey } = usePlants();
   const { consumeItem } = useInventory();
   const { t, lv, lva, language } = useLanguage();
   const { user } = useAuth();
+  const [compatHouseId, setCompatHouseId] = useState<string>('');
 
   const PassportItem = ({ icon, label, value, subValue }: { icon: React.ReactNode, label: string, value: string, subValue?: string }) => (
     <div className="space-y-2">
@@ -724,11 +726,16 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                             ))}
                                         </div>
 
-                                        {(plant.trefleId || plant.opbId || plant.gbifId || plant.powoId) && (
+                                        {(plant.trefleId || plant.opbId || plant.gbifId || plant.powoId || plant.inaturalistId || plant.iucnStatus) && (
                                           <div className="pt-3 border-t border-md-outline-variant/20 flex flex-wrap items-center gap-2">
                                             <span className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant mr-1">
                                               {t('lbl_taxon_links') || 'Archives'}:
                                             </span>
+                                            {plant.iucnStatus && (
+                                              <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-md-tertiary-container text-md-on-tertiary-container">
+                                                IUCN: {plant.iucnStatus}
+                                              </span>
+                                            )}
                                             {plant.gbifId && (
                                               <a
                                                 href={`https://www.gbif.org/species/${plant.gbifId}`}
@@ -747,6 +754,16 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                                 className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-md-surface-container-highest text-md-primary hover:bg-md-primary-container transition-colors"
                                               >
                                                 POWO
+                                              </a>
+                                            )}
+                                            {plant.inaturalistId && (
+                                              <a
+                                                href={`https://www.inaturalist.org/taxa/${plant.inaturalistId}`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-md-surface-container-highest text-md-primary hover:bg-md-primary-container transition-colors"
+                                              >
+                                                iNaturalist
                                               </a>
                                             )}
                                             {plant.trefleId && (
@@ -948,6 +965,67 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                         <p className="text-xs sm:text-sm text-md-on-surface leading-relaxed">{lv(plant.aiInsight)}</p>
                                       </section>
                                     )}
+
+                                    {(() => {
+                                      const activeHouseId = compatHouseId || plant.houseId || user?.houseId || houses[0]?.id || '';
+                                      const selectedHouse = houses.find(h => h.id === activeHouseId) || null;
+                                      const report = checkPlantCompatibility(plant, selectedHouse);
+                                      const badgeStyle =
+                                        report.overall === 'COMPATIBLE'
+                                          ? 'bg-md-primary-container text-md-on-primary-container'
+                                          : report.overall === 'CONDITIONAL'
+                                            ? 'bg-md-tertiary-container text-md-on-tertiary-container'
+                                            : report.overall === 'INCOMPATIBLE'
+                                              ? 'bg-md-error-container text-md-on-error-container'
+                                              : 'bg-md-surface-container-highest text-md-on-surface-variant';
+                                      const badgeLabel =
+                                        report.overall === 'COMPATIBLE'
+                                          ? 'Compatible'
+                                          : report.overall === 'CONDITIONAL'
+                                            ? 'Conditional'
+                                            : report.overall === 'INCOMPATIBLE'
+                                              ? 'Indoor / Amend'
+                                              : 'Setup Needed';
+
+                                      return (
+                                        <section className="bg-md-surface-container rounded-[24px] p-5 border border-md-outline-variant/25 space-y-3.5">
+                                          <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2">
+                                              <MapPin className="w-4 h-4 text-md-primary shrink-0" />
+                                              <h3 className="text-base font-bold text-md-on-surface tracking-tight">Area & Soil Compatibility</h3>
+                                            </div>
+                                            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${badgeStyle}`}>
+                                              {badgeLabel}
+                                            </span>
+                                          </div>
+
+                                          {houses.length > 0 && (
+                                            <select
+                                              value={activeHouseId}
+                                              onChange={(e) => setCompatHouseId(e.target.value)}
+                                              className="w-full bg-md-surface-container-low border border-md-outline-variant/40 rounded-xl px-3 py-2 text-xs font-semibold text-md-on-surface outline-none focus:border-md-primary"
+                                            >
+                                              {houses.map(h => (
+                                                <option key={h.id} value={h.id}>
+                                                  {lv(h.name)}{h.hardinessZone ? ` · Zone ${h.hardinessZone}` : ''}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          )}
+
+                                          <div className="space-y-2">
+                                            <div className="p-3 rounded-2xl bg-md-surface-container-low border border-md-outline-variant/20 space-y-1">
+                                              <p className="text-xs font-bold text-md-on-surface">{report.climateTitle}</p>
+                                              <p className="text-[11px] text-md-on-surface-variant leading-relaxed">{report.climateDetail}</p>
+                                            </div>
+                                            <div className="p-3 rounded-2xl bg-md-surface-container-low border border-md-outline-variant/20 space-y-1">
+                                              <p className="text-xs font-bold text-md-on-surface">{report.soilTitle}</p>
+                                              <p className="text-[11px] text-md-on-surface-variant leading-relaxed">{report.soilDetail}</p>
+                                            </div>
+                                          </div>
+                                        </section>
+                                      );
+                                    })()}
                                 </div>
                             </div>
 

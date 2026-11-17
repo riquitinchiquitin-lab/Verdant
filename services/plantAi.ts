@@ -2,7 +2,7 @@ import { Type } from "@google/genai";
 import { API_URL } from '../constants';
 import { generateGeminiContent } from './GeminiService';
 import { Plant, LocalizedString, LocalizedArray } from '../types';
-import { fetchTrefleData, fetchOpenPlantBookData, fetchPerenualData, searchGroundingData } from './botanicalServices';
+import { fetchTrefleData, fetchOpenPlantBookData, fetchPerenualData, searchGroundingData, fetchGbifData, fetchPowoData, fetchINaturalistData } from './botanicalServices';
 import { trackUsage } from './usageService';
 import { generateUUID } from './crypto';
 
@@ -152,20 +152,31 @@ export const generatePlantDetails = async (
   const model = 'gemini-3-flash-preview';
 
   onLog?.("msg_accessing_archives", "NETWORK");
-  const [trefle, opb, perenual, grounding] = await Promise.all([
+  const [trefle, opb, perenual, grounding, gbif, powo, inat] = await Promise.all([
     fetchTrefleData(scientificName).catch(() => null),
     fetchOpenPlantBookData(scientificName).catch(() => null),
     fetchPerenualData(scientificName).catch(() => null),
-    searchGroundingData(`how to propagate and repot ${scientificName} successfully`).catch(() => null)
+    searchGroundingData(`how to propagate and repot ${scientificName} successfully`).catch(() => null),
+    fetchGbifData(scientificName).catch(() => null),
+    fetchPowoData(scientificName).catch(() => null),
+    fetchINaturalistData(scientificName).catch(() => null)
   ]);
 
   onLog?.("msg_harmonizing_data", "GEMINI");
   
-  // Limit grounding data to prevent prompt bloat
+  // Limit grounding & open-source data to prevent prompt bloat
   const limitedGrounding = grounding ? {
     organic_results: grounding.organic?.slice(0, 3).map((r: any) => ({ title: r.title, snippet: r.snippet })),
     answerBox: grounding.answerBox
   } : null;
+
+  const openSourceSummary = {
+    gbifIucn: gbif?.iucnCategory || null,
+    powoLifeform: powo?.lifeform || null,
+    powoNative: powo?.distribution?.natives?.slice(0, 12)?.map((n: any) => n.name) || null,
+    powoSynonyms: powo?.synonyms?.slice(0, 6)?.map((s: any) => s.name) || null,
+    inatFloweringMonths: inat?.floweringHistogram || null
+  };
 
   const translationSchema = {
     type: Type.OBJECT,
@@ -179,6 +190,7 @@ export const generatePlantDetails = async (
     - Trefle: ${JSON.stringify(trefle)}
     - OPB: ${JSON.stringify(opb)}
     - Perenual: ${JSON.stringify(perenual)}
+    - GBIF/POWO/iNaturalist: ${JSON.stringify(openSourceSummary)}
     - Web Grounding: ${JSON.stringify(limitedGrounding)}
     
     REQUIREMENTS:
@@ -353,12 +365,20 @@ export const generatePlantDetails = async (
     }
 
     const parsed = JSON.parse(cleanJson(response.text || "{}"));
-    const fallbackApiImage = opb?.image_url || trefle?.image_url || perenual?.default_image?.medium_url || perenual?.default_image?.regular_url;
+    const fallbackApiImage = opb?.image_url || trefle?.image_url || perenual?.default_image?.medium_url || perenual?.default_image?.regular_url || inat?.taxon?.default_photo?.medium_url;
+    const catEn = (parsed?.category?.en || '').toLowerCase();
+    const habitEn = (parsed?.growthHabit?.en || '').toLowerCase();
+    const inferredSpecimenType: 'PLANT' | 'TREE' = (catEn.includes('tree') || habitEn.includes('tree') || (powo?.lifeform || '').toLowerCase().includes('tree')) ? 'TREE' : 'PLANT';
     return createPlant({
         ...parsed,
         trefleId: trefle?.id,
         opbId: opb?.pid,
         perenualId: perenual?.id || null,
+        gbifId: gbif?.gbifId || null,
+        powoId: powo?.fqId || null,
+        iucnStatus: gbif?.iucnCategory || null,
+        inaturalistId: inat?.inaturalistId || null,
+        specimenType: inferredSpecimenType,
         images: base64Image ? [base64Image] : (fallbackApiImage ? [fallbackApiImage] : [])
     });
   } catch (error: any) {
@@ -483,7 +503,11 @@ export const createPlant = (data: Partial<Plant>): Plant => {
     wateringMethod: data.wateringMethod || null,
     feedingSchedule: data.feedingSchedule || null,
     trainingAdvice: data.trainingAdvice || null,
-    troubleshooting: data.troubleshooting || []
+    troubleshooting: data.troubleshooting || [],
+
+    specimenType: data.specimenType || 'PLANT',
+    iucnStatus: data.iucnStatus || null,
+    inaturalistId: data.inaturalistId || null
   } as Plant;
 };
 

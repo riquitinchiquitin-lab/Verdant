@@ -18,7 +18,7 @@ interface PlantContextType {
   updatePlant: (id: string, updates: Partial<Plant>) => Promise<void>;
   deletePlant: (id: string) => Promise<void>;
   cloneHouse: (sourceId: string, newName: string) => Promise<void>;
-  addHouse: (name: string) => Promise<void>;
+  addHouse: (name: string, metadata?: Partial<House>) => Promise<void>;
   updateHouse: (id: string, updates: Partial<House>) => Promise<void>;
   deleteHouse: (id: string) => Promise<void>;
   addLog: (plantId: string, log: Log) => Promise<void>;
@@ -367,7 +367,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (token) await fetchWithAuth(`/api/plants/${id}`, token, { method: 'DELETE' });
   };
 
-  const addHouse = async (name: string) => {
+  const addHouse = async (name: string, metadata?: Partial<House>) => {
     console.log("[PlantContext] addHouse called with name:", name);
     try {
         // 1. Localize the house name via AI
@@ -387,6 +387,7 @@ export const PlantProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         
         // 2. Create the internal object with a temporary ID prefix
         const newH: House = { 
+          ...metadata,
           id: `h-temp-${generateUUID()}`, 
           name: localizedName, 
           createdAt: new Date().toISOString() 

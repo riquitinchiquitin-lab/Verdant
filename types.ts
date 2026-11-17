@@ -49,9 +49,19 @@ export interface User {
   personalAiKeyTestedAt?: string; // Verification timestamp
 }
 
+export type SoilType = 'LOAM' | 'CLAY' | 'SANDY' | 'SILT' | 'PEATY' | 'CHALKY' | 'POTTING_MIX';
+
 export interface House {
   id: string;
   name: LocalizedString;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  hardinessZone?: string | null;
+  hardinessZoneNum?: number | null;
+  minWinterTempC?: number | null;
+  soilType?: SoilType | null;
+  soilPh?: number | null;
   createdAt?: string;
   deletedAt?: string | null;
   aiKeyTestedAt?: string; // Verification timestamp
@@ -237,6 +247,11 @@ export interface Plant {
     cause: LocalizedString;
     fix: LocalizedString;
   }[];
+
+  // --- 10. SPECIMEN TYPE & OPEN-SOURCE ENRICHMENT ---
+  specimenType?: 'PLANT' | 'TREE' | null;
+  iucnStatus?: string | null;
+  inaturalistId?: number | null;
 }
 
 export type RecurrenceType = 'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY';

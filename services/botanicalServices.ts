@@ -123,3 +123,62 @@ export const searchGroundingData = async (query: string) => {
     return null;
   }
 };
+
+export const fetchGbifData = async (scientificName: string, gbifId?: string | number | null) => {
+  try {
+    const param = gbifId ? `id=${encodeURIComponent(String(gbifId))}` : `q=${encodeURIComponent(scientificName)}`;
+    const response = await fetch(`${API_URL}/api/proxy/gbif?${param}`, {
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+};
+
+export const fetchPowoData = async (scientificName: string, powoId?: string | null) => {
+  try {
+    const param = powoId ? `id=${encodeURIComponent(powoId)}` : `q=${encodeURIComponent(scientificName)}`;
+    const response = await fetch(`${API_URL}/api/proxy/powo?${param}`, {
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+};
+
+export const fetchINaturalistData = async (scientificName: string) => {
+  try {
+    const response = await fetch(`${API_URL}/api/proxy/inaturalist?q=${encodeURIComponent(scientificName)}`, {
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+};
+
+export interface LocationZoneResult {
+  displayName: string;
+  latitude: number;
+  longitude: number;
+  minWinterTempC: number;
+  hardinessZone: string;
+  hardinessZoneNum: number;
+}
+
+export const lookupLocationZone = async (address: string): Promise<LocationZoneResult | null> => {
+  try {
+    const response = await fetch(`${API_URL}/api/proxy/geocode?q=${encodeURIComponent(address)}`, {
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+};

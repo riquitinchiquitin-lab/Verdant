@@ -5,7 +5,7 @@ import { usePlants } from '../context/PlantContext';
 import { usePersonnel } from '../context/PersonnelContext';
 import { useSystem, SystemLog } from '../context/SystemContext';
 import { useInventory } from '../context/InventoryContext';
-import { House, User, Plant } from '../types';
+import { House, User, Plant, SoilType } from '../types';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { SystemTelemetry } from '../components/SystemTelemetry';
@@ -18,7 +18,9 @@ import { PasskeyManager } from '../components/PasskeyManager';
 import { HostingSettingsPanel } from '../components/HostingSettingsPanel';
 import { getSecurityPolicy, SecurityPolicyStatus } from '../services/webauthn';
 import { exportCombinedLogsToExcel } from '../services/exportService';
-import { ShieldCheck, KeyRound, CheckCircle2, AlertTriangle, Globe } from 'lucide-react';
+import { lookupLocationZone } from '../services/botanicalServices';
+import { SOIL_LABELS } from '../utils/compatibility';
+import { ShieldCheck, KeyRound, CheckCircle2, AlertTriangle, Globe, MapPin, Search } from 'lucide-react';
 
 export const AdminView: React.FC = () => {
   const { user, token } = useAuth();
@@ -54,6 +56,14 @@ export const AdminView: React.FC = () => {
   const [pendingBackupFile, setPendingBackupFile] = useState<File | null>(null);
   const [isSavingHouse, setIsSavingHouse] = useState(false);
   const [newHouseName, setNewHouseName] = useState('');
+  const [newHouseAddress, setNewHouseAddress] = useState('');
+  const [newHouseZone, setNewHouseZone] = useState('');
+  const [newHouseZoneNum, setNewHouseZoneNum] = useState<number | null>(null);
+  const [newHouseMinTemp, setNewHouseMinTemp] = useState<number | null>(null);
+  const [newHouseLat, setNewHouseLat] = useState<number | null>(null);
+  const [newHouseLon, setNewHouseLon] = useState<number | null>(null);
+  const [newHouseSoilType, setNewHouseSoilType] = useState<SoilType>('LOAM');
+  const [isLookingUpZone, setIsLookingUpZone] = useState(false);
   const [newUser, setNewUser] = useState<Partial<User>>({ role: 'GARDENER' });
   const [hasMasterKey, setHasMasterKey] = useState(false);
   const [confirmation, setConfirmation] = useState<{
@@ -331,16 +341,66 @@ export const AdminView: React.FC = () => {
     }
   };
 
+  const handleLookupHouseZone = async (address: string, target: 'NEW' | 'EDIT') => {
+    if (!address.trim()) return;
+    setIsLookingUpZone(true);
+    try {
+      const res = await lookupLocationZone(address.trim());
+      if (!res) {
+        showNotification('Could not resolve address to a hardiness zone', 'ERROR');
+        return;
+      }
+      if (target === 'NEW') {
+        setNewHouseAddress(res.displayName);
+        setNewHouseZone(res.hardinessZone);
+        setNewHouseZoneNum(res.hardinessZoneNum);
+        setNewHouseMinTemp(res.minWinterTempC);
+        setNewHouseLat(res.latitude);
+        setNewHouseLon(res.longitude);
+      } else if (editingHouse) {
+        setEditingHouse({
+          ...editingHouse,
+          address: res.displayName,
+          hardinessZone: res.hardinessZone,
+          hardinessZoneNum: res.hardinessZoneNum,
+          minWinterTempC: res.minWinterTempC,
+          latitude: res.latitude,
+          longitude: res.longitude
+        });
+      }
+      showNotification(`Detected USDA Zone ${res.hardinessZone}`, 'SUCCESS');
+    } catch {
+      showNotification('Zone lookup failed', 'ERROR');
+    } finally {
+      setIsLookingUpZone(false);
+    }
+  };
+
   const handleAddHouse = async () => {
     console.log("[AdminView] handleAddHouse triggered with name:", newHouseName);
     if (!newHouseName) return showNotification(t('msg_missing_name'), "ERROR");
     setIsSavingHouse(true);
     try {
       console.log("[AdminView] Calling addHouse context function...");
-      await addHouse(newHouseName);
+      await addHouse(newHouseName, {
+        address: newHouseAddress || null,
+        hardinessZone: newHouseZone || null,
+        hardinessZoneNum: newHouseZoneNum,
+        minWinterTempC: newHouseMinTemp,
+        latitude: newHouseLat,
+        longitude: newHouseLon,
+        soilType: newHouseSoilType || null
+      });
       console.log("[AdminView] addHouse successful.");
       setIsAddingHouse(false);
       setNewHouseName('');
+      setNewHouseAddress('');
+      setNewHouseZone('');
+      setNewHouseZoneNum(null);
+      setNewHouseMinTemp(null);
+      setNewHouseLat(null);
+      setNewHouseLon(null);
+      setNewHouseSoilType('LOAM');
       showNotification(t('msg_house_established'), "SUCCESS");
     } catch (e) {
       console.error("[AdminView] handleAddHouse Error:", e);
@@ -547,23 +607,76 @@ export const AdminView: React.FC = () => {
         {/* Modals */}
         {isAddingHouse && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[40px] p-8 space-y-6 border border-slate-200 dark:border-slate-800 shadow-2xl mb-[env(safe-area-inset-bottom)]">
-                    <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('lbl_add_house')}</h2>
+                <div className="bg-md-surface-container-high w-full max-w-lg rounded-[28px] p-6 sm:p-8 space-y-5 border border-md-outline-variant/30 shadow-2xl mb-[env(safe-area-inset-bottom)]">
+                    <h2 className="text-xl font-bold tracking-tight text-md-on-surface">{t('lbl_add_house')}</h2>
                     <div className="space-y-4">
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('lbl_name')}</label>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_name')}</label>
                             <input 
                                 type="text" 
                                 value={newHouseName}
                                 onChange={(e) => setNewHouseName(e.target.value)}
-                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 ring-verdant/20"
+                                className="w-full bg-md-surface-container-low border border-md-outline-variant/40 rounded-2xl px-4 py-3 text-sm font-semibold text-md-on-surface outline-none focus:border-md-primary focus:ring-2 focus:ring-md-primary/20"
                                 placeholder={t('lbl_example_house')}
                             />
                         </div>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold uppercase tracking-wider text-md-on-surface-variant">Address / City / ZIP</label>
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    value={newHouseAddress}
+                                    onChange={(e) => setNewHouseAddress(e.target.value)}
+                                    className="flex-1 bg-md-surface-container-low border border-md-outline-variant/40 rounded-2xl px-4 py-3 text-sm text-md-on-surface outline-none focus:border-md-primary focus:ring-2 focus:ring-md-primary/20"
+                                    placeholder="e.g. Portland, OR or 97209"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="tonal"
+                                    size="md"
+                                    isLoading={isLookingUpZone}
+                                    onClick={() => handleLookupHouseZone(newHouseAddress, 'NEW')}
+                                    className="shrink-0"
+                                >
+                                    <Search className="w-4 h-4" />
+                                    Find Zone
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold uppercase tracking-wider text-md-on-surface-variant">USDA Hardiness Zone</label>
+                                <input 
+                                    type="text" 
+                                    value={newHouseZone}
+                                    onChange={(e) => setNewHouseZone(e.target.value)}
+                                    className="w-full bg-md-surface-container-low border border-md-outline-variant/40 rounded-2xl px-4 py-3 text-sm font-semibold text-md-on-surface outline-none focus:border-md-primary focus:ring-2 focus:ring-md-primary/20"
+                                    placeholder="e.g. 8b"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold uppercase tracking-wider text-md-on-surface-variant">Local Soil Type</label>
+                                <select
+                                    value={newHouseSoilType}
+                                    onChange={(e) => setNewHouseSoilType(e.target.value as SoilType)}
+                                    className="w-full bg-md-surface-container-low border border-md-outline-variant/40 rounded-2xl px-4 py-3 text-sm font-semibold text-md-on-surface outline-none focus:border-md-primary focus:ring-2 focus:ring-md-primary/20"
+                                >
+                                    {(Object.keys(SOIL_LABELS) as SoilType[]).map((st) => (
+                                        <option key={st} value={st}>{SOIL_LABELS[st]}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        {newHouseMinTemp !== null && (
+                            <p className="text-xs text-md-primary font-medium bg-md-primary-container/40 px-3.5 py-2 rounded-xl flex items-center gap-2">
+                                <MapPin className="w-3.5 h-3.5 shrink-0" />
+                                Avg. annual extreme winter low: {newHouseMinTemp}°C (Zone {newHouseZone})
+                            </p>
+                        )}
                     </div>
-                    <div className="flex gap-4 pt-4">
-                        <Button variant="secondary" onClick={() => setIsAddingHouse(false)} className="flex-1 rounded-2xl uppercase font-black">{t('btn_cancel')}</Button>
-                        <Button variant="primary" onClick={handleAddHouse} isLoading={isSavingHouse} className="flex-1 rounded-2xl uppercase font-black">{t('btn_save')}</Button>
+                    <div className="flex justify-end gap-3 pt-2">
+                        <Button variant="outlined" onClick={() => setIsAddingHouse(false)} className="px-6">{t('btn_cancel')}</Button>
+                        <Button variant="primary" onClick={handleAddHouse} isLoading={isSavingHouse} className="px-6">{t('btn_save')}</Button>
                     </div>
                 </div>
             </div>
@@ -571,22 +684,69 @@ export const AdminView: React.FC = () => {
 
         {editingHouse && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[40px] p-8 space-y-6 border border-slate-200 dark:border-slate-800 shadow-2xl mb-[env(safe-area-inset-bottom)]">
-                    <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('lbl_edit_house')}</h2>
+                <div className="bg-md-surface-container-high w-full max-w-lg rounded-[28px] p-6 sm:p-8 space-y-5 border border-md-outline-variant/30 shadow-2xl mb-[env(safe-area-inset-bottom)]">
+                    <h2 className="text-xl font-bold tracking-tight text-md-on-surface">{t('lbl_edit_house')}</h2>
                     <div className="space-y-4">
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('lbl_name')}</label>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_name')}</label>
                             <input 
                                 type="text" 
                                 value={typeof editingHouse.name === 'object' ? lv(editingHouse.name) : editingHouse.name} 
                                 onChange={(e) => setEditingHouse({...editingHouse, name: { ...editingHouse.name, [language]: e.target.value } as any})}
-                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 font-bold text-slate-900 dark:text-white outline-none focus:ring-2 ring-verdant/20"
+                                className="w-full bg-md-surface-container-low border border-md-outline-variant/40 rounded-2xl px-4 py-3 text-sm font-semibold text-md-on-surface outline-none focus:border-md-primary focus:ring-2 focus:ring-md-primary/20"
                             />
                         </div>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold uppercase tracking-wider text-md-on-surface-variant">Address / City / ZIP</label>
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    value={editingHouse.address || ''}
+                                    onChange={(e) => setEditingHouse({...editingHouse, address: e.target.value})}
+                                    className="flex-1 bg-md-surface-container-low border border-md-outline-variant/40 rounded-2xl px-4 py-3 text-sm text-md-on-surface outline-none focus:border-md-primary focus:ring-2 focus:ring-md-primary/20"
+                                    placeholder="e.g. Portland, OR or 97209"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="tonal"
+                                    size="md"
+                                    isLoading={isLookingUpZone}
+                                    onClick={() => handleLookupHouseZone(editingHouse.address || '', 'EDIT')}
+                                    className="shrink-0"
+                                >
+                                    <Search className="w-4 h-4" />
+                                    Find Zone
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold uppercase tracking-wider text-md-on-surface-variant">USDA Hardiness Zone</label>
+                                <input 
+                                    type="text" 
+                                    value={editingHouse.hardinessZone || ''}
+                                    onChange={(e) => setEditingHouse({...editingHouse, hardinessZone: e.target.value})}
+                                    className="w-full bg-md-surface-container-low border border-md-outline-variant/40 rounded-2xl px-4 py-3 text-sm font-semibold text-md-on-surface outline-none focus:border-md-primary focus:ring-2 focus:ring-md-primary/20"
+                                    placeholder="e.g. 8b"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold uppercase tracking-wider text-md-on-surface-variant">Local Soil Type</label>
+                                <select
+                                    value={editingHouse.soilType || 'LOAM'}
+                                    onChange={(e) => setEditingHouse({...editingHouse, soilType: e.target.value as SoilType})}
+                                    className="w-full bg-md-surface-container-low border border-md-outline-variant/40 rounded-2xl px-4 py-3 text-sm font-semibold text-md-on-surface outline-none focus:border-md-primary focus:ring-2 focus:ring-md-primary/20"
+                                >
+                                    {(Object.keys(SOIL_LABELS) as SoilType[]).map((st) => (
+                                        <option key={st} value={st}>{SOIL_LABELS[st]}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
                     </div>
-                    <div className="flex gap-4 pt-4">
-                        <Button variant="secondary" onClick={() => setEditingHouse(null)} className="flex-1 rounded-2xl uppercase font-black">{t('btn_cancel')}</Button>
-                        <Button variant="primary" onClick={handleUpdateHouse} className="flex-1 rounded-2xl uppercase font-black">{t('btn_save')}</Button>
+                    <div className="flex justify-end gap-3 pt-2">
+                        <Button variant="outlined" onClick={() => setEditingHouse(null)} className="px-6">{t('btn_cancel')}</Button>
+                        <Button variant="primary" onClick={handleUpdateHouse} className="px-6">{t('btn_save')}</Button>
                     </div>
                 </div>
             </div>
@@ -806,12 +966,36 @@ export const AdminView: React.FC = () => {
             <div className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {visibleHouses.map(house => (
-                        <div key={house.id} className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm">
-                            <h3 className="text-xl font-black uppercase text-slate-900 dark:text-white mb-2">{lv(house.name)}</h3>
-                            <p className="text-xs text-slate-500 uppercase tracking-widest mb-4">{t('lbl_id')}: {house.id}</p>
-                            <div className="flex gap-2">
-                                <Button variant="secondary" size="sm" className="flex-1 rounded-xl" onClick={() => setEditingHouse(house)}>{t('btn_edit')}</Button>
-                                {!(isLeadHand) && <Button variant="danger" size="sm" className="flex-1 rounded-xl" onClick={() => handleDeleteHouse(house.id)}>{t('btn_delete')}</Button>}
+                        <div key={house.id} className="bg-md-surface-container p-6 rounded-[24px] border border-md-outline-variant/30 space-y-4">
+                            <div>
+                                <h3 className="text-lg font-bold text-md-on-surface tracking-tight">{lv(house.name)}</h3>
+                                <p className="text-[11px] font-mono text-md-on-surface-variant mt-0.5">{t('lbl_id')}: {house.id}</p>
+                            </div>
+                            {(house.address || house.hardinessZone || house.soilType) && (
+                                <div className="space-y-2">
+                                    {house.address && (
+                                        <p className="text-xs text-md-on-surface-variant flex items-start gap-1.5 line-clamp-2">
+                                            <MapPin className="w-3.5 h-3.5 text-md-primary shrink-0 mt-0.5" />
+                                            <span>{house.address}</span>
+                                        </p>
+                                    )}
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {house.hardinessZone && (
+                                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-md-primary-container text-md-on-primary-container">
+                                                Zone {house.hardinessZone}
+                                            </span>
+                                        )}
+                                        {house.soilType && (
+                                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-md-secondary-container text-md-on-secondary-container">
+                                                {SOIL_LABELS[house.soilType] || house.soilType}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                            <div className="flex gap-2 pt-1">
+                                <Button variant="tonal" size="sm" className="flex-1" onClick={() => setEditingHouse(house)}>{t('btn_edit')}</Button>
+                                {!(isLeadHand) && <Button variant="danger" size="sm" className="flex-1" onClick={() => handleDeleteHouse(house.id)}>{t('btn_delete')}</Button>}
                             </div>
                         </div>
                     ))}
