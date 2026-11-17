@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Camera, ImagePlus, PenLine, Sprout, AlertTriangle, Plus, X, RotateCcw, Printer, Download, Zap, CheckCircle2 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
-import { identifyPlantWithPlantNet, identifyPlantWithGemini, generatePlantDetails, createPlant } from '../services/plantAi';
+import { identifyPlantWithPlantNet, identifyPlantWithGemini, generatePlantDetails, createPlant, refreshPlantRecord } from '../services/plantAi';
 import { fetchAggregatedSpeciesData } from '../services/botanicalServices';
 import { printLabelsToNiimbotD110, getShortBarcodeId } from '../services/barcodeService';
 import { exportPlantsToNiimbotExcel } from '../services/exportService';
@@ -38,7 +38,7 @@ interface ProtocolLog {
 export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, onSave }) => {
   const { t, lv, language } = useLanguage();
   const { user } = useAuth();
-  const { houses, allRooms, getEffectiveApiKey } = usePlants();
+  const { houses, allRooms, getEffectiveApiKey, updatePlant, setAlertMessage } = usePlants();
   const { inventory } = useInventory();
 
   const isAdmin = user?.role === 'OWNER' || user?.role === 'CO_CEO';
@@ -351,6 +351,19 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
       if (printAfter) {
         void handlePrintSavedLabel(newPlant);
       }
+
+      // Continue full AI & open-source botanical enrichment in the background
+      const apiKey = getEffectiveApiKey();
+      void (async () => {
+        try {
+          const enriched = await refreshPlantRecord(newPlant, apiKey);
+          await updatePlant(newPlant.id, enriched);
+          setAlertMessage(`Botanical dossier & AI data ready for ${commonName}`);
+          setTimeout(() => setAlertMessage(null), 4000);
+        } catch (bgErr) {
+          console.warn('Background botanical enrichment skipped/failed:', bgErr);
+        }
+      })();
     } catch (err: any) {
       console.error('Quick add failure:', err);
       setError(err?.message || t('msg_uplink_fault'));
@@ -1056,6 +1069,9 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
               <p className="text-sm italic font-serif text-md-primary">{savedPlant.species}</p>
               <p className="text-xs font-mono text-md-on-surface-variant pt-1">
                 Barcode ID: {getShortBarcodeId(savedPlant.id)}
+              </p>
+              <p className="text-[11px] text-md-primary font-medium pt-1">
+                AI & botanical archive enrichment continues in the background.
               </p>
             </div>
 
