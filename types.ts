@@ -257,6 +257,28 @@ export interface Plant {
   toxicPrinciple?: LocalizedString | null;
   cultivars?: string[];
   canadianProvinces?: string[];
+
+  // --- 11. DEEP TAXONOMIC REGISTRY & MONOGRAPH ---
+  kingdom?: string | null;
+  clade?: string | null;
+  order?: string | null;
+  subfamily?: string | null;
+  infraspecificTaxa?: string[];
+  wikidataId?: string | null;
+  ipniLsid?: string | null;
+  wfoId?: string | null;
+  tropicosId?: string | null;
+  usdaSymbol?: string | null;
+  itisTsn?: string | null;
+  eppoCode?: string | null;
+  introducedRegions?: LocalizedArray;
+  fruitTraits?: LocalizedString | null;
+  leafAreaIndex?: string | null;
+  careSpecs?: {
+    parameter: LocalizedString;
+    requirement: LocalizedString;
+    notes: LocalizedString;
+  }[];
 }
 
 export type RecurrenceType = 'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY';

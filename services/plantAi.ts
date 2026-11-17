@@ -207,11 +207,11 @@ export const generatePlantDetails = async (
     - Web Grounding: ${JSON.stringify(limitedGrounding)}
     
     REQUIREMENTS:
-    1. Extract: species, scientificAuthor, rank, family, genus, category, growthRate, maxHeight (cm), maxSpread (cm, mature width), avgHeight (cm), flowers (bool), edible (bool), vegetable (bool), droughtTolerant (bool, from Perenual drought_tolerant or species traits), synonyms (array of botanical synonym strings from Trefle).
+    1. Extract: species, scientificAuthor, rank, kingdom (e.g. Plantae), clade (e.g. Tracheophytes → Angiosperms → Eudicots → Asterids), order, family, subfamily, genus, infraspecificTaxa (array of accepted subspecies/varieties if any), wikidataId, ipniLsid, wfoId, tropicosId, usdaSymbol, itisTsn, eppoCode, category, growthRate, maxHeight (cm), maxSpread (cm, mature width), avgHeight (cm), flowers (bool), edible (bool), vegetable (bool), droughtTolerant (bool, from Perenual drought_tolerant or species traits), synonyms (array of botanical synonym strings from Trefle/POWO).
     2. Specs: min/max moisture (%), temp (C), light (Lux), soil EC (minSoilEc, maxSoilEc), humidity (minEnvHumid, maxEnvHumid %), minPh & maxPh (from Trefle main_species.growth.ph_minimum/ph_maximum), minRootDepthCm (from Trefle minimum_root_depth.cm), frostFreeDaysMin (from Trefle frost_free_days_minimum), hardinessZoneMin & hardinessZoneMax (from Perenual hardiness.min/max).
     3. Care & Seasonal Cadence: Estimate 'wateringInterval' (days), 'summerWateringInterval' (days), 'winterWateringInterval' (days), 'repottingFrequency' (months), 'careDifficulty' (Easy/Moderate/Challenging from Perenual care_level), 'windowExposure' (e.g. South / West Bright Indirect from Perenual sunlight), 'potMaterial' (recommended pot material, e.g. Terracotta or Glazed Ceramic), 'dormancyPeriod' (e.g. Winter or None), 'npkRatio' (e.g. "2-7-7" or "10-10-10 Half Strength"), 'bloomSeason' (from Trefle bloom_months or Perenual flowering_season), 'pruningMonths' (from Perenual pruning_month).
-    4. Lifecycle, Morphology & Ecology: Synthesize 'propagationMethods' (localized array of strings), 'susceptiblePests' (localized array from Perenual pest_susceptibility or species profile), 'attracts' (localized array of pollinators/wildlife from Perenual attracts), 'nativeRegions' (localized array from Trefle distribution.native), 'foliageTraits' & 'flowerTraits' (concise localized descriptions from Trefle foliage/flower), 'ecologicalFlags' ({ indoor, tropical, thorny, saltTolerant, medicinal, invasive } booleans from Perenual), a detailed 'propagationInstructions' (localized string), and 'repottingInstructions' (localized string). Include 'lastPotSize' (string) and 'citesStatus' (Appendix I, II, or III).
-    5. Plant Book / Field Guide Monograph: Provide 'growthHabit' (localized string, e.g. Epiphytic climber, Rosette succulent), 'lifespan' (localized string, e.g. Evergreen Perennial), 'etymology' (localized 1-sentence origin/meaning of the Latin name), 'naturalHabitat' (localized biome/elevation description), 'specialFeatures' (localized array of 2-4 traits like Fragrant, Variegated, Air-purifying), 'wateringMethod' (localized string detailing soak-and-dry vs bottom-water & tap/rainwater sensitivity), 'feedingSchedule' (localized string detailing spring/summer vs winter cadence), 'trainingAdvice' (localized string on staking, moss pole, or pinching), and 'troubleshooting' (array of 3 common Symptom -> Cause -> Fix objects with localized strings).
+    4. Lifecycle, Morphology & Ecology: Synthesize 'propagationMethods' (localized array of strings), 'susceptiblePests' (localized array from Perenual pest_susceptibility or species profile), 'attracts' (localized array of pollinators/wildlife from Perenual attracts), 'nativeRegions' (localized array from Trefle/POWO native distribution), 'introducedRegions' (localized array of introduced/naturalized regions if any), 'foliageTraits', 'flowerTraits', & 'fruitTraits' (concise localized morphological descriptions), 'leafAreaIndex' (string if known, e.g. "~4.5", else null), 'ecologicalFlags' ({ indoor, tropical, thorny, saltTolerant, medicinal, invasive } booleans from Perenual), a detailed 'propagationInstructions' (localized string), and 'repottingInstructions' (localized string). Include 'lastPotSize' (string) and 'citesStatus' (Appendix I, II, or III).
+    5. Plant Book / Field Guide Monograph: Provide 'growthHabit' (localized string, e.g. Low-growing, compact, acaulescent herbaceous perennial), 'lifespan' (localized string, e.g. Perennial; reaches maturity in 2–5 years), 'etymology' (localized 1-sentence origin/meaning of the Latin name), 'naturalHabitat' (localized biome/elevation/substrate description), 'specialFeatures' (localized array of 2-4 traits like Fragrant, Variegated, Air-purifying), 'wateringMethod' (localized string detailing soak-and-dry vs bottom-water & tap/rainwater sensitivity), 'feedingSchedule' (localized string detailing spring/summer vs winter cadence), 'trainingAdvice' (localized string on staking, moss pole, or pinching), 'careSpecs' (array of 8-10 structured cultivation rows for Light, Watering, Humidity, Temperature, Soil/Substrate, Soil pH, Potting, Fertilization, Propagation, and Common Pests/Issues, each with localized 'parameter', 'requirement', and 'notes' with diagnostic triggers), and 'troubleshooting' (array of 3 common Symptom -> Cause -> Fix objects with localized strings).
     6. Technical: Suggest 'targetPh', 'targetEc', 'targetVpd', 'targetDli' (use OPB min_light_mmol/max_light_mmol to inform DLI if available).
     7. Localization: Translate ALL localized text fields into these 11 codes: ${TARGET_LANGS.join(',')}.
     8. Toxicity: Detail pet-safety in 'petSafety' (isPetSafe bool from Perenual poisonous_to_pets) AND human-safety in 'humanSafety' (isHumanSafe bool from Perenual poisonous_to_humans).
@@ -365,6 +365,36 @@ export const generatePlantDetails = async (
                   percent: { type: Type.INTEGER }
                 } 
               } 
+            },
+            kingdom: { type: Type.STRING },
+            clade: { type: Type.STRING },
+            order: { type: Type.STRING },
+            subfamily: { type: Type.STRING },
+            infraspecificTaxa: { type: Type.ARRAY, items: { type: Type.STRING } },
+            wikidataId: { type: Type.STRING },
+            ipniLsid: { type: Type.STRING },
+            wfoId: { type: Type.STRING },
+            tropicosId: { type: Type.STRING },
+            usdaSymbol: { type: Type.STRING },
+            itisTsn: { type: Type.STRING },
+            eppoCode: { type: Type.STRING },
+            introducedRegions: {
+              type: Type.OBJECT,
+              properties: TARGET_LANGS.reduce((a:any, l) => ({...a, [l]: {type: Type.ARRAY, items: {type: Type.STRING}}}), {}),
+              required: TARGET_LANGS
+            },
+            fruitTraits: translationSchema,
+            leafAreaIndex: { type: Type.STRING },
+            careSpecs: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  parameter: translationSchema,
+                  requirement: translationSchema,
+                  notes: translationSchema
+                }
+              }
             }
           }
         }
@@ -536,7 +566,24 @@ export const createPlant = (data: Partial<Plant>): Plant => {
     vascanId: data.vascanId || null,
     toxicPrinciple: data.toxicPrinciple || null,
     cultivars: data.cultivars || [],
-    canadianProvinces: data.canadianProvinces || []
+    canadianProvinces: data.canadianProvinces || [],
+
+    kingdom: data.kingdom || null,
+    clade: data.clade || null,
+    order: data.order || null,
+    subfamily: data.subfamily || null,
+    infraspecificTaxa: data.infraspecificTaxa || [],
+    wikidataId: data.wikidataId || null,
+    ipniLsid: data.ipniLsid || null,
+    wfoId: data.wfoId || null,
+    tropicosId: data.tropicosId || null,
+    usdaSymbol: data.usdaSymbol || null,
+    itisTsn: data.itisTsn || null,
+    eppoCode: data.eppoCode || null,
+    introducedRegions: data.introducedRegions || emptyLocalizedArray,
+    fruitTraits: data.fruitTraits || null,
+    leafAreaIndex: data.leafAreaIndex || null,
+    careSpecs: data.careSpecs || []
   } as Plant;
 };
 
@@ -659,6 +706,10 @@ export const refreshPlantRecord = async (
       const parsedVascan = Number(aggregated.sourceIds.vascan);
       if (Number.isFinite(parsedVascan)) aggUpdates.vascanId = parsedVascan;
     }
+    if (aggregated.sourceIds?.gbif) aggUpdates.gbifId = aggregated.sourceIds.gbif;
+    if (aggregated.sourceIds?.powo) aggUpdates.powoId = String(aggregated.sourceIds.powo);
+    if (aggregated.sourceIds?.wfo) aggUpdates.wfoId = String(aggregated.sourceIds.wfo);
+    if (aggregated.sourceIds?.usda) aggUpdates.usdaSymbol = String(aggregated.sourceIds.usda);
     if (aggregated.distribution?.canadianProvinces?.length) {
       aggUpdates.canadianProvinces = aggregated.distribution.canadianProvinces.map(
         (p: any) => `${p.province}: ${p.status}`

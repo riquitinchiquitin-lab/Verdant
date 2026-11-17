@@ -743,6 +743,11 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                                 label: t('lbl_cites_status') || 'CITES / Conservation',
                                                 value: lv(plant.citesStatus as any)
                                               }] : []),
+                                              ...(plant.kingdom ? [{ label: 'Kingdom', value: plant.kingdom }] : []),
+                                              ...(plant.clade ? [{ label: 'Division / Clade', value: plant.clade }] : []),
+                                              ...(plant.order ? [{ label: 'Order', value: plant.order }] : []),
+                                              ...(plant.subfamily ? [{ label: 'Subfamily', value: plant.subfamily }] : []),
+                                              ...(plant.infraspecificTaxa && plant.infraspecificTaxa.length > 0 ? [{ label: 'Infraspecific Taxa', value: plant.infraspecificTaxa.join(', ') }] : []),
                                               ...((plant.hardinessZoneMin || plant.hardinessZoneMax) ? [{
                                                 label: t('lbl_hardiness_zones') || 'USDA Hardiness',
                                                 value: plant.hardinessZoneMin && plant.hardinessZoneMax
@@ -757,7 +762,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                             ))}
                                         </div>
 
-                                        {(plant.trefleId || plant.opbId || plant.gbifId || plant.powoId || plant.inaturalistId || plant.iucnStatus || plant.ncsuUrl || plant.vascanId) && (
+                                        {(plant.trefleId || plant.opbId || plant.gbifId || plant.powoId || plant.inaturalistId || plant.iucnStatus || plant.ncsuUrl || plant.vascanId || plant.wfoId || plant.ipniLsid || plant.wikidataId || plant.tropicosId || plant.usdaSymbol || plant.itisTsn || plant.eppoCode) && (
                                           <div className="pt-3 border-t border-md-outline-variant/20 flex flex-wrap items-center gap-2">
                                             <span className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant mr-1">
                                               {t('lbl_taxon_links') || 'Archives'}:
@@ -827,6 +832,51 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                                 OPB: {plant.opbId}
                                               </span>
                                             )}
+                                            {plant.wfoId && (
+                                              <a
+                                                href={`https://www.worldfloraonline.org/taxon/${plant.wfoId}`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-md-surface-container-highest text-md-primary hover:bg-md-primary-container transition-colors"
+                                              >
+                                                WFO: {plant.wfoId}
+                                              </a>
+                                            )}
+                                            {plant.wikidataId && (
+                                              <a
+                                                href={`https://www.wikidata.org/wiki/${plant.wikidataId}`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-md-surface-container-highest text-md-primary hover:bg-md-primary-container transition-colors"
+                                              >
+                                                Wikidata: {plant.wikidataId}
+                                              </a>
+                                            )}
+                                            {plant.ipniLsid && (
+                                              <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-md-surface-container-highest text-md-on-surface-variant">
+                                                IPNI: {plant.ipniLsid}
+                                              </span>
+                                            )}
+                                            {plant.tropicosId && (
+                                              <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-md-surface-container-highest text-md-on-surface-variant">
+                                                Tropicos: {plant.tropicosId}
+                                              </span>
+                                            )}
+                                            {plant.usdaSymbol && (
+                                              <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-md-surface-container-highest text-md-on-surface-variant">
+                                                USDA: {plant.usdaSymbol}
+                                              </span>
+                                            )}
+                                            {plant.itisTsn && (
+                                              <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-md-surface-container-highest text-md-on-surface-variant">
+                                                ITIS: {plant.itisTsn}
+                                              </span>
+                                            )}
+                                            {plant.eppoCode && (
+                                              <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-md-surface-container-highest text-md-on-surface-variant">
+                                                EPPO: {plant.eppoCode}
+                                              </span>
+                                            )}
                                           </div>
                                         )}
                                     </section>
@@ -848,18 +898,29 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                           </div>
                                         )}
 
-                                        {(lv(plant.foliageTraits as any) || lv(plant.flowerTraits as any)) && (
+                                        {(lv(plant.foliageTraits as any) || lv(plant.flowerTraits as any) || lv(plant.fruitTraits as any) || plant.leafAreaIndex) && (
                                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                             {lv(plant.foliageTraits as any) && (
                                               <div className="p-3.5 rounded-2xl bg-md-surface-container-low border border-md-outline-variant/20 space-y-1">
-                                                <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_foliage') || 'Foliage'}</p>
+                                                <div className="flex items-center justify-between gap-2">
+                                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_foliage') || 'Foliage'}</p>
+                                                  {plant.leafAreaIndex && (
+                                                    <span className="text-[10px] font-mono font-semibold text-md-primary">LAI: {plant.leafAreaIndex}</span>
+                                                  )}
+                                                </div>
                                                 <p className="text-xs text-md-on-surface leading-relaxed">{lv(plant.foliageTraits as any)}</p>
                                               </div>
                                             )}
                                             {lv(plant.flowerTraits as any) && (
                                               <div className="p-3.5 rounded-2xl bg-md-surface-container-low border border-md-outline-variant/20 space-y-1">
-                                                <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_flowers') || 'Flowers'}</p>
+                                                <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_flowers') || 'Inflorescence & Flowers'}</p>
                                                 <p className="text-xs text-md-on-surface leading-relaxed">{lv(plant.flowerTraits as any)}</p>
+                                              </div>
+                                            )}
+                                            {lv(plant.fruitTraits as any) && (
+                                              <div className="p-3.5 rounded-2xl bg-md-surface-container-low border border-md-outline-variant/20 space-y-1 md:col-span-2">
+                                                <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">Fruit & Seed Capsule</p>
+                                                <p className="text-xs text-md-on-surface leading-relaxed">{lv(plant.fruitTraits as any)}</p>
                                               </div>
                                             )}
                                           </div>
@@ -871,6 +932,19 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                             <div className="flex flex-wrap gap-1.5">
                                               {lva(plant.nativeRegions as any).slice(0, 12).map((region, idx) => (
                                                 <span key={idx} className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-md-surface-container-highest text-md-on-surface">
+                                                  {region}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {lva(plant.introducedRegions as any)?.length > 0 && (
+                                          <div className="space-y-1.5">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">Introduced / Naturalized Range</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                              {lva(plant.introducedRegions as any).slice(0, 12).map((region, idx) => (
+                                                <span key={idx} className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-md-tertiary-container/60 text-md-on-tertiary-container">
                                                   {region}
                                                 </span>
                                               ))}
@@ -979,6 +1053,87 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                           )}
                                         </section>
                                       )}
+
+                                      {(() => {
+                                        const rows = (plant.careSpecs && plant.careSpecs.length > 0)
+                                          ? plant.careSpecs.map(s => ({
+                                              parameter: lv(s.parameter),
+                                              requirement: lv(s.requirement),
+                                              notes: lv(s.notes)
+                                            }))
+                                          : [
+                                              ...(lv(plant.windowExposure as any) || lv(plant.lightAdvice) ? [{
+                                                parameter: 'Light',
+                                                requirement: lv(plant.windowExposure as any) || (plant.minLightLux && plant.maxLightLux ? `${plant.minLightLux}–${plant.maxLightLux} Lux` : 'Bright indirect'),
+                                                notes: lv(plant.lightAdvice)
+                                              }] : []),
+                                              ...(plant.wateringInterval || lv(plant.wateringMethod as any) || lv(plant.moistureAdvice) ? [{
+                                                parameter: 'Watering',
+                                                requirement: plant.wateringInterval ? `Every ~${plant.wateringInterval} days` : 'Evenly moist',
+                                                notes: lv(plant.wateringMethod as any) || lv(plant.moistureAdvice)
+                                              }] : []),
+                                              ...((plant.minEnvHumid || plant.maxEnvHumid || lv(plant.humidityAdvice)) ? [{
+                                                parameter: 'Humidity',
+                                                requirement: plant.minEnvHumid && plant.maxEnvHumid ? `${plant.minEnvHumid}%–${plant.maxEnvHumid}% RH` : 'Moderate',
+                                                notes: lv(plant.humidityAdvice)
+                                              }] : []),
+                                              ...((plant.minTemp || plant.maxTemp || lv(plant.tempAdvice)) ? [{
+                                                parameter: 'Temperature',
+                                                requirement: plant.minTemp && plant.maxTemp ? `${plant.minTemp}°C–${plant.maxTemp}°C` : '18°C–24°C',
+                                                notes: lv(plant.tempAdvice)
+                                              }] : []),
+                                              ...((plant.minPh || plant.maxPh || plant.targetPh) ? [{
+                                                parameter: 'Soil pH',
+                                                requirement: plant.minPh && plant.maxPh ? `pH ${plant.minPh}–${plant.maxPh}` : `Target pH ${plant.targetPh}`,
+                                                notes: plant.soilComposition?.length ? plant.soilComposition.map(s => `${s.percent}% ${lv(s.component)}`).join(', ') : ''
+                                              }] : []),
+                                              ...(lv(plant.feedingSchedule as any) || plant.npkRatio || lv(plant.nutritionAdvice) ? [{
+                                                parameter: 'Fertilization',
+                                                requirement: plant.npkRatio ? `NPK ${plant.npkRatio}` : 'Growing season feed',
+                                                notes: lv(plant.feedingSchedule as any) || lv(plant.nutritionAdvice)
+                                              }] : []),
+                                              ...(lva(plant.propagationMethods as any)?.length > 0 ? [{
+                                                parameter: 'Propagation',
+                                                requirement: lva(plant.propagationMethods as any).join(', '),
+                                                notes: lv(plant.propagationInstructions)
+                                              }] : []),
+                                              ...(lva(plant.susceptiblePests as any)?.length > 0 ? [{
+                                                parameter: 'Common Pests / Issues',
+                                                requirement: lva(plant.susceptiblePests as any).join(', '),
+                                                notes: plant.troubleshooting?.[0] ? `${lv(plant.troubleshooting[0].symptom)}: ${lv(plant.troubleshooting[0].fix)}` : ''
+                                              }] : [])
+                                            ];
+
+                                        if (rows.length === 0) return null;
+
+                                        return (
+                                          <section className="bg-md-surface-container rounded-[24px] p-6 border border-md-outline-variant/25 space-y-4">
+                                            <h3 className="text-base font-bold text-md-on-surface tracking-tight">
+                                              Structured Cultivation & Care Specifications
+                                            </h3>
+                                            <div className="overflow-x-auto -mx-2 px-2">
+                                              <table className="w-full text-left border-collapse">
+                                                <thead>
+                                                  <tr className="border-b border-md-outline-variant/30 text-[10px] font-bold uppercase tracking-wider text-md-on-surface-variant">
+                                                    <th className="py-2 pr-3">Parameter</th>
+                                                    <th className="py-2 pr-3">Optimal Range / Requirement</th>
+                                                    <th className="py-2">Notes & Diagnostic Triggers</th>
+                                                  </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-md-outline-variant/20 text-xs">
+                                                  {rows.map((row, idx) => (
+                                                    <tr key={idx} className="align-top">
+                                                      <td className="py-2.5 pr-3 font-semibold text-md-primary whitespace-nowrap">{row.parameter}</td>
+                                                      <td className="py-2.5 pr-3 font-medium text-md-on-surface">{row.requirement || t('lbl_na')}</td>
+                                                      <td className="py-2.5 text-md-on-surface-variant leading-relaxed">{row.notes || '—'}</td>
+                                                    </tr>
+                                                  ))}
+                                                </tbody>
+                                              </table>
+                                            </div>
+                                          </section>
+                                        );
+                                      })()}
                                 </div>
 
                                 {/* RIGHT: TOXICITY ALERT + SOIL RECIPE PILL BARS + AI INSIGHT */}
