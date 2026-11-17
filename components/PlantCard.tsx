@@ -5,7 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { usePlants } from '../context/PlantContext';
 import { compressImage } from '../services/imageUtils';
 import { generateUUID } from '../services/crypto';
-import { Droplets, Star, Check, RefreshCw } from 'lucide-react';
+import { Droplets, Star, Check, RefreshCw, Sun, Thermometer, Wind, Globe } from 'lucide-react';
 import { refreshPlantRecord } from '../services/plantAi';
 
 interface PlantCardProps {
@@ -197,9 +197,89 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
                         {lv(plant.nickname)}
                     </h3>
                     <p className="text-md-primary font-medium text-xs md:text-sm truncate">
-                        {plant.species}
+                        <span className="italic font-serif">{plant.species}</span>
+                        {plant.scientificAuthor ? <span className="text-md-on-surface-variant font-normal ml-1">{plant.scientificAuthor}</span> : null}
                     </p>
+                    {(plant.family || lv(plant.growthHabit as any) || plant.specimenType) && (
+                        <p className="text-[11px] text-md-on-surface-variant truncate mt-0.5">
+                            {[
+                                plant.family,
+                                lv(plant.growthHabit as any) || (plant.specimenType === 'TREE' ? 'Tree' : null)
+                            ].filter(Boolean).join(' · ')}
+                        </p>
+                    )}
                 </div>
+
+                {/* QUICK BOTANICAL SPECS */}
+                {(() => {
+                    const lightText = lv(plant.windowExposure as any)
+                        || (plant.minLightLux && plant.maxLightLux ? `${plant.minLightLux}–${plant.maxLightLux} Lux` : '');
+                    const tempText = (plant.minTemp != null && plant.maxTemp != null)
+                        ? `${plant.minTemp}–${plant.maxTemp}°C`
+                        : (plant.hardinessZoneMin || plant.hardinessZoneMax)
+                            ? `Zone ${plant.hardinessZoneMin || '?'}${plant.hardinessZoneMax ? `–${plant.hardinessZoneMax}` : ''}`
+                            : '';
+                    const humidText = (plant.minEnvHumid != null && plant.maxEnvHumid != null)
+                        ? `${plant.minEnvHumid}–${plant.maxEnvHumid}% RH`
+                        : (plant.minPh != null && plant.maxPh != null)
+                            ? `pH ${plant.minPh}–${plant.maxPh}`
+                            : '';
+                    const nativeText = (plant.nativeRegions as any)?.[language]?.[0]
+                        || (plant.nativeRegions as any)?.en?.[0]
+                        || lv(plant.origin as any)
+                        || '';
+
+                    if (!lightText && !tempText && !humidText && !nativeText) return null;
+
+                    return (
+                        <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                            {lightText && (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-md-surface-container-low border border-md-outline-variant/20 truncate" title={lightText}>
+                                    <Sun className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                    <span className="truncate text-md-on-surface">{lightText}</span>
+                                </div>
+                            )}
+                            {tempText && (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-md-surface-container-low border border-md-outline-variant/20 truncate" title={tempText}>
+                                    <Thermometer className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                    <span className="truncate text-md-on-surface">{tempText}</span>
+                                </div>
+                            )}
+                            {humidText && (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-md-surface-container-low border border-md-outline-variant/20 truncate" title={humidText}>
+                                    <Wind className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                                    <span className="truncate text-md-on-surface">{humidText}</span>
+                                </div>
+                            )}
+                            {nativeText && (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-md-surface-container-low border border-md-outline-variant/20 truncate" title={nativeText}>
+                                    <Globe className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                    <span className="truncate text-md-on-surface">{nativeText}</span>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })()}
+
+                {(plant.iucnStatus || lv(plant.careDifficulty as any) || plant.droughtTolerant) && (
+                    <div className="flex flex-wrap gap-1.5">
+                        {plant.iucnStatus && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-md-tertiary-container/80 text-md-on-tertiary-container">
+                                IUCN: {plant.iucnStatus}
+                            </span>
+                        )}
+                        {lv(plant.careDifficulty as any) && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-md-surface-container-highest text-md-on-surface-variant">
+                                {lv(plant.careDifficulty as any)}
+                            </span>
+                        )}
+                        {plant.droughtTolerant && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-md-secondary-container/70 text-md-on-secondary-container">
+                                Drought Tolerant
+                            </span>
+                        )}
+                    </div>
+                )}
 
                 <div className="space-y-1.5">
                     <div className="flex justify-between items-center">
