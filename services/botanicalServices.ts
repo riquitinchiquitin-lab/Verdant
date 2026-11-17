@@ -182,3 +182,27 @@ export const lookupLocationZone = async (address: string): Promise<LocationZoneR
     return null;
   }
 };
+
+export const fetchNcsuData = async (scientificName: string) => {
+  try {
+    const response = await fetch(`${API_URL}/api/proxy/ncsu?q=${encodeURIComponent(scientificName)}`, {
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+};
+
+export const fetchVascanData = async (scientificName: string) => {
+  try {
+    const response = await fetch(`${API_URL}/api/proxy/vascan?q=${encodeURIComponent(scientificName)}`, {
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+};

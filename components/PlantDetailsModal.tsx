@@ -726,7 +726,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                             ))}
                                         </div>
 
-                                        {(plant.trefleId || plant.opbId || plant.gbifId || plant.powoId || plant.inaturalistId || plant.iucnStatus) && (
+                                        {(plant.trefleId || plant.opbId || plant.gbifId || plant.powoId || plant.inaturalistId || plant.iucnStatus || plant.ncsuUrl || plant.vascanId) && (
                                           <div className="pt-3 border-t border-md-outline-variant/20 flex flex-wrap items-center gap-2">
                                             <span className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant mr-1">
                                               {t('lbl_taxon_links') || 'Archives'}:
@@ -764,6 +764,26 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                                 className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-md-surface-container-highest text-md-primary hover:bg-md-primary-container transition-colors"
                                               >
                                                 iNaturalist
+                                              </a>
+                                            )}
+                                            {plant.ncsuUrl && (
+                                              <a
+                                                href={plant.ncsuUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-md-surface-container-highest text-md-primary hover:bg-md-primary-container transition-colors"
+                                              >
+                                                NC State
+                                              </a>
+                                            )}
+                                            {plant.vascanId && (
+                                              <a
+                                                href={`https://data.canadensys.net/vascan/taxon/${plant.vascanId}`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-md-surface-container-highest text-md-primary hover:bg-md-primary-container transition-colors"
+                                              >
+                                                VASCAN
                                               </a>
                                             )}
                                             {plant.trefleId && (
@@ -900,6 +920,32 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                               )}
                                             </div>
                                           )}
+
+                                          {plant.cultivars && plant.cultivars.length > 0 && (
+                                            <div className="space-y-1.5 pt-2 border-t border-md-outline-variant/20">
+                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">Cultivars / Varieties (NC State)</p>
+                                              <div className="flex flex-wrap gap-1.5">
+                                                {plant.cultivars.map((cv, idx) => (
+                                                  <span key={idx} className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-md-surface-container-highest text-md-on-surface">
+                                                    {cv}
+                                                  </span>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {plant.canadianProvinces && plant.canadianProvinces.length > 0 && (
+                                            <div className="space-y-1.5 pt-2 border-t border-md-outline-variant/20">
+                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">Canadian Distribution (VASCAN)</p>
+                                              <div className="flex flex-wrap gap-1.5">
+                                                {plant.canadianProvinces.map((prov, idx) => (
+                                                  <span key={idx} className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-md-secondary-container/70 text-md-on-secondary-container">
+                                                    {prov}
+                                                  </span>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          )}
                                         </section>
                                       )}
                                 </div>
@@ -922,6 +968,12 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                           <p className="text-xs text-md-on-surface-variant pt-2 border-t border-md-outline-variant/20">
                                             <span className="font-semibold uppercase tracking-wider mr-1.5">{t('lbl_human_safety') || 'Humans'}:</span>
                                             {lv(plant.humanSafety as any)}
+                                          </p>
+                                        )}
+                                        {lv(plant.toxicPrinciple as any) && (
+                                          <p className="text-xs text-md-on-surface-variant pt-2 border-t border-md-outline-variant/20">
+                                            <span className="font-semibold uppercase tracking-wider mr-1.5">Toxic Principle:</span>
+                                            {lv(plant.toxicPrinciple as any)}
                                           </p>
                                         )}
                                     </div>

@@ -1604,6 +1604,89 @@ app.get('/api/proxy/geocode', checkAuth, async (req, res) => {
   }
 });
 
+// NC State Extension Gardener Plant Toolbox Parser
+app.get('/api/proxy/ncsu', checkAuth, async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) return res.json(null);
+    const slug = String(q).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (!slug) return res.json(null);
+
+    const url = `https://plants.ces.ncsu.edu/plants/${slug}/`;
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'VerdantBotanicalOS/1.0' }
+    });
+    if (!response.ok) return res.json(null);
+    const html = await response.text();
+
+    const stripTags = (s: string) =>
+      s.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
+
+    const extractField = (label: string): string | null => {
+      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`<dt[^>]*>\\s*${escaped}\\s*:?\\s*</dt>\\s*<dd[^>]*>([\\s\\S]*?)</dd>`, 'i');
+      const match = html.match(regex);
+      if (match?.[1]) return stripTags(match[1]);
+      return null;
+    };
+
+    const cultivarMatches = [...html.matchAll(/<li[^>]*class="[^"]*cultivar[^"]*"[^>]*>([\s\S]*?)<\/li>/gi)];
+    const cultivars = cultivarMatches
+      .map(m => stripTags(m[1]).split(':')[0]?.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+
+    res.json({
+      url,
+      plantType: extractField('Plant Type'),
+      habit: extractField('Habit/Form'),
+      light: extractField('Light'),
+      soilTexture: extractField('Soil Texture'),
+      soilPh: extractField('Soil pH'),
+      soilDrainage: extractField('Soil Drainage'),
+      hardinessZones: extractField('USDA Plant Hardiness Zone'),
+      toxicPrinciple: extractField('Poison Toxic Principle'),
+      poisonSeverity: extractField('Poison Severity'),
+      poisonSymptoms: extractField('Poison Symptoms'),
+      poisonParts: extractField('Poison Part'),
+      cultivars
+    });
+  } catch {
+    res.status(500).json({ error: "NCSU_PROXY_FAULT" });
+  }
+});
+
+// VASCAN (Database of Vascular Plants of Canada - Canadensys CC0 API)
+app.get('/api/proxy/vascan', checkAuth, async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) return res.json(null);
+
+    const url = `https://data.canadensys.net/vascan/api/0.1/search.json?q=${encodeURIComponent(String(q))}`;
+    const response = await fetch(url);
+    if (!response.ok) return res.json(null);
+    const json = await response.json();
+    const match = json?.results?.[0]?.matches?.[0];
+    if (!match) return res.json(null);
+
+    const distribution = (match.distribution || [])
+      .filter((d: any) => ['native', 'introduced'].includes((d.occurrenceStatus || '').toLowerCase()))
+      .map((d: any) => `${d.locationID?.replace(/^CA-/, '') || d.locality || ''} (${d.occurrenceStatus})`)
+      .filter((s: string) => s.trim().length > 2)
+      .slice(0, 14);
+
+    res.json({
+      vascanId: match.taxonID || null,
+      habit: match.habit || null,
+      scientificName: match.scientificName || null,
+      vernacularNames: (match.vernacularNames || []).slice(0, 10),
+      distribution
+    });
+  } catch {
+    res.status(500).json({ error: "VASCAN_PROXY_FAULT" });
+  }
+});
+
 app.post('/api/proxy/gemini', checkAuth, async (req, res) => {
   try {
     const { model, contents, config, personalApiKey } = req.body;

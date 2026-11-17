@@ -2,7 +2,7 @@ import { Type } from "@google/genai";
 import { API_URL } from '../constants';
 import { generateGeminiContent } from './GeminiService';
 import { Plant, LocalizedString, LocalizedArray } from '../types';
-import { fetchTrefleData, fetchOpenPlantBookData, fetchPerenualData, searchGroundingData, fetchGbifData, fetchPowoData, fetchINaturalistData } from './botanicalServices';
+import { fetchTrefleData, fetchOpenPlantBookData, fetchPerenualData, searchGroundingData, fetchGbifData, fetchPowoData, fetchINaturalistData, fetchNcsuData, fetchVascanData } from './botanicalServices';
 import { trackUsage } from './usageService';
 import { generateUUID } from './crypto';
 
@@ -152,14 +152,16 @@ export const generatePlantDetails = async (
   const model = 'gemini-3-flash-preview';
 
   onLog?.("msg_accessing_archives", "NETWORK");
-  const [trefle, opb, perenual, grounding, gbif, powo, inat] = await Promise.all([
+  const [trefle, opb, perenual, grounding, gbif, powo, inat, ncsu, vascan] = await Promise.all([
     fetchTrefleData(scientificName).catch(() => null),
     fetchOpenPlantBookData(scientificName).catch(() => null),
     fetchPerenualData(scientificName).catch(() => null),
     searchGroundingData(`how to propagate and repot ${scientificName} successfully`).catch(() => null),
     fetchGbifData(scientificName).catch(() => null),
     fetchPowoData(scientificName).catch(() => null),
-    fetchINaturalistData(scientificName).catch(() => null)
+    fetchINaturalistData(scientificName).catch(() => null),
+    fetchNcsuData(scientificName).catch(() => null),
+    fetchVascanData(scientificName).catch(() => null)
   ]);
 
   onLog?.("msg_harmonizing_data", "GEMINI");
@@ -175,7 +177,18 @@ export const generatePlantDetails = async (
     powoLifeform: powo?.lifeform || null,
     powoNative: powo?.distribution?.natives?.slice(0, 12)?.map((n: any) => n.name) || null,
     powoSynonyms: powo?.synonyms?.slice(0, 6)?.map((s: any) => s.name) || null,
-    inatFloweringMonths: inat?.floweringHistogram || null
+    inatFloweringMonths: inat?.floweringHistogram || null,
+    ncsu: ncsu ? {
+      habit: ncsu.habit,
+      soilTexture: ncsu.soilTexture,
+      soilPh: ncsu.soilPh,
+      soilDrainage: ncsu.soilDrainage,
+      toxicPrinciple: ncsu.toxicPrinciple,
+      poisonSeverity: ncsu.poisonSeverity,
+      poisonSymptoms: ncsu.poisonSymptoms
+    } : null,
+    vascanHabit: vascan?.habit || null,
+    vascanDistribution: vascan?.distribution || null
   };
 
   const translationSchema = {
@@ -190,7 +203,7 @@ export const generatePlantDetails = async (
     - Trefle: ${JSON.stringify(trefle)}
     - OPB: ${JSON.stringify(opb)}
     - Perenual: ${JSON.stringify(perenual)}
-    - GBIF/POWO/iNaturalist: ${JSON.stringify(openSourceSummary)}
+    - GBIF/POWO/iNaturalist/NCSU/VASCAN: ${JSON.stringify(openSourceSummary)}
     - Web Grounding: ${JSON.stringify(limitedGrounding)}
     
     REQUIREMENTS:
@@ -335,6 +348,7 @@ export const generatePlantDetails = async (
               required: TARGET_LANGS
             },
             petSafety: translationSchema,
+            toxicPrinciple: translationSchema,
             origin: translationSchema,
             distribution: translationSchema,
             lightAdvice: translationSchema,
@@ -368,7 +382,13 @@ export const generatePlantDetails = async (
     const fallbackApiImage = opb?.image_url || trefle?.image_url || perenual?.default_image?.medium_url || perenual?.default_image?.regular_url || inat?.taxon?.default_photo?.medium_url;
     const catEn = (parsed?.category?.en || '').toLowerCase();
     const habitEn = (parsed?.growthHabit?.en || '').toLowerCase();
-    const inferredSpecimenType: 'PLANT' | 'TREE' = (catEn.includes('tree') || habitEn.includes('tree') || (powo?.lifeform || '').toLowerCase().includes('tree')) ? 'TREE' : 'PLANT';
+    const inferredSpecimenType: 'PLANT' | 'TREE' = (
+      catEn.includes('tree') ||
+      habitEn.includes('tree') ||
+      (powo?.lifeform || '').toLowerCase().includes('tree') ||
+      (vascan?.habit || '').toLowerCase().includes('tree') ||
+      (ncsu?.plantType || '').toLowerCase().includes('tree')
+    ) ? 'TREE' : 'PLANT';
     return createPlant({
         ...parsed,
         trefleId: trefle?.id,
@@ -378,6 +398,10 @@ export const generatePlantDetails = async (
         powoId: powo?.fqId || null,
         iucnStatus: gbif?.iucnCategory || null,
         inaturalistId: inat?.inaturalistId || null,
+        ncsuUrl: ncsu?.url || null,
+        vascanId: vascan?.vascanId || null,
+        cultivars: ncsu?.cultivars || [],
+        canadianProvinces: vascan?.distribution || [],
         specimenType: inferredSpecimenType,
         images: base64Image ? [base64Image] : (fallbackApiImage ? [fallbackApiImage] : [])
     });
@@ -507,7 +531,12 @@ export const createPlant = (data: Partial<Plant>): Plant => {
 
     specimenType: data.specimenType || 'PLANT',
     iucnStatus: data.iucnStatus || null,
-    inaturalistId: data.inaturalistId || null
+    inaturalistId: data.inaturalistId || null,
+    ncsuUrl: data.ncsuUrl || null,
+    vascanId: data.vascanId || null,
+    toxicPrinciple: data.toxicPrinciple || null,
+    cultivars: data.cultivars || [],
+    canadianProvinces: data.canadianProvinces || []
   } as Plant;
 };
 

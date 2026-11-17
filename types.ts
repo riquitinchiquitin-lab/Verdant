@@ -252,6 +252,11 @@ export interface Plant {
   specimenType?: 'PLANT' | 'TREE' | null;
   iucnStatus?: string | null;
   inaturalistId?: number | null;
+  ncsuUrl?: string | null;
+  vascanId?: number | null;
+  toxicPrinciple?: LocalizedString | null;
+  cultivars?: string[];
+  canadianProvinces?: string[];
 }
 
 export type RecurrenceType = 'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY';
