@@ -709,7 +709,13 @@ export const refreshPlantRecord = async (
     if (aggregated.sourceIds?.gbif) aggUpdates.gbifId = aggregated.sourceIds.gbif;
     if (aggregated.sourceIds?.powo) aggUpdates.powoId = String(aggregated.sourceIds.powo);
     if (aggregated.sourceIds?.wfo) aggUpdates.wfoId = String(aggregated.sourceIds.wfo);
-    if (aggregated.sourceIds?.usda) aggUpdates.usdaSymbol = String(aggregated.sourceIds.usda);
+    if (aggregated.sourceIds?.usdaSymbol) aggUpdates.usdaSymbol = String(aggregated.sourceIds.usdaSymbol);
+    if (aggregated.sourceIds?.wikidata) aggUpdates.wikidataId = String(aggregated.sourceIds.wikidata);
+    if (aggregated.sourceIds?.ipniLsid) aggUpdates.ipniLsid = String(aggregated.sourceIds.ipniLsid);
+    if (aggregated.sourceIds?.tropicos) aggUpdates.tropicosId = String(aggregated.sourceIds.tropicos);
+    if (aggregated.sourceIds?.itisTsn) aggUpdates.itisTsn = String(aggregated.sourceIds.itisTsn);
+    if (aggregated.sourceIds?.eppoCode) aggUpdates.eppoCode = String(aggregated.sourceIds.eppoCode);
+    if (aggregated.sourceIds?.inaturalist) aggUpdates.inaturalistId = Number(aggregated.sourceIds.inaturalist);
     if (aggregated.distribution?.canadianProvinces?.length) {
       aggUpdates.canadianProvinces = aggregated.distribution.canadianProvinces.map(
         (p: any) => `${p.province}: ${p.status}`

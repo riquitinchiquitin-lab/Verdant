@@ -107,6 +107,12 @@ export interface BotanicalSpecies {
     openfarm?: string | null;
     bgci?: string | null;
     trySpeciesId?: string | null;
+    wikidata?: string | null;
+    ipniLsid?: string | null;
+    tropicos?: string | null;
+    itisTsn?: string | null;
+    eppoCode?: string | null;
+    inaturalist?: number | null;
   };
 
   provenance: Record<string, BotanicalProvenance>;

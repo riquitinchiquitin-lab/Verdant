@@ -8,6 +8,8 @@ import { NrcanTreeProvider } from '../providers/NrcanTreeProvider';
 import { BgciTryProvider } from '../providers/BgciTryProvider';
 import { HorticulturalProvider } from '../providers/HorticulturalProvider';
 import { MunicipalForestryProvider } from '../providers/MunicipalForestryProvider';
+import { WikidataWikipediaProvider } from '../providers/WikidataWikipediaProvider';
+import { INaturalistPlantSolveProvider } from '../providers/INaturalistPlantSolveProvider';
 
 const dedupeStrings = (arr: (string | null | undefined)[]): string[] => {
   const seen = new Set<string>();
@@ -39,6 +41,8 @@ export class BotanicalAggregatorService {
   readonly bgciTry: BgciTryProvider;
   readonly horticultural: HorticulturalProvider;
   readonly municipal: MunicipalForestryProvider;
+  readonly wikidata: WikidataWikipediaProvider;
+  readonly inaturalist: INaturalistPlantSolveProvider;
   readonly providers: BotanicalProvider[];
 
   constructor(cache?: CacheStore) {
@@ -51,6 +55,8 @@ export class BotanicalAggregatorService {
     this.bgciTry = new BgciTryProvider(this.cache);
     this.horticultural = new HorticulturalProvider(this.cache);
     this.municipal = new MunicipalForestryProvider(this.cache);
+    this.wikidata = new WikidataWikipediaProvider(this.cache);
+    this.inaturalist = new INaturalistPlantSolveProvider(this.cache);
 
     this.providers = [
       this.powo,
@@ -59,6 +65,8 @@ export class BotanicalAggregatorService {
       this.gbif,
       this.nrcan,
       this.bgciTry,
+      this.wikidata,
+      this.inaturalist,
       this.horticultural,
       this.municipal,
     ];
