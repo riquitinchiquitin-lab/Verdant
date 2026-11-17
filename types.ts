@@ -221,6 +221,22 @@ export interface Plant {
     medicinal?: boolean;
     invasive?: boolean;
   };
+
+  // --- 9. PLANT BOOK / FIELD GUIDE MONOGRAPH ---
+  growthHabit?: LocalizedString | null;
+  maxSpread?: number | null; // cm
+  lifespan?: LocalizedString | null;
+  etymology?: LocalizedString | null;
+  naturalHabitat?: LocalizedString | null;
+  specialFeatures?: LocalizedArray;
+  wateringMethod?: LocalizedString | null;
+  feedingSchedule?: LocalizedString | null;
+  trainingAdvice?: LocalizedString | null;
+  troubleshooting?: {
+    symptom: LocalizedString;
+    cause: LocalizedString;
+    fix: LocalizedString;
+  }[];
 }
 
 export type RecurrenceType = 'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY';

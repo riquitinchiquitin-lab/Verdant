@@ -182,15 +182,16 @@ export const generatePlantDetails = async (
     - Web Grounding: ${JSON.stringify(limitedGrounding)}
     
     REQUIREMENTS:
-    1. Extract: species, scientificAuthor, rank, family, genus, category, growthRate, maxHeight (cm), avgHeight (cm), flowers (bool), edible (bool), vegetable (bool), droughtTolerant (bool, from Perenual drought_tolerant or species traits), synonyms (array of botanical synonym strings from Trefle).
+    1. Extract: species, scientificAuthor, rank, family, genus, category, growthRate, maxHeight (cm), maxSpread (cm, mature width), avgHeight (cm), flowers (bool), edible (bool), vegetable (bool), droughtTolerant (bool, from Perenual drought_tolerant or species traits), synonyms (array of botanical synonym strings from Trefle).
     2. Specs: min/max moisture (%), temp (C), light (Lux), soil EC (minSoilEc, maxSoilEc), humidity (minEnvHumid, maxEnvHumid %), minPh & maxPh (from Trefle main_species.growth.ph_minimum/ph_maximum), minRootDepthCm (from Trefle minimum_root_depth.cm), frostFreeDaysMin (from Trefle frost_free_days_minimum), hardinessZoneMin & hardinessZoneMax (from Perenual hardiness.min/max).
     3. Care & Seasonal Cadence: Estimate 'wateringInterval' (days), 'summerWateringInterval' (days), 'winterWateringInterval' (days), 'repottingFrequency' (months), 'careDifficulty' (Easy/Moderate/Challenging from Perenual care_level), 'windowExposure' (e.g. South / West Bright Indirect from Perenual sunlight), 'potMaterial' (recommended pot material, e.g. Terracotta or Glazed Ceramic), 'dormancyPeriod' (e.g. Winter or None), 'npkRatio' (e.g. "2-7-7" or "10-10-10 Half Strength"), 'bloomSeason' (from Trefle bloom_months or Perenual flowering_season), 'pruningMonths' (from Perenual pruning_month).
     4. Lifecycle, Morphology & Ecology: Synthesize 'propagationMethods' (localized array of strings), 'susceptiblePests' (localized array from Perenual pest_susceptibility or species profile), 'attracts' (localized array of pollinators/wildlife from Perenual attracts), 'nativeRegions' (localized array from Trefle distribution.native), 'foliageTraits' & 'flowerTraits' (concise localized descriptions from Trefle foliage/flower), 'ecologicalFlags' ({ indoor, tropical, thorny, saltTolerant, medicinal, invasive } booleans from Perenual), a detailed 'propagationInstructions' (localized string), and 'repottingInstructions' (localized string). Include 'lastPotSize' (string) and 'citesStatus' (Appendix I, II, or III).
-    5. Technical: Suggest 'targetPh', 'targetEc', 'targetVpd', 'targetDli' (use OPB min_light_mmol/max_light_mmol to inform DLI if available).
-    6. Localization: Translate ALL localized text fields into these 11 codes: ${TARGET_LANGS.join(',')}.
-    7. Toxicity: Detail pet-safety in 'petSafety' (isPetSafe bool from Perenual poisonous_to_pets) AND human-safety in 'humanSafety' (isHumanSafe bool from Perenual poisonous_to_humans).
-    8. Soil: Breakdown 'soilComposition' into percentages with localized component names.
-    9. Insights: Provide a unique 'aiInsight' about this specimen.
+    5. Plant Book / Field Guide Monograph: Provide 'growthHabit' (localized string, e.g. Epiphytic climber, Rosette succulent), 'lifespan' (localized string, e.g. Evergreen Perennial), 'etymology' (localized 1-sentence origin/meaning of the Latin name), 'naturalHabitat' (localized biome/elevation description), 'specialFeatures' (localized array of 2-4 traits like Fragrant, Variegated, Air-purifying), 'wateringMethod' (localized string detailing soak-and-dry vs bottom-water & tap/rainwater sensitivity), 'feedingSchedule' (localized string detailing spring/summer vs winter cadence), 'trainingAdvice' (localized string on staking, moss pole, or pinching), and 'troubleshooting' (array of 3 common Symptom -> Cause -> Fix objects with localized strings).
+    6. Technical: Suggest 'targetPh', 'targetEc', 'targetVpd', 'targetDli' (use OPB min_light_mmol/max_light_mmol to inform DLI if available).
+    7. Localization: Translate ALL localized text fields into these 11 codes: ${TARGET_LANGS.join(',')}.
+    8. Toxicity: Detail pet-safety in 'petSafety' (isPetSafe bool from Perenual poisonous_to_pets) AND human-safety in 'humanSafety' (isHumanSafe bool from Perenual poisonous_to_humans).
+    9. Soil: Breakdown 'soilComposition' into percentages with localized component names.
+    10. Insights: Provide a unique 'aiInsight' about this specimen.
   `;
 
   try {
@@ -213,6 +214,7 @@ export const generatePlantDetails = async (
             category: translationSchema,
             growthRate: translationSchema,
             maxHeight: { type: Type.INTEGER },
+            maxSpread: { type: Type.INTEGER },
             avgHeight: { type: Type.INTEGER },
             flowers: { type: Type.BOOLEAN },
             edible: { type: Type.BOOLEAN },
@@ -252,6 +254,29 @@ export const generatePlantDetails = async (
             foliageTraits: translationSchema,
             flowerTraits: translationSchema,
             humanSafety: translationSchema,
+            growthHabit: translationSchema,
+            lifespan: translationSchema,
+            etymology: translationSchema,
+            naturalHabitat: translationSchema,
+            wateringMethod: translationSchema,
+            feedingSchedule: translationSchema,
+            trainingAdvice: translationSchema,
+            specialFeatures: {
+              type: Type.OBJECT,
+              properties: TARGET_LANGS.reduce((a:any, l) => ({...a, [l]: {type: Type.ARRAY, items: {type: Type.STRING}}}), {}),
+              required: TARGET_LANGS
+            },
+            troubleshooting: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  symptom: translationSchema,
+                  cause: translationSchema,
+                  fix: translationSchema
+                }
+              }
+            },
             susceptiblePests: {
               type: Type.OBJECT,
               properties: TARGET_LANGS.reduce((a:any, l) => ({...a, [l]: {type: Type.ARRAY, items: {type: Type.STRING}}}), {}),
@@ -447,7 +472,18 @@ export const createPlant = (data: Partial<Plant>): Plant => {
     attracts: data.attracts || emptyLocalizedArray,
     nativeRegions: data.nativeRegions || emptyLocalizedArray,
     synonyms: data.synonyms || [],
-    ecologicalFlags: data.ecologicalFlags || {}
+    ecologicalFlags: data.ecologicalFlags || {},
+
+    maxSpread: data.maxSpread || null,
+    growthHabit: data.growthHabit || null,
+    lifespan: data.lifespan || null,
+    etymology: data.etymology || null,
+    naturalHabitat: data.naturalHabitat || null,
+    specialFeatures: data.specialFeatures || emptyLocalizedArray,
+    wateringMethod: data.wateringMethod || null,
+    feedingSchedule: data.feedingSchedule || null,
+    trainingAdvice: data.trainingAdvice || null,
+    troubleshooting: data.troubleshooting || []
   } as Plant;
 };
 
