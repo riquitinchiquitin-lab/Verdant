@@ -206,3 +206,16 @@ export const fetchVascanData = async (scientificName: string) => {
     return null;
   }
 };
+
+export const fetchAggregatedSpeciesData = async (query: string) => {
+  try {
+    const response = await fetch(`${API_URL}/api/aggregator/species?q=${encodeURIComponent(query)}`, {
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+};
+

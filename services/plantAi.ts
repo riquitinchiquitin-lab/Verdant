@@ -2,7 +2,7 @@ import { Type } from "@google/genai";
 import { API_URL } from '../constants';
 import { generateGeminiContent } from './GeminiService';
 import { Plant, LocalizedString, LocalizedArray } from '../types';
-import { fetchTrefleData, fetchOpenPlantBookData, fetchPerenualData, searchGroundingData, fetchGbifData, fetchPowoData, fetchINaturalistData, fetchNcsuData, fetchVascanData } from './botanicalServices';
+import { fetchTrefleData, fetchOpenPlantBookData, fetchPerenualData, searchGroundingData, fetchGbifData, fetchPowoData, fetchINaturalistData, fetchNcsuData, fetchVascanData, fetchAggregatedSpeciesData } from './botanicalServices';
 import { trackUsage } from './usageService';
 import { generateUUID } from './crypto';
 
@@ -615,3 +615,78 @@ export const analyzePlantHealth = async (
     return null;
   }
 };
+
+/**
+ * 5. Refresh Botanical Data for an existing Plant or Tree
+ * Queries the unified Botanical Aggregator & AI Harmonizer while preserving user logs, photos, and house assignment.
+ */
+export const refreshPlantRecord = async (
+  plant: Plant,
+  apiKey?: string
+): Promise<Partial<Plant>> => {
+  const query = (plant.species || plant.nickname?.en || Object.values(plant.nickname || {})[0] || '').trim();
+  if (!query) {
+    throw new Error('Species or plant name is required to refresh botanical data.');
+  }
+
+  const [aggregated, aiDetails] = await Promise.all([
+    fetchAggregatedSpeciesData(query).catch(() => null),
+    generatePlantDetails(query, undefined, undefined, apiKey).catch(() => null)
+  ]);
+
+  if (!aggregated && !aiDetails) {
+    throw new Error(`Could not retrieve updated botanical data for "${query}".`);
+  }
+
+  const aggUpdates: Partial<Plant> = {};
+  if (aggregated) {
+    if (aggregated.scientificName) aggUpdates.species = aggregated.scientificName;
+    if (aggregated.authority) aggUpdates.scientificAuthor = aggregated.authority;
+    if (aggregated.family) aggUpdates.family = aggregated.family;
+    if (aggregated.genus) aggUpdates.genus = aggregated.genus;
+    if (Array.isArray(aggregated.synonyms) && aggregated.synonyms.length > 0) {
+      aggUpdates.synonyms = aggregated.synonyms;
+    }
+    if (aggregated.traits?.hardinessZoneMin) aggUpdates.hardinessZoneMin = String(aggregated.traits.hardinessZoneMin);
+    if (aggregated.traits?.hardinessZoneMax) aggUpdates.hardinessZoneMax = String(aggregated.traits.hardinessZoneMax);
+    if (aggregated.traits?.droughtTolerant !== undefined && aggregated.traits?.droughtTolerant !== null) {
+      aggUpdates.droughtTolerant = Boolean(aggregated.traits.droughtTolerant);
+    }
+    if (aggregated.traits?.soilPhMin !== undefined) aggUpdates.minPh = aggregated.traits.soilPhMin;
+    if (aggregated.traits?.soilPhMax !== undefined) aggUpdates.maxPh = aggregated.traits.soilPhMax;
+    if (aggregated.conservation?.iucnCategory) aggUpdates.iucnStatus = aggregated.conservation.iucnCategory;
+    if (aggregated.sourceIds?.vascan) {
+      const parsedVascan = Number(aggregated.sourceIds.vascan);
+      if (Number.isFinite(parsedVascan)) aggUpdates.vascanId = parsedVascan;
+    }
+    if (aggregated.distribution?.canadianProvinces?.length) {
+      aggUpdates.canadianProvinces = aggregated.distribution.canadianProvinces.map(
+        (p: any) => `${p.province}: ${p.status}`
+      );
+    }
+  }
+
+  const merged: Partial<Plant> = {
+    ...(aiDetails || {}),
+    ...aggUpdates,
+    // Preserve user-owned & specimen-identity fields
+    nickname: plant.nickname,
+    images: plant.images,
+    logs: plant.logs,
+    houseId: plant.houseId,
+    room: plant.room,
+    provenance: plant.provenance,
+    lastWatered: plant.lastWatered,
+    lastRotated: plant.lastRotated,
+    lastPotSize: plant.lastPotSize,
+    lastPotSizeCm: plant.lastPotSizeCm,
+    lastPotSizeInches: plant.lastPotSizeInches,
+    isPriority: plant.isPriority,
+    specimenType: plant.specimenType,
+    updatedAt: new Date().toISOString(),
+    lastModified: new Date().toISOString(),
+  };
+
+  return merged;
+};
+

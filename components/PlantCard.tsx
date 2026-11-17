@@ -5,7 +5,8 @@ import { useLanguage } from '../context/LanguageContext';
 import { usePlants } from '../context/PlantContext';
 import { compressImage } from '../services/imageUtils';
 import { generateUUID } from '../services/crypto';
-import { Droplets, Star, Check } from 'lucide-react';
+import { Droplets, Star, Check, RefreshCw } from 'lucide-react';
+import { refreshPlantRecord } from '../services/plantAi';
 
 interface PlantCardProps {
   plant: Partial<Plant>;
@@ -16,7 +17,7 @@ interface PlantCardProps {
 
 export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', showActions = true, onClick }) => {
   const { t, language, lv } = useLanguage();
-  const { addLog, updatePlant, deletePlant, setAlertMessage } = usePlants();
+  const { addLog, updatePlant, deletePlant, setAlertMessage, getEffectiveApiKey } = usePlants();
 
   const MiniPill = ({ 
       label, 
@@ -60,6 +61,7 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
   };
 
   const [isUploading, setIsUploading] = useState<'AVATAR' | 'LOG' | null>(null);
+  const [isRefreshingData, setIsRefreshingData] = useState(false);
   const [lastLoggedAction, setLastLoggedAction] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -215,11 +217,11 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
                 </div>
 
                 {showActions && (
-                    <div className="mt-auto pt-1">
+                    <div className="mt-auto pt-1 flex items-center gap-2">
                         <Button 
                             variant={lastLoggedAction === 'WATER' ? 'primary' : status.daysLeft === 0 ? 'danger' : 'tonal'}
                             size="md"
-                            className="w-full"
+                            className="flex-1"
                             onClick={async (e) => { 
                                 e.stopPropagation(); 
                                 await addLog(plant.id!, { id: `l-${generateUUID()}`, date: new Date().toISOString(), type: 'WATER' }); 
@@ -234,6 +236,35 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
                             {lastLoggedAction === 'WATER' ? <Check className="w-4 h-4" /> : <Droplets className="w-4 h-4" />}
                             <span>{t('log_action_watered') || 'Water'}</span>
                         </Button>
+                        {plant.id && (
+                            <Button
+                                variant="outlined"
+                                size="md"
+                                disabled={isRefreshingData}
+                                title={t('btn_refresh_ai') || 'Refresh Botanical Data'}
+                                aria-label={t('btn_refresh_ai') || 'Refresh Botanical Data'}
+                                className="px-3 shrink-0"
+                                onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (isRefreshingData || !plant.id) return;
+                                    setIsRefreshingData(true);
+                                    try {
+                                        const updates = await refreshPlantRecord(plant as Plant, getEffectiveApiKey());
+                                        await updatePlant(plant.id, updates);
+                                        setAlertMessage(`Botanical data refreshed for ${lv(plant.nickname) || plant.species}`);
+                                        setTimeout(() => setAlertMessage(null), 4000);
+                                    } catch (err: any) {
+                                        console.error('Failed to refresh botanical data:', err);
+                                        setAlertMessage(err?.message || 'Failed to refresh botanical data');
+                                        setTimeout(() => setAlertMessage(null), 4000);
+                                    } finally {
+                                        setIsRefreshingData(false);
+                                    }
+                                }}
+                            >
+                                <RefreshCw className={`w-4 h-4 ${isRefreshingData ? 'animate-spin text-md-primary' : ''}`} />
+                            </Button>
+                        )}
                     </div>
                 )}
             </div>

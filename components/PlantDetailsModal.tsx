@@ -25,6 +25,7 @@ import { translateInput } from '../services/translationService';
 import { generateUUID } from '../services/crypto';
 import { getShortBarcodeId } from '../services/barcodeService';
 import { checkPlantCompatibility } from '../utils/compatibility';
+import { refreshPlantRecord } from '../services/plantAi';
 
 interface PlantDetailsModalProps {
   isOpen: boolean;
@@ -171,6 +172,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
   const [lastLoggedAction, setLastLoggedAction] = useState<LogType | null>(null);
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
   const [isTogglingPriority, setIsTogglingPriority] = useState(false);
+  const [isRefreshingData, setIsRefreshingData] = useState(false);
   const [showMoreActions, setShowMoreActions] = useState(false);
   
   
@@ -371,6 +373,23 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
       console.error("Failed to toggle priority:", e);
     } finally {
       setIsTogglingPriority(false);
+    }
+  };
+
+  const handleRefreshPlantData = async () => {
+    if (isRefreshingData || !plant) return;
+    setIsRefreshingData(true);
+    try {
+      const updates = await refreshPlantRecord(plant, getEffectiveApiKey());
+      await updatePlant(plant.id, updates);
+      setAlertMessage(`Botanical data refreshed for ${lv(plant.nickname) || plant.species}`);
+      setTimeout(() => setAlertMessage(null), 4000);
+    } catch (e: any) {
+      console.error('Failed to refresh botanical data:', e);
+      setAlertMessage(e?.message || 'Failed to refresh botanical data');
+      setTimeout(() => setAlertMessage(null), 4000);
+    } finally {
+      setIsRefreshingData(false);
     }
   };
 
@@ -585,6 +604,17 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                     </motion.button>
 
                     <div className="flex items-center gap-2 ml-auto">
+                      <motion.button
+                        whileTap={{ scale: 0.94 }}
+                        onClick={handleRefreshPlantData}
+                        disabled={isRefreshingData}
+                        title={t('btn_refresh_ai') || 'Refresh Botanical Data'}
+                        aria-label={t('btn_refresh_ai') || 'Refresh Botanical Data'}
+                        className="m3-state-layer h-11 px-3.5 rounded-full bg-md-surface-container-high border border-md-outline-variant/30 text-md-on-surface-variant hover:text-md-primary flex items-center gap-1.5 text-xs font-semibold transition-colors disabled:opacity-60"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${isRefreshingData ? 'animate-spin text-md-primary' : ''}`} />
+                        <span className="hidden sm:inline">{isRefreshingData ? 'Refreshing...' : 'Refresh'}</span>
+                      </motion.button>
                       <motion.button
                         whileTap={{ scale: 0.94 }}
                         onClick={() => setIsAddingPhoto(true)}
