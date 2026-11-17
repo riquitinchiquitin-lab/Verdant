@@ -1,8 +1,11 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Camera, ImagePlus, PenLine, Sprout, AlertTriangle, Plus, X, RotateCcw } from 'lucide-react';
+import { Camera, ImagePlus, PenLine, Sprout, AlertTriangle, Plus, X, RotateCcw, Printer, Download, Zap, CheckCircle2 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
 import { identifyPlantWithPlantNet, identifyPlantWithGemini, generatePlantDetails, createPlant } from '../services/plantAi';
+import { fetchAggregatedSpeciesData } from '../services/botanicalServices';
+import { printLabelsToNiimbotD110, getShortBarcodeId } from '../services/barcodeService';
+import { exportPlantsToNiimbotExcel } from '../services/exportService';
 import { translateInput } from '../services/translationService';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
@@ -22,7 +25,7 @@ interface AddPlantModalProps {
   onSave: (plant: Plant) => Promise<void> | void;
 }
 
-type ScanMode = 'CHOICE' | 'SPECIMENS' | 'CAMERA' | 'PROCESSING' | 'REVIEW' | 'MANUAL';
+type ScanMode = 'CHOICE' | 'SPECIMENS' | 'CAMERA' | 'PROCESSING' | 'REVIEW' | 'MANUAL' | 'DONE';
 
 interface ProtocolLog {
   timestamp: string;
@@ -62,6 +65,11 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [quickSpecies, setQuickSpecies] = useState('');
+  const [quickSpecimenType, setQuickSpecimenType] = useState<'PLANT' | 'TREE'>('PLANT');
+  const [savedPlant, setSavedPlant] = useState<Plant | null>(null);
+  const [isPrintingLabel, setIsPrintingLabel] = useState(false);
+  const [printStatus, setPrintStatus] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const manualFileInputRef = useRef<HTMLInputElement>(null);
@@ -138,6 +146,11 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
     setCompatibleItems([]);
     setError(null);
     setIsBusy(false);
+    setQuickSpecies('');
+    setQuickSpecimenType('PLANT');
+    setSavedPlant(null);
+    setIsPrintingLabel(false);
+    setPrintStatus(null);
   };
 
   const initiateSync = async () => {
@@ -277,29 +290,96 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
     }
   };
 
-  const handleSave = async () => {
-    if (!identifiedPlant) return;
-    setProcessingContext('SAVE');
-    setScanMode('PROCESSING');
+  const handlePrintSavedLabel = async (plantToPrint: Plant) => {
+    if (isPrintingLabel) return;
+    setIsPrintingLabel(true);
+    setPrintStatus('Connecting to Niimbot D110...');
+    try {
+      await printLabelsToNiimbotD110([plantToPrint], lv, (info) => {
+        setPrintStatus(info.message || (info.page ? `Printing ${info.page}/${info.total}...` : 'Printing...'));
+      });
+      setPrintStatus('Label printed successfully!');
+    } catch (err: any) {
+      console.error('Label print failed:', err);
+      setPrintStatus(err?.message || 'Bluetooth printer not connected. You can download the Excel label instead.');
+    } finally {
+      setIsPrintingLabel(false);
+    }
+  };
+
+  const handleQuickAdd = async (speciesInput?: string, printAfter = false) => {
+    const query = (speciesInput ?? quickSpecies).trim();
+    if (!query || isBusy) return;
     setIsBusy(true);
     setError(null);
-    setLogs([]);
-    addLog(t('status_saving_specimen'), 'SYSTEM', 'SYSTEM', 'SAVING_START');
+    try {
+      const agg = await fetchAggregatedSpeciesData(query).catch(() => null);
+      const commonName = agg?.commonNames?.en?.[0] || query;
+      const newPlant = createPlant({
+        species: agg?.scientificName || query,
+        scientificAuthor: agg?.authority || null,
+        family: agg?.family || null,
+        genus: agg?.genus || null,
+        synonyms: agg?.synonyms || [],
+        specimenType: agg?.specimenType === 'TREE' ? 'TREE' : quickSpecimenType,
+        nickname: { en: commonName, [language]: commonName },
+        hardinessZoneMin: agg?.traits?.hardinessZoneMin ? String(agg.traits.hardinessZoneMin) : null,
+        hardinessZoneMax: agg?.traits?.hardinessZoneMax ? String(agg.traits.hardinessZoneMax) : null,
+        droughtTolerant: agg?.traits?.droughtTolerant ?? false,
+        iucnStatus: agg?.conservation?.iucnCategory || null,
+        gbifId: agg?.sourceIds?.gbif || null,
+        powoId: agg?.sourceIds?.powo || null,
+        wfoId: agg?.sourceIds?.wfo || null,
+        vascanId: agg?.sourceIds?.vascan ? Number(agg.sourceIds.vascan) : null,
+        wikidataId: agg?.sourceIds?.wikidata || null,
+        inaturalistId: agg?.sourceIds?.inaturalist ? Number(agg.sourceIds.inaturalist) : null,
+        images: specimenImages,
+        houseId: isAdmin ? selectedHouseId : (user?.houseId || null),
+        id: `p-${generateUUID()}`,
+        createdAt: new Date().toISOString(),
+        provenance: {
+          nursery,
+          dateOfPurchase,
+          cost: cost ?? undefined,
+          currency
+        }
+      });
+
+      await onSave(newPlant);
+      setSavedPlant(newPlant);
+      setScanMode('DONE');
+      if (printAfter) {
+        void handlePrintSavedLabel(newPlant);
+      }
+    } catch (err: any) {
+      console.error('Quick add failure:', err);
+      setError(err?.message || t('msg_uplink_fault'));
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleSave = async (printAfter = false) => {
+    if (!identifiedPlant || isBusy) return;
+    setIsBusy(true);
+    setError(null);
     try {
       const apiKey = getEffectiveApiKey();
-
-      addLog(t('lbl_translating'), 'NETWORK', 'NETWORK', 'TRANSLATING');
       const trimmedNickname = editNickname.trim();
+      const existingNickname = lv(identifiedPlant.nickname).trim();
+
       const [nicknameObj, roomObj] = await Promise.all([
-        trimmedNickname
-          ? translateInput(trimmedNickname, language, apiKey)
-          : Promise.resolve(identifiedPlant.nickname || { en: identifiedPlant.species || 'Plant' }),
-        editRoom.trim() ? translateInput(editRoom.trim(), language, apiKey) : Promise.resolve(null)
+        !trimmedNickname
+          ? Promise.resolve(identifiedPlant.nickname || { en: identifiedPlant.species || 'Plant' })
+          : trimmedNickname === existingNickname && identifiedPlant.nickname
+            ? Promise.resolve(identifiedPlant.nickname)
+            : translateInput(trimmedNickname, language, apiKey).catch(() => ({ en: trimmedNickname, [language]: trimmedNickname })),
+        editRoom.trim()
+          ? translateInput(editRoom.trim(), language, apiKey).catch(() => ({ en: editRoom.trim(), [language]: editRoom.trim() }))
+          : Promise.resolve(null)
       ]);
 
-      addLog(t('status_finalizing_translations'), 'SYSTEM', 'SYSTEM', 'FINALIZING');
-
-      await onSave({
+      const newPlant: Plant = {
         ...identifiedPlant,
         id: `p-${generateUUID()}`,
         nickname: nicknameObj,
@@ -317,9 +397,14 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
           cost,
           currency
         }
-      } as Plant);
-      onClose();
-      reset();
+      } as Plant;
+
+      await onSave(newPlant);
+      setSavedPlant(newPlant);
+      setScanMode('DONE');
+      if (printAfter) {
+        void handlePrintSavedLabel(newPlant);
+      }
     } catch (err: any) {
       console.error('Save failure:', err);
       setError(err?.message || t('msg_uplink_fault'));
@@ -337,7 +422,73 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
       <div className="space-y-6 max-h-[85vh] overflow-y-auto no-scrollbar px-1 pb-4 font-sans">
         {scanMode === 'CHOICE' && (
           <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-            <div className="text-center py-4 space-y-2.5">
+            {/* FAST QUICK ADD */}
+            <div className="p-4 bg-md-surface-container-high border border-md-primary/30 rounded-[24px] space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-md-primary" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-md-primary">Quick Add</span>
+                </div>
+                <div className="inline-flex bg-md-surface-container rounded-full p-0.5 border border-md-outline-variant/30">
+                  {(['PLANT', 'TREE'] as const).map(type => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setQuickSpecimenType(type)}
+                      className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${
+                        quickSpecimenType === type
+                          ? 'bg-md-primary text-md-on-primary'
+                          : 'text-md-on-surface-variant hover:text-md-on-surface'
+                      }`}
+                    >
+                      {type === 'TREE' ? 'Tree' : 'Plant'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <input
+                type="text"
+                value={quickSpecies}
+                onChange={(e) => setQuickSpecies(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && quickSpecies.trim() && !isBusy) {
+                    void handleQuickAdd(quickSpecies, false);
+                  }
+                }}
+                placeholder="Enter species or common name (e.g. African Violet, Acer rubrum)..."
+                className={inputClass}
+              />
+              {error && (
+                <p className="text-xs font-semibold text-md-error px-1">⚠️ {error}</p>
+              )}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  className="flex-1"
+                  disabled={!quickSpecies.trim() || isBusy}
+                  isLoading={isBusy}
+                  onClick={() => void handleQuickAdd(quickSpecies, false)}
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>Quick Save</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="tonal"
+                  size="sm"
+                  className="flex-1"
+                  disabled={!quickSpecies.trim() || isBusy}
+                  onClick={() => void handleQuickAdd(quickSpecies, true)}
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Save & Print</span>
+                </Button>
+              </div>
+            </div>
+
+            <div className="text-center py-1 space-y-2">
               <h3 className="text-xs font-bold text-md-on-surface-variant uppercase tracking-widest">
                 {t('lbl_input_source')}
               </h3>
@@ -586,11 +737,21 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
               </div>
             </div>
 
-            <div className="flex gap-3 pt-2">
+            <div className="flex flex-wrap gap-2.5 pt-2">
               <Button variant="tonal" className="flex-1" onClick={reset}>{t('cancel')}</Button>
               <Button
+                variant="outlined"
+                className="flex-1"
+                onClick={() => void handleQuickAdd(identifiedPlant?.species || '', false)}
+                disabled={!identifiedPlant?.species?.trim() || isBusy}
+                isLoading={isBusy}
+              >
+                <Zap className="w-4 h-4" />
+                <span>Quick Save</span>
+              </Button>
+              <Button
                 variant="primary"
-                className="flex-[2]"
+                className="flex-[1.5]"
                 onClick={handleManualGenerate}
                 disabled={!identifiedPlant?.species?.trim() || isBusy}
               >
@@ -652,7 +813,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
                 <div className="flex gap-2.5 justify-center pt-1">
                   {processingContext === 'SAVE' ? (
                     <>
-                      <Button variant="tonal" size="sm" onClick={handleSave}>
+                      <Button variant="tonal" size="sm" onClick={() => void handleSave(false)}>
                         <RotateCcw className="w-3.5 h-3.5" />
                         {t('btn_retry')}
                       </Button>
@@ -870,9 +1031,72 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
               </div>
             )}
 
-            <div className="flex gap-3 pt-2">
+            <div className="flex flex-wrap gap-2.5 pt-2">
               <Button variant="tonal" className="flex-1" onClick={reset}>{t('cancel')}</Button>
-              <Button variant="primary" className="flex-[2]" onClick={handleSave} disabled={isBusy}>{t('btn_confirm_specimen')}</Button>
+              <Button variant="outlined" className="flex-1" onClick={() => void handleSave(false)} isLoading={isBusy} disabled={isBusy}>
+                {t('btn_confirm_specimen')}
+              </Button>
+              <Button variant="primary" className="flex-[1.5]" onClick={() => void handleSave(true)} isLoading={isBusy} disabled={isBusy}>
+                <Printer className="w-4 h-4" />
+                <span>Save & Print Label</span>
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {scanMode === 'DONE' && savedPlant && (
+          <div className="py-6 px-2 space-y-6 text-center animate-in fade-in zoom-in-95 duration-300">
+            <div className="w-16 h-16 rounded-full bg-md-primary-container text-md-on-primary-container flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-8 h-8" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-xl font-bold text-md-on-surface tracking-tight">
+                {lv(savedPlant.nickname) || savedPlant.species} Added
+              </h3>
+              <p className="text-sm italic font-serif text-md-primary">{savedPlant.species}</p>
+              <p className="text-xs font-mono text-md-on-surface-variant pt-1">
+                Barcode ID: {getShortBarcodeId(savedPlant.id)}
+              </p>
+            </div>
+
+            {printStatus && (
+              <div className="p-3 rounded-2xl bg-md-surface-container-high border border-md-outline-variant/30 text-xs font-medium text-md-on-surface">
+                {printStatus}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Button
+                type="button"
+                variant="primary"
+                isLoading={isPrintingLabel}
+                onClick={() => void handlePrintSavedLabel(savedPlant)}
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print Label (Niimbot D110)</span>
+              </Button>
+              <Button
+                type="button"
+                variant="tonal"
+                onClick={() => {
+                  const name = (lv(savedPlant.nickname) || savedPlant.species || 'label').replace(/[^a-z0-9_-]+/gi, '_');
+                  exportPlantsToNiimbotExcel([savedPlant], lv, `verdant_${name}_label.xlsx`);
+                  setPrintStatus('Label spreadsheet downloaded (.xlsx)');
+                }}
+              >
+                <Download className="w-4 h-4" />
+                <span>Download Label (.xlsx)</span>
+              </Button>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button type="button" variant="outlined" className="flex-1" onClick={reset}>
+                <Plus className="w-4 h-4" />
+                <span>Add Another</span>
+              </Button>
+              <Button type="button" variant="ghost" className="flex-1" onClick={() => { onClose(); reset(); }}>
+                Done
+              </Button>
             </div>
           </div>
         )}
