@@ -23,6 +23,7 @@ import {
 import { GoogleGenAI } from '@google/genai';
 import argon2 from 'argon2';
 import { validatePasswordNist, normalizeUnicode } from './services/nistPasswordValidator';
+import { createAggregatorRouter } from './aggregator/api/router';
 import { nistRateLimiter } from './services/nistRateLimiter';
 import {
   generateTotpSecret,
@@ -1686,6 +1687,8 @@ app.get('/api/proxy/vascan', checkAuth, async (req, res) => {
     res.status(500).json({ error: "VASCAN_PROXY_FAULT" });
   }
 });
+
+app.use('/api/aggregator', checkAuth, createAggregatorRouter());
 
 app.post('/api/proxy/gemini', checkAuth, async (req, res) => {
   try {

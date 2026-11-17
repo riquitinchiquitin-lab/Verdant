@@ -59,6 +59,7 @@
     "dev": "tsx server.ts",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test:aggregator": "tsx --test aggregator/tests/aggregator.test.ts"
   }
 }
