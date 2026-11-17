@@ -394,6 +394,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
   };
 
   const handleDelete = async () => {
+    setIsDeleteConfirmationOpen(false);
     await deletePlant(plant.id);
     onClose();
   };
@@ -1625,7 +1626,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
           </div>
       )}
 
-      <EditPlantModal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} plant={plant} onSave={(id, updates) => updatePlant(id, updates)} onDelete={() => setIsDeleteConfirmationOpen(true)} />
+      <EditPlantModal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} plant={plant} onSave={(id, updates) => updatePlant(id, updates)} onDelete={() => { setIsEditOpen(false); setIsDeleteConfirmationOpen(true); }} />
       <HealthCheckModal isOpen={isHealthOpen} onClose={() => setIsHealthOpen(false)} plant={plant} />
       <TransferModal isOpen={isTransferOpen} onClose={() => setIsTransferOpen(false)} plant={plant} />
       <FertilizerLogModal 

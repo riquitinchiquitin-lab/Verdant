@@ -6,7 +6,8 @@ import { useLanguage } from '../context/LanguageContext';
 import { usePlants } from '../context/PlantContext';
 import { useAuth } from '../context/AuthContext';
 import { translateInput, translateArrayInput, translateObjectInput } from '../services/translationService';
-import { generatePlantDetails } from '../services/plantAi';
+import { refreshPlantRecord } from '../services/plantAi';
+import { RefreshCw, Trash2 } from 'lucide-react';
 import { CameraCapture } from './ui/CameraCapture';
 import { compressImage } from '../services/imageUtils';
 import { ROOM_TYPES, CURRENCIES, getCurrencyForLanguage } from '../constants';
@@ -101,47 +102,44 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
     setCurrency(plant.provenance?.currency || getCurrencyForLanguage(language));
     setImages(plant.images || []);
     setRefreshedData(null);
+    setError(null);
+    setRefreshSuccess(null);
     const isPredefined = ROOM_TYPES.includes(currentRoom);
     setIsCustom(!!currentRoom && !isPredefined);
   }, [isOpen, plant, lv, lva, language]);
 
+  const [refreshSuccess, setRefreshSuccess] = useState<string | null>(null);
+
   const handleRefreshData = async () => {
-    if (!plant.species) {
-        console.warn("[UI] Cannot refresh AI data: Species is missing for this plant.");
-        return;
-    }
     setIsRefreshing(true);
     setError(null);
-    console.log(`[UI] Refreshing AI data for ${plant.species}...`);
+    setRefreshSuccess(null);
     try {
         const apiKey = getEffectiveApiKey();
-        const details = await generatePlantDetails(plant.species, undefined, undefined, apiKey);
-        console.info(`[UI] AI Data refresh successful for ${plant.species}`);
-        
+        const details = await refreshPlantRecord(plant, apiKey);
         setRefreshedData(details);
 
-        // Update local states with new AI data for immediate UI feedback
-        setNickname(lv(details.nickname));
-        setCategory(lv(details.category as any));
-        setGrowthRate(lv(details.growthRate as any));
-        setWateringInterval(details.wateringInterval || null);
-        setTargetPh(details.targetPh || null);
-        setTargetEc(details.targetEc || null);
-        setTargetVpd(details.targetVpd || null);
-        setTargetDli(details.targetDli || null);
-        setRepottingFrequency(details.repottingFrequency || null);
-        setPropagationMethods(lva(details.propagationMethods as any)?.join(', ') || '');
-        setPropagationInstructions(lv(details.propagationInstructions));
-        setRepottingInstructions(lv(details.repottingInstructions));
-        
-        // If nursery is empty, try to fill it with origin data
+        // Update local states with refreshed data for immediate UI feedback
+        if (!nickname && details.nickname) setNickname(lv(details.nickname));
+        if (details.category) setCategory(lv(details.category as any));
+        if (details.growthRate) setGrowthRate(lv(details.growthRate as any));
+        if (details.wateringInterval) setWateringInterval(details.wateringInterval);
+        if (details.targetPh) setTargetPh(details.targetPh);
+        if (details.targetEc) setTargetEc(details.targetEc);
+        if (details.targetVpd) setTargetVpd(details.targetVpd);
+        if (details.targetDli) setTargetDli(details.targetDli);
+        if (details.repottingFrequency) setRepottingFrequency(details.repottingFrequency);
+        if (details.propagationMethods) setPropagationMethods(lva(details.propagationMethods as any)?.join(', ') || '');
+        if (details.propagationInstructions) setPropagationInstructions(lv(details.propagationInstructions));
+        if (details.repottingInstructions) setRepottingInstructions(lv(details.repottingInstructions));
         if (!nursery && details.origin) {
             setNursery(lv(details.origin));
         }
-        
+
+        setRefreshSuccess('Botanical data refreshed. Review changes and click Save.');
     } catch (e: any) {
-        console.error(`[UI] AI Data refresh failed for ${plant.species}:`, e);
-        setError(e.message || "Refresh failed");
+        console.error(`[UI] Botanical data refresh failed:`, e);
+        setError(e?.message || 'Refresh failed');
     } finally {
         setIsRefreshing(false);
     }
@@ -558,21 +556,41 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
               </div>
           </div>
 
-          <div className="flex items-center gap-3 pt-6">
+          {(error || refreshSuccess) && (
+              <div className={`p-3.5 rounded-2xl border text-xs font-semibold leading-tight ${
+                error
+                  ? 'bg-md-error-container border-md-error/30 text-md-on-error-container'
+                  : 'bg-md-primary-container border-md-primary/30 text-md-on-primary-container'
+              }`}>
+                {error ? `⚠️ ${error}` : `✓ ${refreshSuccess}`}
+              </div>
+          )}
+
+          <div className="flex items-center gap-3 pt-4">
               <Button
+                type="button"
                 onClick={handleRefreshData}
                 variant="tonal"
-                className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+                className="w-12 h-12 px-0 rounded-2xl flex items-center justify-center shrink-0"
                 disabled={isSaving || isRefreshing}
-                title={t('btn_refresh_ai')}
+                title={t('btn_refresh_ai') || 'Refresh Botanical Data'}
+                aria-label={t('btn_refresh_ai') || 'Refresh Botanical Data'}
               >
-                <svg className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
+                <RefreshCw className={`w-5 h-5 shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
               </Button>
-              <Button onClick={onDelete} variant="danger" className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" disabled={isSaving || isRefreshing}><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></Button>
-              <Button variant="ghost" className="flex-1 h-12 rounded-2xl" onClick={onClose} disabled={isSaving || isRefreshing}>{t('cancel')}</Button>
-              <Button className="flex-[2] h-12 rounded-2xl" onClick={handleSave} isLoading={isSaving} disabled={isRefreshing}>{t('btn_save_changes')}</Button>
+              <Button
+                type="button"
+                onClick={onDelete}
+                variant="danger"
+                className="w-12 h-12 px-0 rounded-2xl flex items-center justify-center shrink-0"
+                disabled={isSaving || isRefreshing}
+                title={t('btn_delete') || 'Delete'}
+                aria-label={t('btn_delete') || 'Delete'}
+              >
+                <Trash2 className="w-5 h-5 shrink-0" />
+              </Button>
+              <Button type="button" variant="ghost" className="flex-1 h-12 rounded-2xl" onClick={onClose} disabled={isSaving || isRefreshing}>{t('cancel')}</Button>
+              <Button type="button" className="flex-[2] h-12 rounded-2xl" onClick={handleSave} isLoading={isSaving} disabled={isRefreshing}>{t('btn_save_changes')}</Button>
           </div>
       </div>
     </Modal>
