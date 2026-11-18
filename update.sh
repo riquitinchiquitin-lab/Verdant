@@ -65,9 +65,12 @@ if [ -f "$INSTALL_DIR/docker-compose.yml" ] && command -v docker >/dev/null 2>&1
   echo -e "\n${CYAN}2/4: Rebuilding & restarting Docker Compose stack...${NC}"
   docker compose up -d --build --remove-orphans
   echo -e "\n${CYAN}3/4: Pruning old Docker images, containers & build cache...${NC}"
+  rm -rf "$INSTALL_DIR/node_modules" "$INSTALL_DIR/dist"
   docker container prune -f >/dev/null 2>&1 || true
-  docker image prune -af --filter "until=24h" >/dev/null 2>&1 || docker image prune -f >/dev/null 2>&1 || true
-  docker builder prune -af --filter "until=24h" >/dev/null 2>&1 || docker builder prune -f >/dev/null 2>&1 || true
+  docker image prune -af >/dev/null 2>&1 || true
+  docker builder prune -af >/dev/null 2>&1 || true
+  docker network prune -f >/dev/null 2>&1 || true
+  [[ $EUID -eq 0 ]] && command -v journalctl >/dev/null 2>&1 && journalctl --vacuum-size=50M >/dev/null 2>&1 || true
   echo -e "\n${GREEN}========================================================================${NC}"
   echo -e "${GREEN}✓ Verdant Docker stack updated & old Docker files cleaned!${NC}"
   echo -e "Check status: ${YELLOW}docker compose ps${NC}"
@@ -83,14 +86,17 @@ if [ "${NODE_MAJOR:-0}" -lt 24 ] && [[ $EUID -eq 0 ]] && command -v apt-get >/de
   echo -e "${YELLOW}[!] Node.js $(node -v 2>/dev/null || echo 'missing') is below v24. Upgrading to Node.js 24 LTS...${NC}"
   curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
   apt-get install -y nodejs
+  apt-get clean >/dev/null 2>&1 || true
   echo -e "${GREEN}✓ Upgraded to Node.js $(node -v)${NC}"
 fi
 npm install --legacy-peer-deps --no-audit
-npm cache clean --force >/dev/null 2>&1 || true
 
-# 3. Build production bundle (Vite)
-echo -e "\n${CYAN}3/4: Building production bundle (npm run build)...${NC}"
+# 3. Build production bundle (Vite) & prune devDependencies
+echo -e "\n${CYAN}3/4: Building production bundle & pruning devDependencies...${NC}"
 npm run build
+npm prune --omit=dev --legacy-peer-deps >/dev/null 2>&1 || true
+npm cache clean --force >/dev/null 2>&1 || true
+[[ $EUID -eq 0 ]] && command -v journalctl >/dev/null 2>&1 && journalctl --vacuum-size=50M >/dev/null 2>&1 || true
 
 # 4. Enforce strict permissions for data security & restart service
 echo -e "\n${CYAN}4/4: Hardening permissions & restarting service...${NC}"

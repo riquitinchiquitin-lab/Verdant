@@ -95,13 +95,14 @@ npm run build
 if [ -f "$APP_DIR/docker-compose.yml" ] && command -v docker >/dev/null 2>&1 && docker compose ps -q 2>/dev/null | grep -q .; then
   docker compose up -d --build --remove-orphans
   docker container prune -f >/dev/null 2>&1 || true
-  docker image prune -af --filter "until=24h" >/dev/null 2>&1 || docker image prune -f >/dev/null 2>&1 || true
-  docker builder prune -af --filter "until=24h" >/dev/null 2>&1 || docker builder prune -f >/dev/null 2>&1 || true
+  docker image prune -af >/dev/null 2>&1 || true
+  docker builder prune -af >/dev/null 2>&1 || true
   echo -e "  ${GREEN}✓ Docker Compose stack rebuilt & old Docker files pruned.${NC}"
 elif systemctl list-unit-files 2>/dev/null | grep -q "verdant.service"; then
   systemctl restart verdant
   echo -e "  ${GREEN}✓ verdant.service restarted.${NC}"
 fi
+[[ $EUID -eq 0 ]] && command -v journalctl >/dev/null 2>&1 && journalctl --vacuum-size=50M >/dev/null 2>&1 || true
 
 echo -e "\n${GREEN}========================================================================${NC}"
 echo -e "${GREEN}✓ Daily package & OS update complete ($(date))${NC}"
