@@ -10,10 +10,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import { createServer } from 'http';
-import fetch from 'node-fetch';
-import FormData from 'form-data';
 
 import os from 'os';
+import dns from 'dns/promises';
+import net from 'net';
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -52,6 +52,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.disable('x-powered-by');
 const server = createServer(app);
 const port = 3000;
 
@@ -169,19 +170,42 @@ const allowedCorsOrigins = [
   ...(process.env.VITE_ALLOWED_HOSTS ? process.env.VITE_ALLOWED_HOSTS.split(',').map(h => `https://${h.trim()}`) : []),
 ].filter(Boolean);
 
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedCorsOrigins.length === 0 || allowedCorsOrigins.includes(origin)) {
-      return callback(null, true);
+app.use(cors((req, callback) => {
+  const origin = req.headers.origin;
+  if (!origin) {
+    return callback(null, { origin: true });
+  }
+  if (allowedCorsOrigins.includes(origin)) {
+    return callback(null, { origin: true });
+  }
+  if (allowedCorsOrigins.length === 0) {
+    const forwardedHost = (req.headers['x-forwarded-host'] as string || '').split(',')[0].trim();
+    const host = forwardedHost || req.headers.host || '';
+    const proto = ((req.headers['x-forwarded-proto'] as string) || req.protocol || 'http').split(',')[0].trim();
+    if (host && (origin === `${proto}://${host}` || origin === `https://${host}` || origin === `http://${host}`)) {
+      return callback(null, { origin: true });
     }
-    return callback(new Error('CORS_NOT_ALLOWED'));
-  },
+    if (process.env.NODE_ENV !== 'production' && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) {
+      return callback(null, { origin: true });
+    }
+  }
+  return callback(new Error('CORS_NOT_ALLOWED'), { origin: false });
 }));
 
 const authRateBuckets = new Map<string, { count: number; resetAt: number }>();
+const AUTH_RATE_MAX_BUCKETS = 10000;
 app.use('/api/auth', (req, res, next) => {
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
   const now = Date.now();
+  if (authRateBuckets.size >= AUTH_RATE_MAX_BUCKETS) {
+    for (const [k, b] of authRateBuckets.entries()) {
+      if (now > b.resetAt) authRateBuckets.delete(k);
+    }
+    if (authRateBuckets.size >= AUTH_RATE_MAX_BUCKETS) {
+      const firstKey = authRateBuckets.keys().next().value;
+      if (firstKey) authRateBuckets.delete(firstKey);
+    }
+  }
   const bucket = authRateBuckets.get(ip);
   if (!bucket || now > bucket.resetAt) {
     authRateBuckets.set(ip, { count: 1, resetAt: now + 60_000 });
@@ -195,17 +219,24 @@ app.use('/api/auth', (req, res, next) => {
 });
 
 app.use((req, res, next) => {
+  const isProd = process.env.NODE_ENV === 'production';
+  const scriptSrc = isProd
+    ? "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; ";
   res.setHeader(
     'Content-Security-Policy',
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; " +
+    scriptSrc +
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
     "font-src 'self' https://fonts.gstatic.com; " +
     "img-src 'self' data: blob: https://*; " +
-    "connect-src 'self' ws: wss: https://*;"
+    "connect-src 'self' ws: wss: https://*; " +
+    "frame-ancestors 'self';"
   );
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  if (process.env.STRICT_FRAME_OPTIONS === 'true') {
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=(self)');
+  if (process.env.ALLOW_IFRAME !== 'true') {
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   }
   next();
@@ -321,6 +352,55 @@ const checkSeasonalAccess = (user: any): { ok: boolean; reason?: string } => {
     return { ok: false, reason: 'ACCESS_EXPIRED' };
   }
   return { ok: true };
+};
+
+const checkAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    console.warn("[AUTH] Missing authorization header");
+    return res.status(401).json({ error: "UNAUTHORIZED" });
+  }
+
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+  const verified = verifySessionToken(token);
+
+  if (verified) {
+    try {
+      const userRes = await query(
+        'SELECT id, email, role, houseId, deletedAt, caretakerStart, caretakerEnd FROM users WHERE id = ?',
+        [verified.id]
+      );
+      const dbUser = userRes.rows[0];
+      if (!dbUser || dbUser.deletedAt) {
+        return res.status(401).json({ error: "UNAUTHORIZED" });
+      }
+      const seasonalCheck = checkSeasonalAccess(dbUser);
+      if (!seasonalCheck.ok) {
+        return res.status(403).json({ error: seasonalCheck.reason || "ACCESS_EXPIRED" });
+      }
+      (req as any).userRole = typeof dbUser.role === 'string' ? dbUser.role.toUpperCase() : undefined;
+      (req as any).userHouseId = dbUser.houseId;
+      (req as any).userId = dbUser.id;
+      (req as any).userEmail = dbUser.email;
+      return next();
+    } catch (e) {
+      console.error("[AUTH] DB revalidation error:", e);
+      return res.status(500).json({ error: "AUTH_FAULT" });
+    }
+  }
+
+  // Allow dev-token only when explicitly in development mode
+  if ((process.env.NODE_ENV === 'development' || process.env.ENABLE_DEV_AUTH === 'true') && token === 'dev-token') {
+    const role = req.headers['x-user-role'];
+    (req as any).userRole = typeof role === 'string' ? role.toUpperCase() : undefined;
+    (req as any).userHouseId = req.headers['x-user-house-id'];
+    (req as any).userId = req.headers['x-user-id'];
+    (req as any).userEmail = req.headers['x-user-email'];
+    return next();
+  }
+
+  console.warn("[AUTH] Invalid or expired session token");
+  return res.status(401).json({ error: "UNAUTHORIZED" });
 };
 
 const getRpConfig = (req: express.Request) => {
@@ -447,8 +527,12 @@ app.post('/api/auth/password/login', async (req, res) => {
       return res.json({ verified: true, token, user, recoveryCodesRemaining: storedCodes.length });
     }
 
-    // If FIDO2 2FA step is requested and user has passkeys, return WebAuthn challenge
-    if (requireFido2 && hasPasskeys) {
+    // Enforce FIDO2 2FA when requested or when global 2FA policy is active and user has passkeys (and no TOTP)
+    const policyRes = await query('SELECT require2faAllUsers FROM security_policy WHERE id = 1');
+    const global2faRequired = Boolean(policyRes.rows[0]?.require2faAllUsers);
+    const mustChallengeFido2 = (requireFido2 || (global2faRequired && !hasTotp)) && hasPasskeys;
+
+    if (mustChallengeFido2) {
       const { rpID } = getRpConfig(req);
       const options = await generateAuthenticationOptions({
         rpID,
@@ -496,8 +580,9 @@ app.post('/api/auth/password/login', async (req, res) => {
 });
 
 // GLOBAL 2FA / FIDO2 SECURITY POLICY
-app.get('/api/auth/policy', async (req, res) => {
+app.get('/api/auth/policy', checkAuth, async (req, res) => {
   try {
+    const callerRole = (req as any).userRole;
     const policyRes = await query('SELECT require2faAllUsers FROM security_policy WHERE id = 1');
     const allUsersRequired = Boolean(policyRes.rows[0]?.require2faAllUsers);
     const usersRes = await query('SELECT id, name, email, totpEnabled, totpSecret FROM users WHERE deletedAt IS NULL');
@@ -523,12 +608,13 @@ app.get('/api/auth/policy', async (req, res) => {
       };
     });
     const compliantUsers = userCompliance.filter((u: any) => u.compliant).length;
+    const isAdmin = ['OWNER', 'CO_CEO'].includes(callerRole);
     res.json({
       allUsersRequired,
       totalUsers,
       compliantUsers,
       nonCompliantUsers: totalUsers - compliantUsers,
-      userCompliance,
+      ...(isAdmin ? { userCompliance } : {}),
     });
   } catch (e) {
     res.status(500).json({ error: "POLICY_FAULT" });
@@ -595,7 +681,7 @@ app.post('/api/auth/webauthn/register/options', async (req, res) => {
 });
 
 // FIDO2 REGISTRATION VERIFY
-app.post('/api/auth/webauthn/register/verify', async (req, res) => {
+app.post('/api/auth/webauthn/register/verify', checkAuth, async (req, res) => {
   try {
     const { challengeId, response, label } = req.body;
     if (!challengeId || !response) return res.status(400).json({ error: "INVALID_REQUEST" });
@@ -604,6 +690,9 @@ app.post('/api/auth/webauthn/register/verify', async (req, res) => {
     if (chalRes.rows.length === 0) return res.status(400).json({ error: "CHALLENGE_NOT_FOUND" });
 
     const chalRow = chalRes.rows[0];
+    if (chalRow.userId !== (req as any).userId) {
+      return res.status(403).json({ error: "CHALLENGE_USER_MISMATCH" });
+    }
     await query('DELETE FROM webauthn_challenges WHERE id = ?', [challengeId]);
 
     if (new Date(chalRow.expiresAt).getTime() < Date.now()) {
@@ -776,55 +865,6 @@ app.post('/api/auth/webauthn/login/verify', async (req, res) => {
     res.status(401).json({ error: "WEBAUTHN_LOGIN_VERIFY_FAULT", details: e?.message });
   }
 });
-
-const checkAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    console.warn("[AUTH] Missing authorization header");
-    return res.status(401).json({ error: "UNAUTHORIZED" });
-  }
-
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-  const verified = verifySessionToken(token);
-
-  if (verified) {
-    try {
-      const userRes = await query(
-        'SELECT id, email, role, houseId, deletedAt, caretakerStart, caretakerEnd FROM users WHERE id = ?',
-        [verified.id]
-      );
-      const dbUser = userRes.rows[0];
-      if (!dbUser || dbUser.deletedAt) {
-        return res.status(401).json({ error: "UNAUTHORIZED" });
-      }
-      const seasonalCheck = checkSeasonalAccess(dbUser);
-      if (!seasonalCheck.ok) {
-        return res.status(403).json({ error: seasonalCheck.reason || "ACCESS_EXPIRED" });
-      }
-      (req as any).userRole = typeof dbUser.role === 'string' ? dbUser.role.toUpperCase() : undefined;
-      (req as any).userHouseId = dbUser.houseId;
-      (req as any).userId = dbUser.id;
-      (req as any).userEmail = dbUser.email;
-      return next();
-    } catch (e) {
-      console.error("[AUTH] DB revalidation error:", e);
-      return res.status(500).json({ error: "AUTH_FAULT" });
-    }
-  }
-
-  // Allow dev-token only when explicitly in development mode
-  if ((process.env.NODE_ENV === 'development' || process.env.ENABLE_DEV_AUTH === 'true') && token === 'dev-token') {
-    const role = req.headers['x-user-role'];
-    (req as any).userRole = typeof role === 'string' ? role.toUpperCase() : undefined;
-    (req as any).userHouseId = req.headers['x-user-house-id'];
-    (req as any).userId = req.headers['x-user-id'];
-    (req as any).userEmail = req.headers['x-user-email'];
-    return next();
-  }
-
-  console.warn("[AUTH] Invalid or expired session token");
-  return res.status(401).json({ error: "UNAUTHORIZED" });
-};
 
 // AUTHENTICATED PASSKEY MANAGEMENT
 app.get('/api/auth/webauthn/credentials', checkAuth, async (req, res) => {
@@ -1102,8 +1142,9 @@ app.use(async (req, res, next) => {
         res.setHeader('X-Payload-Encryption', 'AES-256-GCM');
         return originalJson.call(this, { vault: encrypted, secure: true });
       } catch (e) { 
-        console.error('[SECURITY] Encryption failed, falling back to plaintext:', e);
-        return originalJson.call(this, data); 
+        console.error('[SECURITY] Encryption failed (failing closed):', e);
+        res.status(500);
+        return originalJson.call(this, { error: 'ENCRYPTION_PROTOCOL_FAULT' });
       }
     }
     return originalJson.call(this, data);
@@ -1115,7 +1156,9 @@ app.use(async (req, res, next) => {
 app.get('/api/system/config', checkAuth, (req, res) => {
   const role = (req as any).userRole;
   if (role === 'OWNER' || role === 'CO_CEO') {
-    return res.json({ masterKey: currentVaultKey || process.env.MASTER_KEY || 'demo-key' });
+    const key = currentVaultKey || process.env.MASTER_KEY;
+    if (!key) return res.status(500).json({ error: "VAULT_KEY_MISSING" });
+    return res.json({ masterKey: key });
   }
   res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
 });
@@ -1218,20 +1261,71 @@ app.post('/api/system/hosting', checkAuth, async (req, res) => {
   }
 });
 
+function isPrivateOrReservedIp(ip: string): boolean {
+  const normalized = ip.startsWith('::ffff:') ? ip.slice(7) : ip;
+  if (net.isIPv4(normalized)) {
+    const parts = normalized.split('.').map(Number);
+    if (parts.length !== 4 || parts.some(n => isNaN(n) || n < 0 || n > 255)) return true;
+    const [a, b] = parts;
+    if (a === 0 || a === 10 || a === 127) return true; // 0.0.0.0/8, 10.0.0.0/8, 127.0.0.0/8
+    if (a === 169 && b === 254) return true; // 169.254.0.0/16 (link-local / cloud metadata)
+    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+    if (a === 192 && b === 168) return true; // 192.168.0.0/16
+    if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 (CGNAT)
+    if (a >= 224) return true; // multicast / reserved
+    return false;
+  }
+  if (net.isIPv6(normalized)) {
+    const lower = normalized.toLowerCase();
+    if (lower === '::' || lower === '::1') return true;
+    if (/^(fc|fd)[0-9a-f]{2}:/.test(lower)) return true; // fc00::/7 ULA
+    if (/^fe[89ab][0-9a-f]:/.test(lower)) return true; // fe80::/10 link-local
+    if (lower.startsWith('ff')) return true; // multicast
+    return false;
+  }
+  return true;
+}
+
 app.post('/api/system/test-endpoint', checkAuth, async (req, res) => {
   const role = (req as any).userRole;
   if (!['OWNER', 'CO_CEO'].includes(role)) {
     return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
   }
   const rawUrl = String(req.body?.url || '').trim().replace(/\/+$/, '');
-  if (!rawUrl || !/^https?:\/\/.+/i.test(rawUrl)) {
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(rawUrl);
+  } catch {
     return res.status(400).json({ ok: false, error: 'INVALID_URL' });
   }
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    return res.status(400).json({ ok: false, error: 'INVALID_PROTOCOL' });
+  }
+  const hostname = parsedUrl.hostname.toLowerCase();
+  if (!hostname || hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.internal')) {
+    return res.status(400).json({ ok: false, error: 'DISALLOWED_HOST' });
+  }
+  if (net.isIP(hostname) && isPrivateOrReservedIp(hostname)) {
+    return res.status(400).json({ ok: false, error: 'DISALLOWED_IP' });
+  }
+  try {
+    const resolved = await dns.lookup(hostname, { all: true });
+    if (!resolved.length || resolved.some(r => isPrivateOrReservedIp(r.address))) {
+      return res.status(400).json({ ok: false, error: 'DISALLOWED_RESOLVED_IP' });
+    }
+  } catch {
+    return res.status(400).json({ ok: false, error: 'DNS_RESOLUTION_FAILED' });
+  }
+
   const startedAt = Date.now();
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
-    const resp = await fetch(`${rawUrl}/api/health`, { method: 'GET', signal: controller.signal });
+    const resp = await fetch(`${parsedUrl.origin}/api/health`, {
+      method: 'GET',
+      redirect: 'manual',
+      signal: controller.signal,
+    });
     clearTimeout(timer);
     const latencyMs = Date.now() - startedAt;
     res.json({ ok: resp.ok, status: resp.status, latencyMs });
@@ -1240,7 +1334,7 @@ app.post('/api/system/test-endpoint', checkAuth, async (req, res) => {
       ok: false,
       status: 0,
       latencyMs: Date.now() - startedAt,
-      error: err?.name === 'AbortError' ? 'TIMEOUT' : (err?.message || 'UNREACHABLE'),
+      error: err?.name === 'AbortError' ? 'TIMEOUT' : 'UNREACHABLE',
     });
   }
 });
@@ -1252,7 +1346,7 @@ app.post('/api/system/vault-key', checkAuth, async (req, res) => {
   }
   try {
     const { key } = req.body;
-    if (!key || key.length < 32) return res.status(400).json({ error: "INVALID_KEY_LENGTH" });
+    if (!key || typeof key !== 'string' || key.length < 32) return res.status(400).json({ error: "INVALID_KEY_LENGTH" });
     await query('UPDATE vault_key SET encrypted_key = ? WHERE id = 1', [key]);
     currentVaultKey = key;
     await logSystemEvent('SECURITY_KEY_ROTATED', `Master key rotated by ${(req as any).userId || 'ADMIN'}`, 'WARN');
@@ -1266,6 +1360,9 @@ app.get('/api/system/backup', checkAuth, async (req, res) => {
   const role = (req as any).userRole;
   if (!['OWNER', 'CO_CEO'].includes(role)) {
     return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+  }
+  if (!currentVaultKey) {
+    return res.status(500).json({ error: "VAULT_KEY_MISSING" });
   }
   try {
     const plants = await query('SELECT * FROM plants');
@@ -1299,16 +1396,14 @@ app.get('/api/system/backup', checkAuth, async (req, res) => {
       version: '1.0.0'
     };
 
-    // Force encryption for backup if vault key is active
-    if (currentVaultKey) {
-      (req as any).wasEncrypted = true;
-    }
+    // Force encryption for backup
+    (req as any).wasEncrypted = true;
 
     await logSystemEvent('DATABASE_BACKUP_DOWNLOADED', `System backup generated by ${(req as any).userId || 'ADMIN'}`, 'INFO');
     res.json(backup);
   } catch (e) {
     console.error("[ADMIN] Backup Fault:", e);
-    res.status(500).json({ error: "BACKUP_FAULT", details: e instanceof Error ? e.message : String(e) });
+    res.status(500).json({ error: "BACKUP_FAULT" });
   }
 });
 
@@ -1349,9 +1444,9 @@ app.post('/api/system/track-usage', checkAuth, async (req, res) => {
     let updateSql = `UPDATE api_usage SET ${column} = ${column} + 1, last_updated = ?`;
     let params = [now.toISOString(), monthId];
     
-    if (type === 'gemini' && typeof tokens === 'number') {
+    if (type === 'gemini' && typeof tokens === 'number' && Number.isFinite(tokens) && tokens >= 0 && tokens <= 10_000_000) {
       updateSql = `UPDATE api_usage SET ${column} = ${column} + 1, gemini_tokens = gemini_tokens + ?, last_updated = ? WHERE id = ?`;
-      params = [tokens, now.toISOString(), monthId];
+      params = [Math.floor(tokens), now.toISOString(), monthId];
     } else {
       updateSql = `UPDATE api_usage SET ${column} = ${column} + 1, last_updated = ? WHERE id = ?`;
     }
@@ -1372,7 +1467,8 @@ app.post('/api/proxy/identify', checkAuth, upload.array('images'), async (req, r
     }
     const formData = new FormData();
     files.forEach(file => {
-      formData.append('images', file.buffer, { filename: file.originalname, contentType: file.mimetype });
+      const blob = new Blob([new Uint8Array(file.buffer)], { type: file.mimetype || 'application/octet-stream' });
+      formData.append('images', blob, file.originalname || 'specimen.jpg');
     });
     const response = await fetch(`https://my-api.plantnet.org/v2/identify/all?api-key=${process.env.PLANTNET_API_KEY}`, {
       method: 'POST',
@@ -1437,9 +1533,10 @@ app.post('/api/proxy/serper', checkAuth, async (req, res) => {
 app.get('/api/proxy/perenual', checkAuth, async (req, res) => {
   try {
     const { q, page, id } = req.query;
+    const safePage = Math.max(1, parseInt(String(page || '1'), 10) || 1);
     const url = id
       ? `https://perenual.com/api/species/details/${encodeURIComponent(id as string)}?key=${process.env.PERENUAL_API_KEY}`
-      : `https://perenual.com/api/species-list?key=${process.env.PERENUAL_API_KEY}&q=${encodeURIComponent((q as string) || '')}&page=${page || 1}`;
+      : `https://perenual.com/api/species-list?key=${process.env.PERENUAL_API_KEY}&q=${encodeURIComponent((q as string) || '')}&page=${safePage}`;
     const response = await fetch(url);
     const data = await response.json();
     res.json(data);
@@ -1756,7 +1853,7 @@ app.get('/api/system/usage', checkAuth, async (req, res) => {
 // SYSTEM RESTORE 
 app.post('/api/system/restore', checkAuth, async (req, res) => {
   const role = (req as any).userRole;
-  if (!['OWNER', 'CO_CEO'].includes(role)) {
+  if (role !== 'OWNER') {
     return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
   }
   
@@ -1910,8 +2007,8 @@ const assertRecordHouseOwnership = async (
   role: string,
   userHouseId: string
 ): Promise<{ allowed: boolean; status?: number; error?: string }> => {
+  if (!id || typeof id !== 'string') return { allowed: false, status: 400, error: 'ID_REQUIRED' };
   if (['OWNER', 'CO_CEO'].includes(role)) return { allowed: true };
-  if (!id) return { allowed: false, status: 400, error: 'ID_REQUIRED' };
   const existing = await query(`SELECT houseId FROM ${table} WHERE id = ?`, [id]);
   if (existing.rows.length > 0 && existing.rows[0].houseId !== userHouseId) {
     return { allowed: false, status: 403, error: 'INSUFFICIENT_CLEARANCE' };
@@ -2191,22 +2288,34 @@ app.delete('/api/users/:id', checkAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const role = (req as any).userRole;
+    const callerId = (req as any).userId;
     
     // Only OWNER and CO_CEO can permanently delete users
     if (!['OWNER', 'CO_CEO'].includes(role)) {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
 
-    if (role === 'CO_CEO') {
-      const targetRes = await query('SELECT role FROM users WHERE id = ?', [id]);
-      if (targetRes.rows[0]?.role === 'OWNER') {
-        return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    if (id === callerId) {
+      return res.status(400).json({ error: "CANNOT_DELETE_SELF" });
+    }
+
+    const targetRes = await query('SELECT role FROM users WHERE id = ?', [id]);
+    const targetRole = targetRes.rows[0]?.role;
+
+    if (role === 'CO_CEO' && targetRole === 'OWNER') {
+      return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    }
+
+    if (targetRole === 'OWNER') {
+      const ownersRes = await query("SELECT COUNT(*) as count FROM users WHERE role = 'OWNER' AND deletedAt IS NULL");
+      if ((ownersRes.rows[0]?.count || 0) <= 1) {
+        return res.status(400).json({ error: "CANNOT_DELETE_LAST_OWNER" });
       }
     }
 
     await query('DELETE FROM webauthn_credentials WHERE userId = ?', [id]);
     await query('DELETE FROM users WHERE id = ?', [id]);
-    await logSystemEvent('USER_DELETED', `User ${id} permanently deleted by ${(req as any).userId || 'ADMIN'}`, 'WARN');
+    await logSystemEvent('USER_DELETED', `User ${id} permanently deleted by ${callerId || 'ADMIN'}`, 'WARN');
     res.json({ status: "ok" });
   } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
 });
@@ -2224,7 +2333,7 @@ app.get('/api/users', checkAuth, async (req, res) => {
       params.push(houseId);
     } else if (!['OWNER', 'CO_CEO'].includes(role)) {
       sql += ' AND id = ?';
-      params.push(callerId || req.headers['x-user-id'] || '');
+      params.push(callerId || '');
     }
     const result = await query(sql, params);
     res.json(result.rows.map((r: any) => {
@@ -2238,6 +2347,8 @@ app.get('/api/users', checkAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: "DB_FAULT" }); }
 });
 
+const VALID_ROLES = new Set(['OWNER', 'CO_CEO', 'LEAD_HAND', 'GARDENER', 'SEASONAL']);
+
 app.post('/api/users', checkAuth, async (req, res) => {
   try {
     const callerRole = (req as any).userRole;
@@ -2245,21 +2356,26 @@ app.post('/api/users', checkAuth, async (req, res) => {
     const callerHouseId = (req as any).userHouseId;
     const u = req.body;
     const email = u.email?.trim().toLowerCase();
+    const targetRole = typeof u.role === 'string' ? u.role.toUpperCase() : '';
 
-    if (!u.id || !email) {
+    if (!u.id || typeof u.id !== 'string' || !email) {
       return res.status(400).json({ error: "INVALID_USER_DATA" });
+    }
+
+    if (['OWNER', 'CO_CEO', 'LEAD_HAND'].includes(callerRole) && !VALID_ROLES.has(targetRole)) {
+      return res.status(400).json({ error: "INVALID_ROLE" });
     }
 
     if (callerRole === 'OWNER') {
       // OWNER has full user management rights
     } else if (callerRole === 'CO_CEO') {
       // CO_CEO cannot create or modify OWNER accounts
-      if (u.role === 'OWNER') return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+      if (targetRole === 'OWNER') return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
       const existing = await query('SELECT role FROM users WHERE id = ?', [u.id]);
       if (existing.rows[0]?.role === 'OWNER') return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
     } else if (callerRole === 'LEAD_HAND') {
       // LEAD_HAND can only manage GARDENER/SEASONAL within their own house
-      if (!['GARDENER', 'SEASONAL'].includes(u.role) || u.houseId !== callerHouseId) {
+      if (!['GARDENER', 'SEASONAL'].includes(targetRole) || u.houseId !== callerHouseId) {
         return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
       }
       const existing = await query('SELECT houseId, role FROM users WHERE id = ?', [u.id]);
@@ -2278,6 +2394,11 @@ app.post('/api/users', checkAuth, async (req, res) => {
       return res.json({ status: "ok" });
     }
 
+    // Only allow updating personalAiKey for self (or if explicitly provided by OWNER/CO_CEO)
+    const canSetPersonalKey = u.id === callerId;
+    const personalAiKeyVal = canSetPersonalKey && u.personalAiKey !== undefined ? u.personalAiKey : undefined;
+    const personalAiKeyTestedAtVal = canSetPersonalKey && u.personalAiKeyTestedAt !== undefined ? u.personalAiKeyTestedAt : undefined;
+
     await query(
       `INSERT INTO users (id, email, name, role, houseId, personalAiKey, personalAiKeyTestedAt, deletedAt, caretakerStart, caretakerEnd)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -2286,12 +2407,25 @@ app.post('/api/users', checkAuth, async (req, res) => {
          name = excluded.name,
          role = excluded.role,
          houseId = excluded.houseId,
-         personalAiKey = excluded.personalAiKey,
-         personalAiKeyTestedAt = excluded.personalAiKeyTestedAt,
+         personalAiKey = COALESCE(?, users.personalAiKey),
+         personalAiKeyTestedAt = COALESCE(?, users.personalAiKeyTestedAt),
          deletedAt = excluded.deletedAt,
          caretakerStart = excluded.caretakerStart,
          caretakerEnd = excluded.caretakerEnd`,
-      [u.id, email, typeof u.name === 'object' ? JSON.stringify(u.name) : u.name, u.role, u.houseId, u.personalAiKey, u.personalAiKeyTestedAt, u.deletedAt, u.caretakerStart, u.caretakerEnd]
+      [
+        u.id,
+        email,
+        typeof u.name === 'object' ? JSON.stringify(u.name) : u.name,
+        targetRole,
+        u.houseId,
+        personalAiKeyVal ?? null,
+        personalAiKeyTestedAtVal ?? null,
+        u.deletedAt ?? null,
+        u.caretakerStart ?? null,
+        u.caretakerEnd ?? null,
+        personalAiKeyVal !== undefined ? personalAiKeyVal : null,
+        personalAiKeyTestedAtVal !== undefined ? personalAiKeyTestedAtVal : null,
+      ]
     );
     await logSystemEvent('USER_UPDATED', `User ${u.id} updated by ${callerId || 'ADMIN'}`, 'INFO');
     res.json({ status: "ok" });

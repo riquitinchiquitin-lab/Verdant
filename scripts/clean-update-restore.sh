@@ -100,12 +100,12 @@ else
   git reset --hard origin/main
 fi
 
-# 6. Ensure Node.js >= 22 LTS, then clean install & build
+# 6. Ensure Node.js >= 24 LTS, then clean install & build
 echo -e "${CYAN}[5/7] Installing dependencies & building production bundle...${NC}"
 NODE_MAJOR=$(node -v 2>/dev/null | sed 's/^v//' | cut -d. -f1 || echo 0)
-if [ "${NODE_MAJOR:-0}" -lt 22 ]; then
-  echo -e "${YELLOW}[!] Node.js $(node -v 2>/dev/null || echo 'missing') is below v22. Upgrading to Node.js 22 LTS...${NC}"
-  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+if [ "${NODE_MAJOR:-0}" -lt 24 ]; then
+  echo -e "${YELLOW}[!] Node.js $(node -v 2>/dev/null || echo 'missing') is below v24. Upgrading to Node.js 24 LTS...${NC}"
+  curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
   apt-get install -y nodejs
   echo -e "${GREEN}✓ Upgraded to Node.js $(node -v)${NC}"
 fi
@@ -127,8 +127,11 @@ fi
 # 8. Restart service / Docker Compose & health check with rollback
 echo -e "${CYAN}[7/7] Restarting Verdant & verifying health...${NC}"
 if [ -f "$INSTALL_DIR/docker-compose.yml" ] && command -v docker >/dev/null 2>&1 && docker compose ps -q 2>/dev/null | grep -q .; then
-  docker compose up -d --build
-  echo -e "${GREEN}✓ Docker Compose stack rebuilt & restarted.${NC}"
+  docker compose up -d --build --remove-orphans
+  docker container prune -f >/dev/null 2>&1 || true
+  docker image prune -af --filter "until=24h" >/dev/null 2>&1 || docker image prune -f >/dev/null 2>&1 || true
+  docker builder prune -af --filter "until=24h" >/dev/null 2>&1 || docker builder prune -f >/dev/null 2>&1 || true
+  echo -e "${GREEN}✓ Docker Compose stack rebuilt & old Docker files pruned.${NC}"
 elif systemctl list-unit-files 2>/dev/null | grep -q "${SERVICE_NAME}.service"; then
   systemctl start "$SERVICE_NAME"
   sleep 3

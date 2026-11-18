@@ -1,20 +1,43 @@
-FROM node:22
+FROM node:24-slim AS builder
 
 WORKDIR /app
 
-# Install dependencies for healthcheck
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-
 COPY package*.json ./
-RUN npm install --legacy-peer-deps
+RUN npm ci --legacy-peer-deps --no-audit --no-fund
 
 COPY . .
-
-# Build frontend during image creation
 RUN npm run build
 
-# Setup data directory
-RUN mkdir -p /app/data && chmod 700 /app/data
+FROM node:24-slim
+
+WORKDIR /app
+
+# Install curl for healthcheck and clean apt cache
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY package*.json ./
+RUN npm ci --omit=dev --legacy-peer-deps --no-audit --no-fund \
+    && (node -e "require('sqlite3')" 2>/dev/null || ( \
+        apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
+        && npm rebuild sqlite3 \
+        && apt-get purge -y --auto-remove python3 make g++ \
+        && rm -rf /var/lib/apt/lists/* \
+    )) \
+    && npm cache clean --force \
+    && rm -rf /root/.npm
+
+COPY --from=builder /app/dist ./dist
+COPY server.ts types.ts constants.ts tsconfig.json ./
+COPY aggregator ./aggregator
+COPY services ./services
+COPY scripts ./scripts
+COPY public ./public
+
+# Setup data directory and drop root privileges
+RUN mkdir -p /app/data && chmod 700 /app/data && chown -R node:node /app
+
+USER node
 
 EXPOSE 3000
 ENV NODE_ENV=production

@@ -35,7 +35,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=${APP_DIR}
 Environment=VERDANT_DIR=${APP_DIR}
-ExecStart=/usr/bin/env bash ${APP_DIR}/scripts/auto-update-all.sh
+ExecStart=/usr/bin/env bash ${APP_DIR}/scripts/auto-update-all.sh --silent
 StandardOutput=journal
 StandardError=journal
 EOF
@@ -55,14 +55,14 @@ EOF
 
   systemctl daemon-reload
   systemctl enable --now verdant-autoupdate.timer
-  echo "✓ Installed & enabled systemd timer: verdant-autoupdate.timer (daily at 03:30)"
+  echo "✓ Installed & enabled systemd timer: verdant-autoupdate.timer (daily silent update at 03:30)"
   systemctl list-timers verdant-autoupdate.timer --no-pager || true
 else
   cat >/etc/cron.d/verdant-autoupdate <<EOF
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-30 3 * * * root VERDANT_DIR=${APP_DIR} bash ${APP_DIR}/scripts/auto-update-all.sh >> /var/log/verdant-autoupdate.log 2>&1
+30 3 * * * root VERDANT_DIR=${APP_DIR} bash ${APP_DIR}/scripts/auto-update-all.sh --silent
 EOF
   chmod 644 /etc/cron.d/verdant-autoupdate
-  echo "✓ Installed daily cron job at /etc/cron.d/verdant-autoupdate (daily at 03:30)"
+  echo "✓ Installed daily silent cron job at /etc/cron.d/verdant-autoupdate (daily at 03:30)"
 fi

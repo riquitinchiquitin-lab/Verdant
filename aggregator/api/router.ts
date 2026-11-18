@@ -26,7 +26,17 @@ export const createAggregatorRouter = (service: BotanicalAggregatorService = new
     }
   });
 
+  const requireImporterRole = (req: express.Request, res: express.Response): boolean => {
+    const role = (req as any).userRole;
+    if (role && !['OWNER', 'CO_CEO', 'LEAD_HAND'].includes(role)) {
+      res.status(403).json({ error: 'INSUFFICIENT_CLEARANCE' });
+      return false;
+    }
+    return true;
+  };
+
   router.post('/import/forestry', async (req, res) => {
+    if (!requireImporterRole(req, res)) return;
     try {
       const count = await service.municipal.syncBulk(req.body);
       res.json({ imported: count });
@@ -36,6 +46,7 @@ export const createAggregatorRouter = (service: BotanicalAggregatorService = new
   });
 
   router.post('/import/traits', async (req, res) => {
+    if (!requireImporterRole(req, res)) return;
     try {
       const raw = typeof req.body === 'string' ? req.body : req.body?.data;
       const count = await service.bgciTry.syncBulk(raw);
@@ -46,6 +57,7 @@ export const createAggregatorRouter = (service: BotanicalAggregatorService = new
   });
 
   router.post('/import/dwca', async (req, res) => {
+    if (!requireImporterRole(req, res)) return;
     try {
       const raw = typeof req.body === 'string' ? req.body : req.body?.data;
       const count = await service.vascan.syncBulk(raw);

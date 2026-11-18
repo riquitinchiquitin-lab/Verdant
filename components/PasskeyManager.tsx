@@ -74,13 +74,14 @@ export const PasskeyManager: React.FC = () => {
   }, [token]);
 
   const loadPolicy = useCallback(async () => {
+    if (!token) return;
     try {
-      const p = await getSecurityPolicy();
+      const p = await getSecurityPolicy(token);
       setPolicy(p);
     } catch {
       // Ignore transient errors
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     loadCredentials();

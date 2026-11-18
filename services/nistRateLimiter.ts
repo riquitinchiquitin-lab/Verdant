@@ -71,7 +71,29 @@ class NistProgressiveThrottler {
     return { throttled: false, delayMs, failedCount: entry.count };
   }
 
+  private readonly MAX_ENTRIES = 10000;
+
+  private pruneExpired(): void {
+    const now = Date.now();
+    for (const [k, entry] of this.attempts.entries()) {
+      if (now - entry.lastAttempt >= this.WINDOW_MS) {
+        this.attempts.delete(k);
+      }
+    }
+    if (this.attempts.size > this.MAX_ENTRIES) {
+      const overflow = this.attempts.size - this.MAX_ENTRIES;
+      let removed = 0;
+      for (const k of this.attempts.keys()) {
+        this.attempts.delete(k);
+        if (++removed >= overflow) break;
+      }
+    }
+  }
+
   recordFailure(ip: string, identifier?: string): { failedCount: number; delayMs: number } {
+    if (this.attempts.size >= this.MAX_ENTRIES) {
+      this.pruneExpired();
+    }
     const key = this.getKey(ip, identifier);
     const now = Date.now();
     let entry = this.attempts.get(key);

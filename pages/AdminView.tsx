@@ -81,17 +81,19 @@ export const AdminView: React.FC = () => {
   useEffect(() => {
     console.log("[Verdant] AdminView Protocol v1.0.1 Loaded");
     setHasMasterKey(!!localStorage.getItem('verdant_master_key'));
-    getSecurityPolicy().then(setPolicyStatus).catch(() => {});
-  }, []);
+    if (token) {
+      getSecurityPolicy(token).then(setPolicyStatus).catch(() => {});
+    }
+  }, [token]);
 
   useEffect(() => {
     if (activeTab === 'LOGS') {
       loadLogs();
     }
-    if (activeTab === 'PERSONNEL' || activeTab === 'SECURITY') {
-      getSecurityPolicy().then(setPolicyStatus).catch(() => {});
+    if ((activeTab === 'PERSONNEL' || activeTab === 'SECURITY') && token) {
+      getSecurityPolicy(token).then(setPolicyStatus).catch(() => {});
     }
-  }, [activeTab]);
+  }, [activeTab, token]);
 
   const loadLogs = async () => {
     setIsLoadingLogs(true);

@@ -7,7 +7,7 @@ set -e
 
 # --- Configuration ---
 APP_DIR="/opt/verdant"
-NODE_VERSION="22"
+NODE_VERSION="24"
 
 # --- System Update ---
 echo "Updating system..."

@@ -10,6 +10,23 @@
 # ==============================================================================
 set -eo pipefail
 
+SILENT=false
+if [[ "${1:-}" == "--silent" || "${1:-}" == "-s" || "${SILENT_UPDATE:-}" == "true" ]]; then
+  SILENT=true
+fi
+
+if [ "$SILENT" = true ]; then
+  LOG_FILE="${VERDANT_UPDATE_LOG:-/var/log/verdant-autoupdate.log}"
+  if [ -w "$(dirname "$LOG_FILE")" ] || [ -w "$LOG_FILE" ]; then
+    if [ -f "$LOG_FILE" ] && [ "$(wc -l < "$LOG_FILE" 2>/dev/null || echo 0)" -gt 1000 ]; then
+      tail -n 500 "$LOG_FILE" > "${LOG_FILE}.tmp" 2>/dev/null && mv "${LOG_FILE}.tmp" "$LOG_FILE" 2>/dev/null || true
+    fi
+    exec >> "$LOG_FILE" 2>&1
+  else
+    exec >/dev/null 2>&1
+  fi
+fi
+
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
@@ -59,13 +76,14 @@ fi
 # ------------------------------------------------------------------------------
 echo -e "\n${BLUE}[2/3] Updating npm Application Dependencies...${NC}"
 NODE_MAJOR=$(node -v 2>/dev/null | sed 's/^v//' | cut -d. -f1 || echo 0)
-if [ "${NODE_MAJOR:-0}" -lt 22 ] && [[ $EUID -eq 0 ]] && command -v apt-get >/dev/null 2>&1; then
-  echo -e "  ${YELLOW}Upgrading Node.js $(node -v 2>/dev/null || echo '') -> 22 LTS...${NC}"
-  curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null 2>&1 || true
+if [ "${NODE_MAJOR:-0}" -lt 24 ] && [[ $EUID -eq 0 ]] && command -v apt-get >/dev/null 2>&1; then
+  echo -e "  ${YELLOW}Upgrading Node.js $(node -v 2>/dev/null || echo '') -> 24 LTS...${NC}"
+  curl -fsSL https://deb.nodesource.com/setup_24.x | bash - >/dev/null 2>&1 || true
   apt-get install -y nodejs >/dev/null 2>&1 || true
 fi
-npm update --legacy-peer-deps --include=dev --no-audit
+npm update --legacy-peer-deps --include=dev --no-audit --no-fund
 npm audit fix --legacy-peer-deps --include=dev 2>/dev/null || true
+npm cache clean --force >/dev/null 2>&1 || true
 
 # ------------------------------------------------------------------------------
 # 3. Verify Build & Restart Service / Docker Stack
@@ -75,8 +93,11 @@ npm run lint
 npm run build
 
 if [ -f "$APP_DIR/docker-compose.yml" ] && command -v docker >/dev/null 2>&1 && docker compose ps -q 2>/dev/null | grep -q .; then
-  docker compose up -d --build
-  echo -e "  ${GREEN}✓ Docker Compose stack rebuilt & restarted.${NC}"
+  docker compose up -d --build --remove-orphans
+  docker container prune -f >/dev/null 2>&1 || true
+  docker image prune -af --filter "until=24h" >/dev/null 2>&1 || docker image prune -f >/dev/null 2>&1 || true
+  docker builder prune -af --filter "until=24h" >/dev/null 2>&1 || docker builder prune -f >/dev/null 2>&1 || true
+  echo -e "  ${GREEN}✓ Docker Compose stack rebuilt & old Docker files pruned.${NC}"
 elif systemctl list-unit-files 2>/dev/null | grep -q "verdant.service"; then
   systemctl restart verdant
   echo -e "  ${GREEN}✓ verdant.service restarted.${NC}"

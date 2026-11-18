@@ -144,8 +144,12 @@ export interface SecurityPolicyStatus {
   userCompliance?: UserComplianceItem[];
 }
 
-export async function getSecurityPolicy(): Promise<SecurityPolicyStatus> {
-  const res = await fetch(`${API_URL}/api/auth/policy`);
+export async function getSecurityPolicy(token?: string | null): Promise<SecurityPolicyStatus> {
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  const res = await fetch(`${API_URL}/api/auth/policy`, { headers });
   if (!res.ok) throw new Error('POLICY_FAULT');
   return res.json();
 }
@@ -200,7 +204,7 @@ export async function registerPasskey(params: {
 
   const verifyRes = await fetch(`${API_URL}/api/auth/webauthn/register/verify`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       challengeId,
       response: attResp,

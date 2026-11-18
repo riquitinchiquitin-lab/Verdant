@@ -63,25 +63,30 @@ fi
 # Check if running via Docker Compose
 if [ -f "$INSTALL_DIR/docker-compose.yml" ] && command -v docker >/dev/null 2>&1 && docker compose ps -q 2>/dev/null | grep -q .; then
   echo -e "\n${CYAN}2/4: Rebuilding & restarting Docker Compose stack...${NC}"
-  docker compose up -d --build
+  docker compose up -d --build --remove-orphans
+  echo -e "\n${CYAN}3/4: Pruning old Docker images, containers & build cache...${NC}"
+  docker container prune -f >/dev/null 2>&1 || true
+  docker image prune -af --filter "until=24h" >/dev/null 2>&1 || docker image prune -f >/dev/null 2>&1 || true
+  docker builder prune -af --filter "until=24h" >/dev/null 2>&1 || docker builder prune -f >/dev/null 2>&1 || true
   echo -e "\n${GREEN}========================================================================${NC}"
-  echo -e "${GREEN}✓ Verdant Docker stack has been successfully updated!${NC}"
+  echo -e "${GREEN}✓ Verdant Docker stack updated & old Docker files cleaned!${NC}"
   echo -e "Check status: ${YELLOW}docker compose ps${NC}"
   echo -e "Live logs:    ${YELLOW}docker compose logs -f --tail=50${NC}"
   echo -e "${GREEN}========================================================================${NC}"
   exit 0
 fi
 
-# 2. Ensure Node.js >= 22 LTS & install dependencies
+# 2. Ensure Node.js >= 24 LTS & install dependencies
 echo -e "\n${CYAN}2/4: Installing NPM dependencies...${NC}"
 NODE_MAJOR=$(node -v 2>/dev/null | sed 's/^v//' | cut -d. -f1 || echo 0)
-if [ "${NODE_MAJOR:-0}" -lt 22 ] && [[ $EUID -eq 0 ]] && command -v apt-get >/dev/null 2>&1; then
-  echo -e "${YELLOW}[!] Node.js $(node -v 2>/dev/null || echo 'missing') is below v22. Upgrading to Node.js 22 LTS...${NC}"
-  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+if [ "${NODE_MAJOR:-0}" -lt 24 ] && [[ $EUID -eq 0 ]] && command -v apt-get >/dev/null 2>&1; then
+  echo -e "${YELLOW}[!] Node.js $(node -v 2>/dev/null || echo 'missing') is below v24. Upgrading to Node.js 24 LTS...${NC}"
+  curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
   apt-get install -y nodejs
   echo -e "${GREEN}✓ Upgraded to Node.js $(node -v)${NC}"
 fi
 npm install --legacy-peer-deps --no-audit
+npm cache clean --force >/dev/null 2>&1 || true
 
 # 3. Build production bundle (Vite)
 echo -e "\n${CYAN}3/4: Building production bundle (npm run build)...${NC}"
