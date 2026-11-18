@@ -211,7 +211,7 @@ export const generatePlantDetails = async (
     2. Specs: min/max moisture (%), temp (C), light (Lux), soil EC (minSoilEc, maxSoilEc), humidity (minEnvHumid, maxEnvHumid %), minPh & maxPh (from Trefle main_species.growth.ph_minimum/ph_maximum), minRootDepthCm (from Trefle minimum_root_depth.cm), frostFreeDaysMin (from Trefle frost_free_days_minimum), hardinessZoneMin & hardinessZoneMax (from Perenual hardiness.min/max).
     3. Care & Seasonal Cadence: Estimate 'wateringInterval' (days), 'summerWateringInterval' (days), 'winterWateringInterval' (days), 'repottingFrequency' (months), 'careDifficulty' (Easy/Moderate/Challenging from Perenual care_level), 'windowExposure' (e.g. South / West Bright Indirect from Perenual sunlight), 'potMaterial' (recommended pot material, e.g. Terracotta or Glazed Ceramic), 'dormancyPeriod' (e.g. Winter or None), 'npkRatio' (e.g. "2-7-7" or "10-10-10 Half Strength"), 'bloomSeason' (from Trefle bloom_months or Perenual flowering_season), 'pruningMonths' (from Perenual pruning_month).
     4. Lifecycle, Morphology & Ecology: Synthesize 'propagationMethods' (localized array of strings), 'susceptiblePests' (localized array from Perenual pest_susceptibility or species profile), 'attracts' (localized array of pollinators/wildlife from Perenual attracts), 'nativeRegions' (localized array from Trefle/POWO native distribution), 'introducedRegions' (localized array of introduced/naturalized regions if any), 'foliageTraits', 'flowerTraits', & 'fruitTraits' (concise localized morphological descriptions), 'leafAreaIndex' (string if known, e.g. "~4.5", else null), 'ecologicalFlags' ({ indoor, tropical, thorny, saltTolerant, medicinal, invasive } booleans from Perenual), a detailed 'propagationInstructions' (localized string), and 'repottingInstructions' (localized string). Include 'lastPotSize' (string) and 'citesStatus' (Appendix I, II, or III).
-    5. Plant Book / Field Guide Monograph: Provide 'growthHabit' (localized string, e.g. Low-growing, compact, acaulescent herbaceous perennial), 'lifespan' (localized string, e.g. Perennial; reaches maturity in 2–5 years), 'etymology' (localized 1-sentence origin/meaning of the Latin name), 'naturalHabitat' (localized biome/elevation/substrate description), 'specialFeatures' (localized array of 2-4 traits like Fragrant, Variegated, Air-purifying), 'wateringMethod' (localized string detailing soak-and-dry vs bottom-water & tap/rainwater sensitivity), 'feedingSchedule' (localized string detailing spring/summer vs winter cadence), 'trainingAdvice' (localized string on staking, moss pole, or pinching), 'careSpecs' (array of 8-10 structured cultivation rows for Light, Watering, Humidity, Temperature, Soil/Substrate, Soil pH, Potting, Fertilization, Propagation, and Common Pests/Issues, each with localized 'parameter', 'requirement', and 'notes' with diagnostic triggers), and 'troubleshooting' (array of 3 common Symptom -> Cause -> Fix objects with localized strings).
+    5. Plant Book / Field Guide Monograph: Provide 'growthHabit' (localized string, e.g. Low-growing, compact, acaulescent herbaceous perennial), 'lifespan' (localized string, e.g. Perennial; reaches maturity in 2–5 years), 'etymology' (localized 1-sentence origin/meaning of the Latin name), 'naturalHabitat' (localized biome/elevation/substrate description), 'culturalSignificance' (localized string detailing folklore, symbolic meaning, and cultural heritage), 'cultivationUses' (localized array of 3-5 practical, landscape, interior, and traditional uses), 'didYouKnow' (localized array of 3-4 surprising botanical facts, evolutionary adaptations, or fascinating trivia), 'flowerType' (localized string detailing inflorescence structure, flower morphology, and bloom characteristics), 'fruitType' (localized string detailing fruit category, seed capsule, and dispersal method), 'specialFeatures' (localized array of 2-4 traits like Fragrant, Variegated, Air-purifying), 'wateringMethod' (localized string detailing soak-and-dry vs bottom-water & tap/rainwater sensitivity), 'feedingSchedule' (localized string detailing spring/summer vs winter cadence), 'trainingAdvice' (localized string on staking, moss pole, or pinching), 'careSpecs' (array of 8-10 structured cultivation rows for Light, Watering, Humidity, Temperature, Soil/Substrate, Soil pH, Potting, Fertilization, Propagation, and Common Pests/Issues, each with localized 'parameter', 'requirement', and 'notes' with diagnostic triggers), and 'troubleshooting' (array of 3 common Symptom -> Cause -> Fix objects with localized strings).
     6. Technical: Suggest 'targetPh', 'targetEc', 'targetVpd', 'targetDli' (use OPB min_light_mmol/max_light_mmol to inform DLI if available).
     7. Localization: Translate ALL localized text fields into these 11 codes: ${TARGET_LANGS.join(',')}.
     8. Toxicity: Detail pet-safety in 'petSafety' (isPetSafe bool from Perenual poisonous_to_pets) AND human-safety in 'humanSafety' (isHumanSafe bool from Perenual poisonous_to_humans).
@@ -385,6 +385,19 @@ export const generatePlantDetails = async (
             },
             fruitTraits: translationSchema,
             leafAreaIndex: { type: Type.STRING },
+            culturalSignificance: translationSchema,
+            cultivationUses: {
+              type: Type.OBJECT,
+              properties: TARGET_LANGS.reduce((a:any, l) => ({...a, [l]: {type: Type.ARRAY, items: {type: Type.STRING}}}), {}),
+              required: TARGET_LANGS
+            },
+            flowerType: translationSchema,
+            fruitType: translationSchema,
+            didYouKnow: {
+              type: Type.OBJECT,
+              properties: TARGET_LANGS.reduce((a:any, l) => ({...a, [l]: {type: Type.ARRAY, items: {type: Type.STRING}}}), {}),
+              required: TARGET_LANGS
+            },
             careSpecs: {
               type: Type.ARRAY,
               items: {
@@ -583,7 +596,12 @@ export const createPlant = (data: Partial<Plant>): Plant => {
     introducedRegions: data.introducedRegions || emptyLocalizedArray,
     fruitTraits: data.fruitTraits || null,
     leafAreaIndex: data.leafAreaIndex || null,
-    careSpecs: data.careSpecs || []
+    careSpecs: data.careSpecs || [],
+    culturalSignificance: data.culturalSignificance || null,
+    cultivationUses: data.cultivationUses || null,
+    flowerType: data.flowerType || null,
+    fruitType: data.fruitType || null,
+    didYouKnow: data.didYouKnow || null
   } as Plant;
 };
 

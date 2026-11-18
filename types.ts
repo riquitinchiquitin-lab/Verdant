@@ -279,6 +279,11 @@ export interface Plant {
     requirement: LocalizedString;
     notes: LocalizedString;
   }[];
+  culturalSignificance?: LocalizedString | null;
+  cultivationUses?: LocalizedArray | LocalizedString | null;
+  flowerType?: LocalizedString | null;
+  fruitType?: LocalizedString | null;
+  didYouKnow?: LocalizedArray | LocalizedString | null;
 }
 
 export type RecurrenceType = 'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY';

@@ -2,7 +2,7 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Leaf, Camera, Edit3, Activity, ScanBarcode, Droplets, FileText, Star, FlaskConical, Scissors, Sprout, Flower2, ArrowLeftRight, Globe, Ruler, Tag, Home, Sun, X, RefreshCw, Calendar, Dna, Wheat, Snowflake, Trash2, ShieldCheck, ShieldAlert, Sparkles, Bug, Plus, SlidersHorizontal, AlertTriangle, MapPin } from 'lucide-react';
-import { Plant, Log, LogType, LocalizedString } from '../types';
+import { Plant, Log, LogType, LocalizedString, PhenophaseType } from '../types';
 import { Button } from './ui/Button';
 import { usePlants } from '../context/PlantContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -20,13 +20,14 @@ import { HealthCheckModal } from './HealthCheckModal';
 import { PlantLogEntry } from './PlantLogEntry';
 import { PotRotationIcon } from './ui/Icons';
 import { useInventory } from '../context/InventoryContext';
-import { PhenophaseType } from '../types';
 import { translateInput } from '../services/translationService';
 import { generateUUID } from '../services/crypto';
 import { PlantOriginMap } from './PlantOriginMap';
 import { getShortBarcodeId } from '../services/barcodeService';
 import { checkPlantCompatibility } from '../utils/compatibility';
 import { refreshPlantRecord } from '../services/plantAi';
+import { CultivationCareSpecs } from './CultivationCareSpecs';
+import { BotanicalMonographSection } from './BotanicalMonographSection';
 
 interface PlantDetailsModalProps {
   isOpen: boolean;
@@ -72,87 +73,6 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
       <p className="text-sm font-medium text-md-on-surface leading-relaxed pl-[42px]">{value || t('lbl_na')}</p>
     </div>
   );
-
-  const TechMetric = ({
-    label,
-    min,
-    max,
-    unit,
-    advice,
-    scaleMin = 0,
-    scaleMax = 100
-  }: {
-    label: string;
-    min?: number | null;
-    max?: number | null;
-    unit: string;
-    advice: string;
-    scaleMin?: number;
-    scaleMax?: number;
-  }) => {
-    const hasMin = min !== undefined && min !== null;
-    const hasMax = max !== undefined && max !== null;
-    const span = Math.max(scaleMax - scaleMin, 1);
-
-    let leftPct = 0;
-    let widthPct = 0;
-    let dotPct = 50;
-    let isSingleTarget = false;
-
-    if (hasMin && hasMax) {
-      const clampedMin = Math.max(scaleMin, Math.min(scaleMax, min!));
-      const clampedMax = Math.max(clampedMin, Math.min(scaleMax, max!));
-      leftPct = ((clampedMin - scaleMin) / span) * 100;
-      widthPct = Math.max(((clampedMax - clampedMin) / span) * 100, 10);
-    } else if (hasMin || hasMax) {
-      isSingleTarget = true;
-      const val = (hasMin ? min! : max!);
-      const clamped = Math.max(scaleMin, Math.min(scaleMax, val));
-      dotPct = ((clamped - scaleMin) / span) * 100;
-    }
-
-    const cleanAdvice = advice && advice.trim() && advice.trim() !== t('lbl_na') ? advice.trim() : '';
-
-    return (
-      <div className="relative flex flex-col justify-between space-y-3 p-5 bg-md-surface-container rounded-[20px] border border-md-outline-variant/25 hover:border-md-primary/40 transition-all duration-300">
-        <div className="space-y-3">
-          <p className="text-xs font-medium text-md-on-surface-variant">{label}</p>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl sm:text-3xl font-bold text-md-on-surface tracking-tight">
-              {hasMin && hasMax ? `${min}–${max}` : (min ?? max ?? t('lbl_na'))}
-            </span>
-            <span className="text-xs font-medium text-md-on-surface-variant">{unit}</span>
-          </div>
-          <div className="space-y-1.5 pt-1">
-            <div className="relative h-2 w-full bg-md-surface-container-highest rounded-full overflow-visible">
-              {hasMin || hasMax ? (
-                isSingleTarget ? (
-                  <div
-                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-md-primary shadow-sm ring-4 ring-md-primary/20 transition-all duration-500"
-                    style={{ left: `${dotPct}%` }}
-                  />
-                ) : (
-                  <div
-                    className="absolute top-0 bottom-0 bg-md-primary rounded-full shadow-xs transition-all duration-500"
-                    style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                  />
-                )
-              ) : null}
-            </div>
-            <div className="flex justify-between text-[10px] font-medium text-md-on-surface-variant/70">
-              <span>{isSingleTarget ? `${min ?? max}` : 'min'}</span>
-              <span>{isSingleTarget ? unit : 'max'}</span>
-            </div>
-          </div>
-        </div>
-        {cleanAdvice && (
-          <p className="text-xs text-md-on-surface-variant leading-relaxed pt-2.5 border-t border-md-outline-variant/15">
-            {cleanAdvice}
-          </p>
-        )}
-      </div>
-    );
-  };
 
   const getSuggestedRepotFrequency = (p: Plant): number => {
     if (p.repottingFrequency) return p.repottingFrequency;
@@ -891,11 +811,18 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                         )}
                                     </section>
 
-                                    {(lv(plant.origin) || lv(plant.foliageTraits as any) || lv(plant.flowerTraits as any) || (lva(plant.nativeRegions as any)?.length > 0) || (lva(plant.introducedRegions as any)?.length > 0) || (lva(plant.attracts as any)?.length > 0) || (plant.ecologicalFlags && Object.values(plant.ecologicalFlags).some(Boolean))) && (
+                                    {/* COMPREHENSIVE BOTANICAL MONOGRAPH: DESCRIPTION, USES, VARIETIES, CULTURAL SIGNIFICANCE & FRUIT/FLOWER, DID YOU KNOW */}
+                                    <BotanicalMonographSection plant={plant} />
+
+                                    {/* FIELD NOTES, ORIGIN MAP & ECOLOGICAL FLAGS */}
+                                    {((plant.ecologicalFlags && Object.values(plant.ecologicalFlags).some(Boolean)) || (lva(plant.specialFeatures as any)?.length > 0) || lv(plant.wateringMethod as any) || lv(plant.feedingSchedule as any) || lv(plant.trainingAdvice as any) || (plant.canadianProvinces && plant.canadianProvinces.length > 0) || lv(plant.origin) || (lva(plant.nativeRegions as any)?.length > 0) || (lva(plant.introducedRegions as any)?.length > 0)) && (
                                       <section className="bg-md-surface-container rounded-[24px] p-6 border border-md-outline-variant/25 space-y-4">
-                                        <h3 className="text-base font-bold text-md-on-surface tracking-tight">
-                                          {t('lbl_morphology_ecology') || 'Morphology & Ecology'}
-                                        </h3>
+                                        <div className="flex items-center gap-2">
+                                          <FileText className="w-4 h-4 text-md-primary shrink-0" />
+                                          <h3 className="text-base font-bold text-md-on-surface tracking-tight">
+                                            {t('lbl_field_guide') || 'Field Notes & Cultivation Monograph'}
+                                          </h3>
+                                        </div>
 
                                         {(lv(plant.origin) || (lva(plant.nativeRegions as any)?.length > 0) || (lva(plant.introducedRegions as any)?.length > 0)) && (
                                           <PlantOriginMap
@@ -918,242 +845,55 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                           </div>
                                         )}
 
-                                        {(lv(plant.foliageTraits as any) || lv(plant.flowerTraits as any) || lv(plant.fruitTraits as any) || plant.leafAreaIndex) && (
-                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            {lv(plant.foliageTraits as any) && (
-                                              <div className="p-3.5 rounded-2xl bg-md-surface-container-low border border-md-outline-variant/20 space-y-1">
-                                                <div className="flex items-center justify-between gap-2">
-                                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_foliage') || 'Foliage'}</p>
-                                                  {plant.leafAreaIndex && (
-                                                    <span className="text-[10px] font-mono font-semibold text-md-primary">LAI: {plant.leafAreaIndex}</span>
-                                                  )}
-                                                </div>
-                                                <p className="text-xs text-md-on-surface leading-relaxed">{lv(plant.foliageTraits as any)}</p>
+                                        {lva(plant.specialFeatures as any)?.length > 0 && (
+                                          <div className="flex flex-wrap gap-1.5">
+                                            {lva(plant.specialFeatures as any).map((feat, idx) => (
+                                              <span key={idx} className="px-3 py-1 rounded-full text-xs font-semibold bg-md-primary-container/60 text-md-on-primary-container">
+                                                {feat}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+
+                                        {(lv(plant.wateringMethod as any) || lv(plant.feedingSchedule as any) || lv(plant.trainingAdvice as any)) && (
+                                          <div className="divide-y divide-md-outline-variant/20 pt-1">
+                                            {lv(plant.wateringMethod as any) && (
+                                              <div className="py-2.5 first:pt-1 last:pb-1 space-y-1">
+                                                <p className="text-[10px] font-semibold uppercase tracking-wider text-md-primary">{t('lbl_watering_method') || 'Watering Method'}</p>
+                                                <p className="text-xs text-md-on-surface leading-relaxed">{lv(plant.wateringMethod as any)}</p>
                                               </div>
                                             )}
-                                            {lv(plant.flowerTraits as any) && (
-                                              <div className="p-3.5 rounded-2xl bg-md-surface-container-low border border-md-outline-variant/20 space-y-1">
-                                                <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_flowers') || 'Inflorescence & Flowers'}</p>
-                                                <p className="text-xs text-md-on-surface leading-relaxed">{lv(plant.flowerTraits as any)}</p>
+                                            {lv(plant.feedingSchedule as any) && (
+                                              <div className="py-2.5 first:pt-1 last:pb-1 space-y-1">
+                                                <p className="text-[10px] font-semibold uppercase tracking-wider text-md-primary">{t('lbl_feeding_schedule') || 'Feeding Schedule'}</p>
+                                                <p className="text-xs text-md-on-surface leading-relaxed">{lv(plant.feedingSchedule as any)}</p>
                                               </div>
                                             )}
-                                            {lv(plant.fruitTraits as any) && (
-                                              <div className="p-3.5 rounded-2xl bg-md-surface-container-low border border-md-outline-variant/20 space-y-1 md:col-span-2">
-                                                <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">Fruit & Seed Capsule</p>
-                                                <p className="text-xs text-md-on-surface leading-relaxed">{lv(plant.fruitTraits as any)}</p>
+                                            {lv(plant.trainingAdvice as any) && (
+                                              <div className="py-2.5 first:pt-1 last:pb-1 space-y-1">
+                                                <p className="text-[10px] font-semibold uppercase tracking-wider text-md-primary">{t('lbl_training_advice') || 'Pruning & Training'}</p>
+                                                <p className="text-xs text-md-on-surface leading-relaxed">{lv(plant.trainingAdvice as any)}</p>
                                               </div>
                                             )}
                                           </div>
                                         )}
 
-                                        {lva(plant.nativeRegions as any)?.length > 0 && (
-                                          <div className="space-y-1.5">
-                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_native_regions') || 'Native Distribution'}</p>
+                                        {plant.canadianProvinces && plant.canadianProvinces.length > 0 && (
+                                          <div className="space-y-1.5 pt-2 border-t border-md-outline-variant/20">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">Canadian Distribution (VASCAN)</p>
                                             <div className="flex flex-wrap gap-1.5">
-                                              {lva(plant.nativeRegions as any).slice(0, 12).map((region, idx) => (
-                                                <span key={idx} className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-md-surface-container-highest text-md-on-surface">
-                                                  {region}
-                                                </span>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        )}
-
-                                        {lva(plant.introducedRegions as any)?.length > 0 && (
-                                          <div className="space-y-1.5">
-                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">Introduced / Naturalized Range</p>
-                                            <div className="flex flex-wrap gap-1.5">
-                                              {lva(plant.introducedRegions as any).slice(0, 12).map((region, idx) => (
-                                                <span key={idx} className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-md-tertiary-container/60 text-md-on-tertiary-container">
-                                                  {region}
-                                                </span>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        )}
-
-                                        {lva(plant.attracts as any)?.length > 0 && (
-                                          <div className="space-y-1.5">
-                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_attracts') || 'Attracts Wildlife'}</p>
-                                            <div className="flex flex-wrap gap-1.5">
-                                              {lva(plant.attracts as any).map((item, idx) => (
+                                              {plant.canadianProvinces.map((prov, idx) => (
                                                 <span key={idx} className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-md-secondary-container/70 text-md-on-secondary-container">
-                                                  {item}
+                                                  {prov}
                                                 </span>
                                               ))}
                                             </div>
                                           </div>
                                         )}
-                                        </section>
-                                      )}
+                                      </section>
+                                    )}
 
-                                      {(lv(plant.etymology as any) || lv(plant.naturalHabitat as any) || (lva(plant.specialFeatures as any)?.length > 0) || lv(plant.wateringMethod as any) || lv(plant.feedingSchedule as any) || lv(plant.trainingAdvice as any)) && (
-                                        <section className="bg-md-surface-container rounded-[24px] p-6 border border-md-outline-variant/25 space-y-4">
-                                          <div className="flex items-center gap-2">
-                                            <FileText className="w-4 h-4 text-md-primary shrink-0" />
-                                            <h3 className="text-base font-bold text-md-on-surface tracking-tight">
-                                              {t('lbl_field_guide') || 'Field Guide & Cultivation Monograph'}
-                                            </h3>
-                                          </div>
-
-                                          {lva(plant.specialFeatures as any)?.length > 0 && (
-                                            <div className="flex flex-wrap gap-1.5">
-                                              {lva(plant.specialFeatures as any).map((feat, idx) => (
-                                                <span key={idx} className="px-3 py-1 rounded-full text-xs font-semibold bg-md-primary-container/60 text-md-on-primary-container">
-                                                  {feat}
-                                                </span>
-                                              ))}
-                                            </div>
-                                          )}
-
-                                          {(lv(plant.etymology as any) || lv(plant.naturalHabitat as any)) && (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                              {lv(plant.etymology as any) && (
-                                                <div className="p-3.5 rounded-2xl bg-md-surface-container-low border border-md-outline-variant/20 space-y-1">
-                                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_etymology') || 'Etymology & Name'}</p>
-                                                  <p className="text-xs text-md-on-surface leading-relaxed">{lv(plant.etymology as any)}</p>
-                                                </div>
-                                              )}
-                                              {lv(plant.naturalHabitat as any) && (
-                                                <div className="p-3.5 rounded-2xl bg-md-surface-container-low border border-md-outline-variant/20 space-y-1">
-                                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_natural_habitat') || 'Natural Habitat'}</p>
-                                                  <p className="text-xs text-md-on-surface leading-relaxed">{lv(plant.naturalHabitat as any)}</p>
-                                                </div>
-                                              )}
-                                            </div>
-                                          )}
-
-                                          {(lv(plant.wateringMethod as any) || lv(plant.feedingSchedule as any) || lv(plant.trainingAdvice as any)) && (
-                                            <div className="divide-y divide-md-outline-variant/20 pt-1">
-                                              {lv(plant.wateringMethod as any) && (
-                                                <div className="py-2.5 first:pt-1 last:pb-1 space-y-1">
-                                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-md-primary">{t('lbl_watering_method') || 'Watering Method'}</p>
-                                                  <p className="text-xs text-md-on-surface leading-relaxed">{lv(plant.wateringMethod as any)}</p>
-                                                </div>
-                                              )}
-                                              {lv(plant.feedingSchedule as any) && (
-                                                <div className="py-2.5 first:pt-1 last:pb-1 space-y-1">
-                                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-md-primary">{t('lbl_feeding_schedule') || 'Feeding Schedule'}</p>
-                                                  <p className="text-xs text-md-on-surface leading-relaxed">{lv(plant.feedingSchedule as any)}</p>
-                                                </div>
-                                              )}
-                                              {lv(plant.trainingAdvice as any) && (
-                                                <div className="py-2.5 first:pt-1 last:pb-1 space-y-1">
-                                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-md-primary">{t('lbl_training_advice') || 'Pruning & Training'}</p>
-                                                  <p className="text-xs text-md-on-surface leading-relaxed">{lv(plant.trainingAdvice as any)}</p>
-                                                </div>
-                                              )}
-                                            </div>
-                                          )}
-
-                                          {plant.cultivars && plant.cultivars.length > 0 && (
-                                            <div className="space-y-1.5 pt-2 border-t border-md-outline-variant/20">
-                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">Cultivars / Varieties (NC State)</p>
-                                              <div className="flex flex-wrap gap-1.5">
-                                                {plant.cultivars.map((cv, idx) => (
-                                                  <span key={idx} className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-md-surface-container-highest text-md-on-surface">
-                                                    {cv}
-                                                  </span>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          )}
-
-                                          {plant.canadianProvinces && plant.canadianProvinces.length > 0 && (
-                                            <div className="space-y-1.5 pt-2 border-t border-md-outline-variant/20">
-                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-md-on-surface-variant">Canadian Distribution (VASCAN)</p>
-                                              <div className="flex flex-wrap gap-1.5">
-                                                {plant.canadianProvinces.map((prov, idx) => (
-                                                  <span key={idx} className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-md-secondary-container/70 text-md-on-secondary-container">
-                                                    {prov}
-                                                  </span>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          )}
-                                        </section>
-                                      )}
-
-                                      {(() => {
-                                        const rows = (plant.careSpecs && plant.careSpecs.length > 0)
-                                          ? plant.careSpecs.map(s => ({
-                                              parameter: lv(s.parameter),
-                                              requirement: lv(s.requirement),
-                                              notes: lv(s.notes)
-                                            }))
-                                          : [
-                                              ...(lv(plant.windowExposure as any) || lv(plant.lightAdvice) ? [{
-                                                parameter: 'Light',
-                                                requirement: lv(plant.windowExposure as any) || (plant.minLightLux && plant.maxLightLux ? `${plant.minLightLux}–${plant.maxLightLux} Lux` : 'Bright indirect'),
-                                                notes: lv(plant.lightAdvice)
-                                              }] : []),
-                                              ...(plant.wateringInterval || lv(plant.wateringMethod as any) || lv(plant.moistureAdvice) ? [{
-                                                parameter: 'Watering',
-                                                requirement: plant.wateringInterval ? `Every ~${plant.wateringInterval} days` : 'Evenly moist',
-                                                notes: lv(plant.wateringMethod as any) || lv(plant.moistureAdvice)
-                                              }] : []),
-                                              ...((plant.minEnvHumid || plant.maxEnvHumid || lv(plant.humidityAdvice)) ? [{
-                                                parameter: 'Humidity',
-                                                requirement: plant.minEnvHumid && plant.maxEnvHumid ? `${plant.minEnvHumid}%–${plant.maxEnvHumid}% RH` : 'Moderate',
-                                                notes: lv(plant.humidityAdvice)
-                                              }] : []),
-                                              ...((plant.minTemp || plant.maxTemp || lv(plant.tempAdvice)) ? [{
-                                                parameter: 'Temperature',
-                                                requirement: plant.minTemp && plant.maxTemp ? `${plant.minTemp}°C–${plant.maxTemp}°C` : '18°C–24°C',
-                                                notes: lv(plant.tempAdvice)
-                                              }] : []),
-                                              ...((plant.minPh || plant.maxPh || plant.targetPh) ? [{
-                                                parameter: 'Soil pH',
-                                                requirement: plant.minPh && plant.maxPh ? `pH ${plant.minPh}–${plant.maxPh}` : `Target pH ${plant.targetPh}`,
-                                                notes: plant.soilComposition?.length ? plant.soilComposition.map(s => `${s.percent}% ${lv(s.component)}`).join(', ') : ''
-                                              }] : []),
-                                              ...(lv(plant.feedingSchedule as any) || plant.npkRatio || lv(plant.nutritionAdvice) ? [{
-                                                parameter: 'Fertilization',
-                                                requirement: plant.npkRatio ? `NPK ${plant.npkRatio}` : 'Growing season feed',
-                                                notes: lv(plant.feedingSchedule as any) || lv(plant.nutritionAdvice)
-                                              }] : []),
-                                              ...(lva(plant.propagationMethods as any)?.length > 0 ? [{
-                                                parameter: 'Propagation',
-                                                requirement: lva(plant.propagationMethods as any).join(', '),
-                                                notes: lv(plant.propagationInstructions)
-                                              }] : []),
-                                              ...(lva(plant.susceptiblePests as any)?.length > 0 ? [{
-                                                parameter: 'Common Pests / Issues',
-                                                requirement: lva(plant.susceptiblePests as any).join(', '),
-                                                notes: plant.troubleshooting?.[0] ? `${lv(plant.troubleshooting[0].symptom)}: ${lv(plant.troubleshooting[0].fix)}` : ''
-                                              }] : [])
-                                            ];
-
-                                        if (rows.length === 0) return null;
-
-                                        return (
-                                          <section className="bg-md-surface-container rounded-[24px] p-6 border border-md-outline-variant/25 space-y-4">
-                                            <h3 className="text-base font-bold text-md-on-surface tracking-tight">
-                                              Structured Cultivation & Care Specifications
-                                            </h3>
-                                            <div className="overflow-x-auto -mx-2 px-2">
-                                              <table className="w-full text-left border-collapse">
-                                                <thead>
-                                                  <tr className="border-b border-md-outline-variant/30 text-[10px] font-bold uppercase tracking-wider text-md-on-surface-variant">
-                                                    <th className="py-2 pr-3">Parameter</th>
-                                                    <th className="py-2 pr-3">Optimal Range / Requirement</th>
-                                                    <th className="py-2">Notes & Diagnostic Triggers</th>
-                                                  </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-md-outline-variant/20 text-xs">
-                                                  {rows.map((row, idx) => (
-                                                    <tr key={idx} className="align-top">
-                                                      <td className="py-2.5 pr-3 font-semibold text-md-primary whitespace-nowrap">{row.parameter}</td>
-                                                      <td className="py-2.5 pr-3 font-medium text-md-on-surface">{row.requirement || t('lbl_na')}</td>
-                                                      <td className="py-2.5 text-md-on-surface-variant leading-relaxed">{row.notes || '—'}</td>
-                                                    </tr>
-                                                  ))}
-                                                </tbody>
-                                              </table>
-                                            </div>
-                                          </section>
-                                        );
-                                      })()}
+                                      <CultivationCareSpecs plant={plant} defaultView="table" />
                                 </div>
 
                                 {/* RIGHT: TOXICITY ALERT + SOIL RECIPE PILL BARS + AI INSIGHT */}
@@ -1317,29 +1057,8 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
 
                     {activeTab === 'TECH' && (
                         <div className="space-y-6">
-                            {/* ENVIRONMENTAL OPTIMAL RANGES */}
-                            <section className="space-y-3">
-                                <h3 className="text-base font-bold text-md-on-surface px-1">{t('lbl_atmospheric_soil_bounds')}</h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    <TechMetric label={t('lbl_moisture')} min={plant.minSoilMoist} max={plant.maxSoilMoist} unit="%" advice={lv(plant.moistureAdvice)} scaleMin={0} scaleMax={100} />
-                                    <TechMetric label={t('lbl_temperature')} min={plant.minTemp} max={plant.maxTemp} unit="°C" advice={lv(plant.tempAdvice)} scaleMin={0} scaleMax={45} />
-                                    <TechMetric
-                                      label={t('lbl_illuminance')}
-                                      min={plant.minLightLux}
-                                      max={plant.maxLightLux}
-                                      unit={plant.targetDli ? `Lux / ${plant.targetDli} DLI` : 'Lux'}
-                                      advice={lv(plant.lightAdvice)}
-                                      scaleMin={0}
-                                      scaleMax={Math.max(25000, plant.maxLightLux || 25000)}
-                                    />
-                                    <TechMetric label={t('lbl_humidity')} min={plant.minEnvHumid} max={plant.maxEnvHumid} unit="%" advice={lv(plant.humidityAdvice)} scaleMin={0} scaleMax={100} />
-                                    <TechMetric label={t('lbl_target_ph')} min={plant.minPh ?? plant.targetPh} max={plant.maxPh} unit="pH" advice={t('lbl_target_ph_desc')} scaleMin={3} scaleMax={9} />
-                                    <TechMetric label={t('lbl_target_vpd')} min={plant.targetVpd} unit="kPa" advice={t('lbl_target_vpd_desc')} scaleMin={0} scaleMax={3} />
-                                    <TechMetric label={t('lbl_soil_ec')} min={plant.minSoilEc} max={plant.maxSoilEc} unit="mS/cm" advice={lv(plant.nutritionAdvice)} scaleMin={0} scaleMax={4} />
-                                    <TechMetric label={t('lbl_target_ec')} min={plant.targetEc} unit="mS/cm" advice={t('lbl_target_ec_desc')} scaleMin={0} scaleMax={4} />
-                                    <TechMetric label={t('lbl_target_dli')} min={plant.targetDli} unit="mol/m²/d" advice={t('lbl_target_dli_desc')} scaleMin={0} scaleMax={40} />
-                                </div>
-                            </section>
+                            {/* INTEGRATED CULTIVATION & ATMOSPHERIC BOUNDS */}
+                            <CultivationCareSpecs plant={plant} defaultView="cards" />
 
                             {/* SEASONAL CADENCE & NUTRITION + SUSCEPTIBLE PESTS */}
                             <section className="space-y-3">
