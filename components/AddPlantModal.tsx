@@ -18,6 +18,7 @@ import { CameraCapture } from './ui/CameraCapture';
 import { getCompatibleItems } from '../services/compatibilityService';
 import { CURRENCIES, getCurrencyForLanguage } from '../constants';
 import { generateUUID } from '../services/crypto';
+import { inferPlantCategory } from '../utils/botanicalCategory';
 
 interface AddPlantModalProps {
   isOpen: boolean;
@@ -49,6 +50,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
   const [specimenImages, setSpecimenImages] = useState<string[]>([]);
   const [identifiedPlant, setIdentifiedPlant] = useState<Partial<Plant> | null>(null);
   const [editNickname, setEditNickname] = useState('');
+  const [editCategory, setEditCategory] = useState('');
   const [editRoom, setEditRoom] = useState('');
   const [editWateringInterval, setEditWateringInterval] = useState<number | null>(null);
   const [editRepottingFrequency, setEditRepottingFrequency] = useState<number | null>(null);
@@ -131,6 +133,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
     setSpecimenImages([]);
     setIdentifiedPlant(null);
     setEditNickname('');
+    setEditCategory('');
     setEditRoom('');
     setSelectedHouseId(user?.houseId || null);
     setEditWateringInterval(7);
@@ -187,16 +190,17 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
         getEffectiveApiKey()
       );
 
-      setIdentifiedPlant(
-        createPlant({
-          ...details,
-          houseId: selectedHouseId,
-          createdAt: new Date().toISOString(),
-          images: specimenImages
-        })
-      );
+      const resolvedPlant = createPlant({
+        ...details,
+        houseId: selectedHouseId,
+        createdAt: new Date().toISOString(),
+        images: specimenImages
+      });
 
-      setEditNickname(lv(details.nickname));
+      setIdentifiedPlant(resolvedPlant);
+
+      setEditNickname(lv(resolvedPlant.nickname));
+      setEditCategory(lv(resolvedPlant.category as any) || '');
       setEditRoom('');
       setEditWateringInterval(details.wateringInterval || null);
       setEditRepottingFrequency(details.repottingFrequency || null);
@@ -277,6 +281,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
       });
       setIdentifiedPlant(newPlant);
       setEditNickname(lv(newPlant.nickname) || identifiedPlant.species);
+      setEditCategory(lv(newPlant.category as any) || '');
       setEditWateringInterval(newPlant.wateringInterval || 7);
       setEditRepottingFrequency(newPlant.repottingFrequency || 12);
       setCompatibleItems(getCompatibleItems(newPlant, inventory));
@@ -315,6 +320,14 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
     try {
       const agg = await fetchAggregatedSpeciesData(query).catch(() => null);
       const commonName = agg?.commonNames?.en?.[0] || query;
+      const inferredCategory = inferPlantCategory({
+        species: agg?.scientificName || query,
+        nickname: commonName,
+        family: agg?.family || null,
+        genus: agg?.genus || null,
+        specimenType: agg?.specimenType === 'TREE' ? 'TREE' : quickSpecimenType,
+        growthHabit: agg?.ecologicalTraits?.growthForm || agg?.ecologicalTraits?.lifeform
+      });
       const newPlant = createPlant({
         species: agg?.scientificName || query,
         scientificAuthor: agg?.authority || null,
@@ -322,6 +335,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
         genus: agg?.genus || null,
         synonyms: agg?.synonyms || [],
         specimenType: agg?.specimenType === 'TREE' ? 'TREE' : quickSpecimenType,
+        category: inferredCategory,
         nickname: { en: commonName, [language]: commonName },
         hardinessZoneMin: agg?.traits?.hardinessZoneMin ? String(agg.traits.hardinessZoneMin) : null,
         hardinessZoneMax: agg?.traits?.hardinessZoneMax ? String(agg.traits.hardinessZoneMax) : null,
@@ -392,10 +406,15 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
           : Promise.resolve(null)
       ]);
 
+      const categoryObj = editCategory.trim()
+        ? inferPlantCategory({ ...identifiedPlant, category: editCategory.trim() })
+        : (identifiedPlant.category || inferPlantCategory(identifiedPlant));
+
       const newPlant: Plant = {
         ...identifiedPlant,
         id: `p-${generateUUID()}`,
         nickname: nicknameObj,
+        category: categoryObj,
         room: roomObj,
         wateringInterval: editWateringInterval,
         repottingFrequency: editRepottingFrequency,
@@ -854,7 +873,15 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
         {scanMode === 'REVIEW' && identifiedPlant && (
           <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
             <div className="transform scale-95 -mt-2 origin-top">
-              <PlantCard plant={{ ...identifiedPlant, nickname: { en: editNickname } as any, room: { en: editRoom } as any }} showActions={false} />
+              <PlantCard
+                plant={{
+                  ...identifiedPlant,
+                  nickname: { en: editNickname } as any,
+                  category: editCategory ? inferPlantCategory({ ...identifiedPlant, category: editCategory }) : identifiedPlant.category,
+                  room: { en: editRoom } as any
+                }}
+                showActions={false}
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-1">
@@ -868,11 +895,27 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
                 />
               </div>
               <div>
+                <label className={labelClass}>{t('lbl_category') || 'Category'}</label>
+                <input
+                  type="text"
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
+                  className={inputClass}
+                  placeholder={t('placeholder_category') || 'e.g. Tree, Aroid, Succulent...'}
+                />
+              </div>
+              <div>
                 <label className={labelClass}>Specimen Type</label>
                 <select
                   className={`${inputClass} appearance-none`}
                   value={identifiedPlant.specimenType || 'PLANT'}
-                  onChange={(e) => setIdentifiedPlant({ ...identifiedPlant, specimenType: e.target.value as 'PLANT' | 'TREE' })}
+                  onChange={(e) => {
+                    const nextType = e.target.value as 'PLANT' | 'TREE';
+                    setIdentifiedPlant({ ...identifiedPlant, specimenType: nextType });
+                    if (nextType === 'TREE' && (!editCategory || editCategory === 'Foliage Plant')) {
+                      setEditCategory(lv(inferPlantCategory({ ...identifiedPlant, specimenType: 'TREE' }) as any));
+                    }
+                  }}
                 >
                   <option value="PLANT">Plant / Houseplant</option>
                   <option value="TREE">Tree / Woody Specimen</option>

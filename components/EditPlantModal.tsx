@@ -11,6 +11,7 @@ import { RefreshCw, Trash2 } from 'lucide-react';
 import { CameraCapture } from './ui/CameraCapture';
 import { compressImage } from '../services/imageUtils';
 import { ROOM_TYPES, CURRENCIES, getCurrencyForLanguage } from '../constants';
+import { inferPlantCategory } from '../utils/botanicalCategory';
 
 interface EditPlantModalProps {
   isOpen: boolean;
@@ -78,7 +79,13 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
     const currentRoom = lv(plant.room as any);
     setNickname(currentNickname);
     setRoom(currentRoom);
-    setCategory(lv(plant.category as any));
+    const initialCategory = lv(plant.category as any);
+    if (initialCategory && initialCategory.trim()) {
+      setCategory(initialCategory);
+    } else {
+      const autoInferred = inferPlantCategory(plant);
+      setCategory(lv(autoInferred as any) || '');
+    }
     setGrowthRate(lv(plant.growthRate as any));
     setHouseId(plant.houseId || null);
     setWateringInterval(plant.wateringInterval || null);
@@ -121,7 +128,10 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
 
         // Update local states with refreshed data for immediate UI feedback
         if (!nickname && details.nickname) setNickname(lv(details.nickname));
-        if (details.category) setCategory(lv(details.category as any));
+        const refreshedCategory = details.category
+          ? lv(details.category as any)
+          : lv(inferPlantCategory({ ...plant, ...details }) as any);
+        if (refreshedCategory) setCategory(refreshedCategory);
         if (details.growthRate) setGrowthRate(lv(details.growthRate as any));
         if (details.wateringInterval) setWateringInterval(details.wateringInterval);
         if (details.targetPh) setTargetPh(details.targetPh);
@@ -181,7 +191,9 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
               species: plant.species,
               nickname: batchResults.nickname || safeRefreshed.nickname || plant.nickname, 
               room: batchResults.room ? batchResults.room : (room.trim() ? room.trim() : null),
-              category: batchResults.category || safeRefreshed.category || plant.category,
+              category: category.trim()
+                ? (batchResults.category || inferPlantCategory({ ...plant, category: category.trim() }))
+                : (safeRefreshed.category || plant.category || inferPlantCategory(plant)),
               growthRate: batchResults.growthRate || safeRefreshed.growthRate || plant.growthRate,
               houseId: houseId,
               wateringInterval: wateringInterval,

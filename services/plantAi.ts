@@ -5,6 +5,7 @@ import { Plant, LocalizedString, LocalizedArray } from '../types';
 import { fetchTrefleData, fetchOpenPlantBookData, fetchPerenualData, searchGroundingData, fetchGbifData, fetchPowoData, fetchINaturalistData, fetchNcsuData, fetchVascanData, fetchAggregatedSpeciesData } from './botanicalServices';
 import { trackUsage } from './usageService';
 import { generateUUID } from './crypto';
+import { inferPlantCategory } from '../utils/botanicalCategory';
 
 const TARGET_LANGS = ['en', 'zh', 'ja', 'ko', 'es', 'fr', 'pt', 'de', 'id', 'vi', 'tl'];
 
@@ -432,6 +433,20 @@ export const generatePlantDetails = async (
       (vascan?.habit || '').toLowerCase().includes('tree') ||
       (ncsu?.plantType || '').toLowerCase().includes('tree')
     ) ? 'TREE' : 'PLANT';
+
+    const autoCategory = inferPlantCategory({
+      species: scientificName,
+      nickname: parsed?.nickname,
+      family: parsed?.family || opb?.family || trefle?.family || gbif?.family,
+      genus: parsed?.genus || trefle?.genus || gbif?.genus,
+      category: parsed?.category,
+      growthHabit: parsed?.growthHabit,
+      lifeform: powo?.lifeform || vascan?.habit,
+      growthForm: ncsu?.plantType,
+      specimenType: inferredSpecimenType
+    });
+    parsed.category = autoCategory;
+
     return createPlant({
         ...parsed,
         trefleId: trefle?.id,
@@ -461,6 +476,10 @@ export const createPlant = (data: Partial<Plant>): Plant => {
   const emptyLocalized: LocalizedString = { en: '' };
   const emptyLocalizedArray: LocalizedArray = { en: [] };
 
+  const resolvedCategory = (data.category && (typeof data.category === 'string' ? (data.category as string).trim() : Object.values(data.category).some(v => typeof v === 'string' && v.trim())))
+    ? inferPlantCategory({ ...data, category: data.category })
+    : inferPlantCategory(data);
+
   return {
     id: data.id || `p-${generateUUID()}`,
     species: data.species || 'Unknown Species',
@@ -470,7 +489,7 @@ export const createPlant = (data: Partial<Plant>): Plant => {
     genus: data.genus || null,
     scientificAuthor: data.scientificAuthor || null,
     rank: data.rank || 'species',
-    category: data.category || null,
+    category: resolvedCategory,
     
     trefleId: data.trefleId || null,
     opbId: data.opbId || null,
@@ -741,9 +760,17 @@ export const refreshPlantRecord = async (
     }
   }
 
+  const resolvedCategory = inferPlantCategory({
+    ...plant,
+    ...(aiDetails || {}),
+    ...aggUpdates,
+    category: aiDetails?.category || plant.category
+  });
+
   const merged: Partial<Plant> = {
     ...(aiDetails || {}),
     ...aggUpdates,
+    category: resolvedCategory,
     // Preserve user-owned & specimen-identity fields
     nickname: plant.nickname,
     images: plant.images,
