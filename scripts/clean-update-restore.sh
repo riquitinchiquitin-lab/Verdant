@@ -130,7 +130,11 @@ echo -e "${CYAN}[6/7] Verifying data & hardening permissions...${NC}"
 [ -d "$BACKUP_DIR/data" ] && [ ! -d "$INSTALL_DIR/data" ] && cp -a "$BACKUP_DIR/data" "$INSTALL_DIR/data"
 [ -d "$BACKUP_DIR/uploads" ] && [ ! -d "$INSTALL_DIR/uploads" ] && cp -a "$BACKUP_DIR/uploads" "$INSTALL_DIR/uploads"
 
-if id -u verdant >/dev/null 2>&1; then
+if [ "$IS_DOCKER" = true ]; then
+  mkdir -p "$INSTALL_DIR/data"
+  chown -R 1000:1000 "$INSTALL_DIR/data"
+  [ -d "$INSTALL_DIR/uploads" ] && chown -R 1000:1000 "$INSTALL_DIR/uploads"
+elif id -u verdant >/dev/null 2>&1; then
   chown -R verdant:verdant "$INSTALL_DIR"
 fi
 [ -d "$INSTALL_DIR/data" ] && chmod 700 "$INSTALL_DIR/data"

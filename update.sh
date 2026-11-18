@@ -63,6 +63,9 @@ fi
 # Check if running via Docker Compose
 if [ -f "$INSTALL_DIR/docker-compose.yml" ] && command -v docker >/dev/null 2>&1 && docker compose ps -q 2>/dev/null | grep -q .; then
   echo -e "\n${CYAN}2/4: Rebuilding & restarting Docker Compose stack...${NC}"
+  mkdir -p "$INSTALL_DIR/data"
+  chown -R 1000:1000 "$INSTALL_DIR/data"
+  chmod 700 "$INSTALL_DIR/data"
   docker compose up -d --build --remove-orphans
   echo -e "\n${CYAN}3/4: Pruning old Docker images, containers & build cache...${NC}"
   rm -rf "$INSTALL_DIR/node_modules" "$INSTALL_DIR/dist"
