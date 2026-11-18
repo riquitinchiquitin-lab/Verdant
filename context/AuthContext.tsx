@@ -124,6 +124,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setState({ token: null, user: null, loading: false });
   }, []);
 
+  useEffect(() => {
+    const handleUnauthorized = () => logout();
+    window.addEventListener('verdant:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('verdant:unauthorized', handleUnauthorized);
+  }, [logout]);
+
   const can = useCallback((action: string, subject?: any): boolean => {
     if (!state.user) return false;
     const role = state.user.role;

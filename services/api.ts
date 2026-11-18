@@ -58,7 +58,8 @@ export const fetchWithAuth = async (endpoint: string, token: string, options: Re
   let response = await fetch(`${API_URL}${endpoint}`, processedOptions);
 
   if (response.status === 401) {
-    console.warn("Unauthorized access");
+    console.warn("Unauthorized access — clearing stale session");
+    window.dispatchEvent(new CustomEvent('verdant:unauthorized'));
     throw new Error("Unauthorized");
   }
 
