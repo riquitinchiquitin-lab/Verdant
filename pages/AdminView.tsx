@@ -16,6 +16,7 @@ import { generateUUID } from '../services/crypto';
 import { useDraggableScroll } from '../hooks/useDraggableScroll';
 import { PasskeyManager } from '../components/PasskeyManager';
 import { HostingSettingsPanel } from '../components/HostingSettingsPanel';
+import { ApiKeysSettingsPanel } from '../components/ApiKeysSettingsPanel';
 import { getSecurityPolicy, SecurityPolicyStatus } from '../services/webauthn';
 import { exportCombinedLogsToExcel } from '../services/exportService';
 import { lookupLocationZone } from '../services/botanicalServices';
@@ -28,7 +29,7 @@ export const AdminView: React.FC = () => {
   const { showNotification, fetchSystemLogs } = useSystem();
   const { houses, plants, updateHouse, deleteHouse, addHouse, updatePlant, deleteAllLogs, deleteLogsByDay } = usePlants();
   const { users, addUser, updateUser, deleteUser, removeUserPermanently } = usePersonnel();
-  const [activeTab, setActiveTab] = useState<'HOUSES' | 'PERSONNEL' | 'PLANTS' | 'DATABASE' | 'SECURITY' | 'HOSTING' | 'LOGS'>('HOUSES');
+  const [activeTab, setActiveTab] = useState<'HOUSES' | 'PERSONNEL' | 'PLANTS' | 'DATABASE' | 'SECURITY' | 'HOSTING' | 'API_KEYS' | 'LOGS'>('HOUSES');
   const [policyStatus, setPolicyStatus] = useState<SecurityPolicyStatus | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -122,10 +123,10 @@ export const AdminView: React.FC = () => {
   }, [users, isOwner, isDirector, isLeadHand, user]);
 
   const availableTabs = useMemo(() => {
-    const tabs: ('HOUSES' | 'PERSONNEL' | 'PLANTS' | 'DATABASE' | 'SECURITY' | 'HOSTING' | 'LOGS')[] = ['HOUSES', 'PERSONNEL'];
+    const tabs: ('HOUSES' | 'PERSONNEL' | 'PLANTS' | 'DATABASE' | 'SECURITY' | 'HOSTING' | 'API_KEYS' | 'LOGS')[] = ['HOUSES', 'PERSONNEL'];
     if (isOwner || isDirector) {
       tabs.splice(2, 0, 'PLANTS');
-      tabs.push('DATABASE', 'SECURITY', 'HOSTING', 'LOGS');
+      tabs.push('DATABASE', 'SECURITY', 'HOSTING', 'API_KEYS', 'LOGS');
     }
     return tabs;
   }, [isOwner, isDirector]);
@@ -960,7 +961,7 @@ export const AdminView: React.FC = () => {
         <div {...tabsScroll.props} className={`flex gap-x-8 border-b border-slate-200 dark:border-slate-800 pb-0.5 whitespace-nowrap scroll-smooth ${tabsScroll.props.className}`}>
             {availableTabs.map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab as any)} className={`pb-4 px-3 text-[10px] font-black uppercase tracking-[0.35em] transition-all relative border-b-2 shrink-0 ${activeTab === tab ? 'text-slate-900 dark:text-white border-verdant' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 border-transparent'}`}>
-                    {tab === 'HOSTING' ? 'Domains & Hosting' : t(`tab_${tab.toLowerCase()}` as any)}
+                    {tab === 'HOSTING' ? 'Domains & Hosting' : tab === 'API_KEYS' ? 'API Keys' : t(`tab_${tab.toLowerCase()}` as any)}
                 </button>
             ))}
         </div>
@@ -1195,6 +1196,9 @@ export const AdminView: React.FC = () => {
         )}
         {activeTab === 'HOSTING' && (
             <HostingSettingsPanel />
+        )}
+        {activeTab === 'API_KEYS' && (
+            <ApiKeysSettingsPanel />
         )}
         {activeTab === 'LOGS' && (
             <div className="space-y-6">

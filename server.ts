@@ -69,6 +69,7 @@ async function startApp() {
     console.log('[CORE] Starting Verdant Botanical Protocol...');
     await initializeDatabase();
     await initializeVaultKey();
+    await hydrateApiKeysFromVault();
     await setupMiddlewareAndStart();
     console.log('[CORE] System Fully Operational');
   } catch (e) {
@@ -1203,6 +1204,130 @@ app.get('/api/system/hosting', checkAuth, async (req, res) => {
     });
   } catch (e) {
     res.status(500).json({ error: "HOSTING_CONFIG_FAULT" });
+  }
+});
+
+const MANAGED_API_KEYS = [
+  'GEMINI_API_KEY',
+  'PERENUAL_API_KEY',
+  'TREFLE_TOKEN',
+  'PLANTNET_API_KEY',
+  'OPB_CLIENT_ID',
+  'OPB_CLIENT_SECRET',
+  'SERPER_API_KEY',
+] as const;
+
+const maskApiKey = (val: string): string => {
+  if (!val) return '';
+  if (val.length <= 8) return '••••••••';
+  return `${val.slice(0, 4)}••••••••${val.slice(-4)}`;
+};
+
+async function hydrateApiKeysFromVault() {
+  try {
+    const placeholders = MANAGED_API_KEYS.map(() => '?').join(',');
+    const res = await query(
+      `SELECT key, value FROM system_settings WHERE key IN (${placeholders})`,
+      [...MANAGED_API_KEYS]
+    );
+    for (const row of res.rows) {
+      if (!row?.key || typeof row?.value !== 'string') continue;
+      let resolved = row.value;
+      if (resolved.startsWith('enc:')) {
+        try {
+          const dec = decrypt(resolved.slice(4));
+          resolved = typeof dec === 'string' ? dec : String(dec ?? '');
+        } catch {
+          continue;
+        }
+      }
+      if (resolved) {
+        process.env[row.key] = resolved;
+      }
+    }
+  } catch {}
+}
+
+app.get('/api/system/api-keys', checkAuth, async (req, res) => {
+  const role = (req as any).userRole;
+  if (!['OWNER', 'CO_CEO'].includes(role)) {
+    return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+  }
+  try {
+    const placeholders = MANAGED_API_KEYS.map(() => '?').join(',');
+    const dbRes = await query(
+      `SELECT key, updatedAt FROM system_settings WHERE key IN (${placeholders})`,
+      [...MANAGED_API_KEYS]
+    );
+    const dbMap = new Map<string, string>();
+    for (const row of dbRes.rows) {
+      if (row?.key) dbMap.set(row.key, row.updatedAt || '');
+    }
+
+    const keys = MANAGED_API_KEYS.map((key) => {
+      const val = process.env[key] || '';
+      const inVault = dbMap.has(key);
+      return {
+        key,
+        configured: Boolean(val),
+        masked: maskApiKey(val),
+        source: inVault ? 'vault' : (val ? 'env' : 'none'),
+        updatedAt: dbMap.get(key) || null,
+      };
+    });
+
+    res.json({ keys });
+  } catch (e) {
+    res.status(500).json({ error: "API_KEYS_FETCH_FAULT" });
+  }
+});
+
+app.put('/api/system/api-keys', checkAuth, async (req, res) => {
+  const role = (req as any).userRole;
+  if (!['OWNER', 'CO_CEO'].includes(role)) {
+    return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+  }
+  try {
+    const { updates } = req.body || {};
+    if (!updates || typeof updates !== 'object') {
+      return res.status(400).json({ error: "INVALID_PAYLOAD" });
+    }
+
+    const changedKeys: string[] = [];
+    const clearedKeys: string[] = [];
+    const now = new Date().toISOString();
+
+    for (const key of MANAGED_API_KEYS) {
+      if (!(key in updates)) continue;
+      const rawVal = updates[key];
+
+      if (rawVal === null || rawVal === '__CLEAR__') {
+        await query('DELETE FROM system_settings WHERE key = ?', [key]);
+        delete process.env[key];
+        clearedKeys.push(key);
+      } else if (typeof rawVal === 'string' && rawVal.trim().length > 0) {
+        const cleanVal = rawVal.trim();
+        const storedVal = currentVaultKey ? `enc:${encrypt(cleanVal)}` : cleanVal;
+        await query(
+          'INSERT OR REPLACE INTO system_settings (key, value, updatedAt) VALUES (?, ?, ?)',
+          [key, storedVal, now]
+        );
+        process.env[key] = cleanVal;
+        changedKeys.push(key);
+      }
+    }
+
+    if (changedKeys.length > 0 || clearedKeys.length > 0) {
+      await logSystemEvent(
+        'API_KEYS_UPDATED',
+        `Updated: [${changedKeys.join(', ') || 'none'}], Cleared: [${clearedKeys.join(', ') || 'none'}] by ${(req as any).userId || 'ADMIN'}`,
+        'WARN'
+      );
+    }
+
+    res.json({ status: 'ok', updated: changedKeys, cleared: clearedKeys });
+  } catch (e) {
+    res.status(500).json({ error: "API_KEYS_SAVE_FAULT" });
   }
 });
 
