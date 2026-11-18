@@ -18,12 +18,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 
 COPY package*.json ./
 RUN npm ci --omit=dev --legacy-peer-deps --no-audit --no-fund \
-    && (node -e "require('sqlite3')" 2>/dev/null || ( \
-        apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
-        && npm rebuild sqlite3 \
-        && apt-get purge -y --auto-remove python3 make g++ \
-        && rm -rf /var/lib/apt/lists/* \
-    )) \
     && npm cache clean --force \
     && rm -rf /root/.npm
 

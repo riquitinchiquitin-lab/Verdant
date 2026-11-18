@@ -1,6 +1,4 @@
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const sqlite3 = require('sqlite3').verbose();
+import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -14,15 +12,12 @@ if (!fs.existsSync(path.dirname(dbPath))) {
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 }
 
-const db = new sqlite3.Database(dbPath);
+const db = new DatabaseSync(dbPath);
 
-const query = (sql: string, params: any[] = []): Promise<any> => {
-    return new Promise((resolve, reject) => {
-        db.run(sql, params, function(this: any, err: Error | null) {
-            if (err) reject(err);
-            else resolve({ lastID: this.lastID, changes: this.changes });
-        });
-    });
+const query = async (sql: string, params: any[] = []): Promise<any> => {
+    const safeParams = params.map((p) => (p === undefined ? null : p));
+    const info = db.prepare(sql).run(...safeParams);
+    return { lastID: Number(info.lastInsertRowid), changes: Number(info.changes) };
 };
 
 async function seed() {

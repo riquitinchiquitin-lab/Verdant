@@ -1,4 +1,4 @@
-import { createRequire } from 'module';
+import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
@@ -7,9 +7,6 @@ import readline from 'readline';
 import dotenv from 'dotenv';
 import argon2 from 'argon2';
 import { validatePasswordNist } from '../services/nistPasswordValidator';
-
-const require = createRequire(import.meta.url);
-const sqlite3 = require('sqlite3').verbose();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,16 +20,16 @@ if (!fs.existsSync(dataDir)) {
 }
 const dbPath = path.join(dataDir, 'verdant.db');
 
-const db = new sqlite3.Database(dbPath);
-const query = (sql: string, params: any[] = []): Promise<any> =>
-  new Promise((resolve, reject) => {
-    const cb = function (this: any, err: Error | null, rows: any[]) {
-      if (err) reject(err);
-      else resolve({ rows: rows || [], lastID: this?.lastID, changes: this?.changes });
-    };
-    if (sql.trim().toUpperCase().startsWith('SELECT')) db.all(sql, params, cb);
-    else db.run(sql, params, cb);
-  });
+const db = new DatabaseSync(dbPath);
+const query = async (sql: string, params: any[] = []): Promise<any> => {
+  const safeParams = params.map((p) => (p === undefined ? null : p));
+  const stmt = db.prepare(sql);
+  if (sql.trim().toUpperCase().startsWith('SELECT')) {
+    return { rows: stmt.all(...safeParams) || [], lastID: undefined, changes: 0 };
+  }
+  const info = stmt.run(...safeParams);
+  return { rows: [], lastID: Number(info.lastInsertRowid), changes: Number(info.changes) };
+};
 
 const prompt = (question: string): Promise<string> => {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });

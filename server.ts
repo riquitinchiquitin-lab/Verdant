@@ -1,7 +1,5 @@
 import express from 'express';
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const sqlite3 = require('sqlite3').verbose();
+import { DatabaseSync } from 'node:sqlite';
 import cors from 'cors';
 import multer from 'multer';
 import crypto from 'crypto';
@@ -83,15 +81,17 @@ async function startApp() {
 
 let currentVaultKey: string | null = null;
 
-const query = (sql: string, params: any[] = []): Promise<any> => {
-  return new Promise((resolve, reject) => {
-    const callback = function (this: any, err: Error | null, rows: any[]) {
-      if (err) reject(err);
-      else resolve({ rows: rows || [], lastID: this?.lastID, changes: this?.changes });
-    };
-    if (sql.trim().toUpperCase().startsWith('SELECT')) db.all(sql, params, callback);
-    else db.run(sql, params, callback);
-  });
+let db: DatabaseSync;
+
+const query = async (sql: string, params: any[] = []): Promise<any> => {
+  const safeParams = params.map((p) => (p === undefined ? null : p));
+  const stmt = db.prepare(sql);
+  if (sql.trim().toUpperCase().startsWith('SELECT')) {
+    const rows = stmt.all(...safeParams);
+    return { rows: rows || [], lastID: undefined, changes: 0 };
+  }
+  const info = stmt.run(...safeParams);
+  return { rows: [], lastID: Number(info.lastInsertRowid), changes: Number(info.changes) };
 };
 
 const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
@@ -2555,11 +2555,11 @@ async function initializeDatabase() {
 
 // --- DATABASE CONNECTION & STARTUP ---
 console.log('[DB] Connecting to SQLite at:', dbPath);
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('[DB ERROR] Failed to connect to SQLite:', err.message);
-    process.exit(1);
-  }
+try {
+  db = new DatabaseSync(dbPath);
   console.log('[DB] Connected to SQLite successfully');
   startApp();
-});
+} catch (err: any) {
+  console.error('[DB ERROR] Failed to connect to SQLite:', err?.message || err);
+  process.exit(1);
+}

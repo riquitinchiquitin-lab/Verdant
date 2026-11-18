@@ -1,136 +1,154 @@
-import * as XLSX from 'xlsx';
+import writeXlsxFile from 'write-excel-file/browser';
 import { Plant } from '../types';
 import { getShortBarcodeId } from './barcodeService';
 
+const cell = (value: unknown, fontWeight?: 'bold') => ({
+  value: value == null ? '' : String(value),
+  type: String as StringConstructor,
+  ...(fontWeight ? { fontWeight } : {}),
+});
+
 /**
  * Generates an Excel file optimized for Niimbot App label import.
- * Format based on user requirements: nickname, species, family, qr
+ * Format based on user requirements: nickname, species, family, barcode, qr
  */
-export const exportPlantsToNiimbotExcel = (plants: Plant[], lv: (val: any) => string, fileName: string = 'verdant_labels.xlsx') => {
-  // Helper to ensure protocol fields don't contain the pipe separator
-  const sanitize = (val: string | null | undefined, fallback: string) => 
+export const exportPlantsToNiimbotExcel = async (
+  plants: Plant[],
+  lv: (val: any) => string,
+  fileName: string = 'verdant_labels.xlsx'
+) => {
+  const sanitize = (val: string | null | undefined, fallback: string) =>
     (val || fallback).replace(/\|/g, '').trim();
 
-  // 1. Prepare data mapping exactly to the requested headers
-  const data = plants.map(p => {
-    // Construct the H-Format Protocol Hash for the QR column
-    // UPDATED STRUCTURE: HOUSE_ID|PLANT_ID|SPECIES|FAMILY
+  const headerRow = [
+    cell('nickname', 'bold'),
+    cell('species', 'bold'),
+    cell('family', 'bold'),
+    cell('barcode', 'bold'),
+    cell('qr', 'bold'),
+  ];
+
+  const dataRows = plants.map((p) => {
     const houseId = sanitize(p.houseId, 'GLOBAL');
     const plantId = sanitize(p.id, 'NEW');
     const species = sanitize(p.species, 'UNKNOWN_SPECIES');
     const family = sanitize(p.family, 'BOTANICAL');
-    
     const hFormatHash = `${houseId}|${plantId}|${species}|${family}`;
 
-    return {
-      'nickname': lv(p.nickname),
-      'species': p.species,
-      'family': p.family || '-',
-      'barcode': getShortBarcodeId(plantId),
-      'qr': hFormatHash
-    };
+    return [
+      cell(lv(p.nickname)),
+      cell(p.species),
+      cell(p.family || '-'),
+      cell(getShortBarcodeId(plantId)),
+      cell(hFormatHash),
+    ];
   });
 
-  // 2. Create worksheet
-  const worksheet = XLSX.utils.json_to_sheet(data);
-  
-  // 3. Set column widths for easier visibility in Niimbot preview
-  const wscols = [
-    { wch: 30 }, // nickname
-    { wch: 30 }, // species
-    { wch: 20 }, // family
-    { wch: 24 }, // barcode (short Code 128 ID)
-    { wch: 50 }, // qr (hash is long, so we give it more space)
-  ];
-  worksheet['!cols'] = wscols;
-
-  // 4. Create workbook and trigger download
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Labels");
-  
-  XLSX.writeFile(workbook, fileName);
+  await writeXlsxFile([headerRow, ...dataRows], {
+    columns: [
+      { width: 30 },
+      { width: 30 },
+      { width: 20 },
+      { width: 24 },
+      { width: 50 },
+    ],
+    sheet: 'Labels',
+  }).toFile(fileName);
 };
 
-export const exportLogsToExcel = (plants: Plant[], lv: (val: any) => string, fileName: string = 'verdant_care_logs.xlsx') => {
+export const exportLogsToExcel = async (
+  plants: Plant[],
+  lv: (val: any) => string,
+  fileName: string = 'verdant_care_logs.xlsx'
+) => {
   const allLogs: any[] = [];
 
-  plants.forEach(plant => {
-    (plant.logs || []).forEach(log => {
+  plants.forEach((plant) => {
+    (plant.logs || []).forEach((log) => {
       allLogs.push({
         _ts: new Date(log.date).getTime() || 0,
-        'Date': new Date(log.date).toLocaleString(),
-        'Plant ID': plant.id,
-        'Plant Name': lv(plant.nickname),
-        'Species': plant.species,
-        'Log Type': log.type,
-        'Value': log.value || '-',
-        'Note': log.localizedNote ? lv(log.localizedNote) : (log.note || '-'),
-        'House ID': plant.houseId || 'GLOBAL'
+        date: new Date(log.date).toLocaleString(),
+        plantId: plant.id,
+        plantName: lv(plant.nickname),
+        species: plant.species,
+        logType: log.type,
+        value: log.value || '-',
+        note: log.localizedNote ? lv(log.localizedNote) : log.note || '-',
+        houseId: plant.houseId || 'GLOBAL',
       });
     });
   });
 
-  // Sort by raw timestamp descending
   allLogs.sort((a, b) => b._ts - a._ts);
-  const rows = allLogs.map(({ _ts, ...rest }) => rest);
 
-  const worksheet = XLSX.utils.json_to_sheet(rows);
-  
-  const wscols = [
-    { wch: 20 }, // Date
-    { wch: 15 }, // Plant ID
-    { wch: 25 }, // Plant Name
-    { wch: 25 }, // Species
-    { wch: 15 }, // Log Type
-    { wch: 10 }, // Value
-    { wch: 50 }, // Note
-    { wch: 15 }, // House ID
+  const headerRow = [
+    cell('Date', 'bold'),
+    cell('Plant ID', 'bold'),
+    cell('Plant Name', 'bold'),
+    cell('Species', 'bold'),
+    cell('Log Type', 'bold'),
+    cell('Value', 'bold'),
+    cell('Note', 'bold'),
+    cell('House ID', 'bold'),
   ];
-  worksheet['!cols'] = wscols;
 
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Care Logs");
-  
-  XLSX.writeFile(workbook, fileName);
+  const dataRows = allLogs.map((r) => [
+    cell(r.date),
+    cell(r.plantId),
+    cell(r.plantName),
+    cell(r.species),
+    cell(r.logType),
+    cell(r.value),
+    cell(r.note),
+    cell(r.houseId),
+  ]);
+
+  await writeXlsxFile([headerRow, ...dataRows], {
+    columns: [
+      { width: 20 },
+      { width: 15 },
+      { width: 25 },
+      { width: 25 },
+      { width: 15 },
+      { width: 10 },
+      { width: 50 },
+      { width: 15 },
+    ],
+    sheet: 'Care Logs',
+  }).toFile(fileName);
 };
 
-export const exportCombinedLogsToExcel = (logs: any[], fileName: string = 'verdant_system_logs.xlsx') => {
-  if (!logs || logs.length === 0) {
-    // Create a worksheet with headers even if no data
-    const worksheet = XLSX.utils.json_to_sheet([{
-      'Timestamp': '-',
-      'Category': '-',
-      'Event': '-',
-      'Details': '-',
-      'Level': '-'
-    }]);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Logs");
-    XLSX.writeFile(workbook, fileName);
-    return;
-  }
-
-  const data = logs.map(l => ({
-    'Timestamp': l.timestamp ? new Date(l.timestamp).toLocaleString() : '-',
-    'Category': l.category || '-',
-    'Event': l.event || '-',
-    'Details': l.details || '-',
-    'Level': l.level || '-'
-  }));
-
-  const worksheet = XLSX.utils.json_to_sheet(data);
-  
-  const wscols = [
-    { wch: 25 }, // Timestamp
-    { wch: 15 }, // Category
-    { wch: 30 }, // Event
-    { wch: 60 }, // Details
-    { wch: 10 }, // Level
+export const exportCombinedLogsToExcel = async (
+  logs: any[],
+  fileName: string = 'verdant_system_logs.xlsx'
+) => {
+  const headerRow = [
+    cell('Timestamp', 'bold'),
+    cell('Category', 'bold'),
+    cell('Event', 'bold'),
+    cell('Details', 'bold'),
+    cell('Level', 'bold'),
   ];
-  worksheet['!cols'] = wscols;
 
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "System Logs");
-  
-  XLSX.writeFile(workbook, fileName);
+  const dataRows =
+    !logs || logs.length === 0
+      ? [[cell('-'), cell('-'), cell('-'), cell('-'), cell('-')]]
+      : logs.map((l) => [
+          cell(l.timestamp ? new Date(l.timestamp).toLocaleString() : '-'),
+          cell(l.category || '-'),
+          cell(l.event || '-'),
+          cell(l.details || '-'),
+          cell(l.level || '-'),
+        ]);
+
+  await writeXlsxFile([headerRow, ...dataRows], {
+    columns: [
+      { width: 25 },
+      { width: 15 },
+      { width: 30 },
+      { width: 60 },
+      { width: 10 },
+    ],
+    sheet: !logs || logs.length === 0 ? 'Logs' : 'System Logs',
+  }).toFile(fileName);
 };
