@@ -87,7 +87,14 @@ const App: React.FC = () => {
                         <Route path="/" element={
                           <ProtectedRoute>
                             <Layout>
-                              <Dashboard />
+                              <Dashboard initialSpecimenFilter="ALL" />
+                            </Layout>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/trees" element={
+                          <ProtectedRoute>
+                            <Layout>
+                              <Dashboard initialSpecimenFilter="TREE" />
                             </Layout>
                           </ProtectedRoute>
                         } />

@@ -14,6 +14,7 @@ import { Plant } from '../types';
 import {
   ScanBarcode,
   Sprout,
+  TreeDeciduous,
   Droplets,
   ClipboardList,
   Package,
@@ -188,6 +189,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   const navItems = [
     { to: '/', label: t('menu_my_plants'), Icon: Sprout },
+    { to: '/trees', label: 'My Trees', Icon: TreeDeciduous },
     { to: '/care', label: t('menu_care'), Icon: Droplets },
     { to: '/tasks', label: t('menu_tasks'), Icon: ClipboardList },
     { to: '/inventory', label: t('menu_inventory'), Icon: Package },

@@ -15,7 +15,11 @@ import { Logo } from '../components/ui/Logo';
 import { PlantTelemetry } from '../components/PlantTelemetry';
 import { exportPlantsToNiimbotExcel } from '../services/exportService';
 
-export const Dashboard: React.FC = () => {
+interface DashboardProps {
+  initialSpecimenFilter?: 'ALL' | 'PLANT' | 'TREE';
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ initialSpecimenFilter = 'ALL' }) => {
   const { user, can } = useAuth();
   const { showNotification } = useSystem();
   const navigate = useNavigate();
@@ -25,7 +29,11 @@ export const Dashboard: React.FC = () => {
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
   const [viewMode, setViewMode] = useState<'MY_HOUSE' | 'ALL'>('MY_HOUSE');
   const [selectedHouseFilter, setSelectedHouseFilter] = useState<string | 'ALL' | 'UNATTRIBUTED'>('ALL');
-  const [specimenFilter, setSpecimenFilter] = useState<'ALL' | 'PLANT' | 'TREE'>('ALL');
+  const [specimenFilter, setSpecimenFilter] = useState<'ALL' | 'PLANT' | 'TREE'>(initialSpecimenFilter);
+
+  React.useEffect(() => {
+    setSpecimenFilter(initialSpecimenFilter);
+  }, [initialSpecimenFilter]);
 
   const isAdmin = user?.role === 'OWNER' || user?.role === 'CO_CEO';
 
