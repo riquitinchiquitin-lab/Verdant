@@ -110,36 +110,45 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
       dotPct = ((clamped - scaleMin) / span) * 100;
     }
 
+    const cleanAdvice = advice && advice.trim() && advice.trim() !== t('lbl_na') ? advice.trim() : '';
+
     return (
-      <div className="relative space-y-3 p-5 bg-md-surface-container rounded-[20px] border border-md-outline-variant/25 hover:border-md-primary/40 transition-all duration-300" title={advice}>
-        <p className="text-xs font-medium text-md-on-surface-variant">{label}</p>
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-2xl sm:text-3xl font-bold text-md-on-surface tracking-tight">
-            {hasMin && hasMax ? `${min}–${max}` : (min ?? max ?? t('lbl_na'))}
-          </span>
-          <span className="text-xs font-medium text-md-on-surface-variant">{unit}</span>
-        </div>
-        <div className="space-y-1.5 pt-1">
-          <div className="relative h-2 w-full bg-md-surface-container-highest rounded-full overflow-visible">
-            {hasMin || hasMax ? (
-              isSingleTarget ? (
-                <div
-                  className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-md-primary shadow-sm ring-4 ring-md-primary/20 transition-all duration-500"
-                  style={{ left: `${dotPct}%` }}
-                />
-              ) : (
-                <div
-                  className="absolute top-0 bottom-0 bg-md-primary rounded-full shadow-xs transition-all duration-500"
-                  style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                />
-              )
-            ) : null}
+      <div className="relative flex flex-col justify-between space-y-3 p-5 bg-md-surface-container rounded-[20px] border border-md-outline-variant/25 hover:border-md-primary/40 transition-all duration-300">
+        <div className="space-y-3">
+          <p className="text-xs font-medium text-md-on-surface-variant">{label}</p>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-bold text-md-on-surface tracking-tight">
+              {hasMin && hasMax ? `${min}–${max}` : (min ?? max ?? t('lbl_na'))}
+            </span>
+            <span className="text-xs font-medium text-md-on-surface-variant">{unit}</span>
           </div>
-          <div className="flex justify-between text-[10px] font-medium text-md-on-surface-variant/70">
-            <span>{isSingleTarget ? `${min ?? max}` : 'min'}</span>
-            <span>{isSingleTarget ? unit : 'max'}</span>
+          <div className="space-y-1.5 pt-1">
+            <div className="relative h-2 w-full bg-md-surface-container-highest rounded-full overflow-visible">
+              {hasMin || hasMax ? (
+                isSingleTarget ? (
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-md-primary shadow-sm ring-4 ring-md-primary/20 transition-all duration-500"
+                    style={{ left: `${dotPct}%` }}
+                  />
+                ) : (
+                  <div
+                    className="absolute top-0 bottom-0 bg-md-primary rounded-full shadow-xs transition-all duration-500"
+                    style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                  />
+                )
+              ) : null}
+            </div>
+            <div className="flex justify-between text-[10px] font-medium text-md-on-surface-variant/70">
+              <span>{isSingleTarget ? `${min ?? max}` : 'min'}</span>
+              <span>{isSingleTarget ? unit : 'max'}</span>
+            </div>
           </div>
         </div>
+        {cleanAdvice && (
+          <p className="text-xs text-md-on-surface-variant leading-relaxed pt-2.5 border-t border-md-outline-variant/15">
+            {cleanAdvice}
+          </p>
+        )}
       </div>
     );
   };
