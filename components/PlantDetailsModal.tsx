@@ -23,6 +23,7 @@ import { useInventory } from '../context/InventoryContext';
 import { PhenophaseType } from '../types';
 import { translateInput } from '../services/translationService';
 import { generateUUID } from '../services/crypto';
+import { PlantOriginMap } from './PlantOriginMap';
 import { getShortBarcodeId } from '../services/barcodeService';
 import { checkPlantCompatibility } from '../utils/compatibility';
 import { refreshPlantRecord } from '../services/plantAi';
@@ -890,11 +891,21 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                         )}
                                     </section>
 
-                                    {(lv(plant.foliageTraits as any) || lv(plant.flowerTraits as any) || (lva(plant.nativeRegions as any)?.length > 0) || (lva(plant.attracts as any)?.length > 0) || (plant.ecologicalFlags && Object.values(plant.ecologicalFlags).some(Boolean))) && (
+                                    {(lv(plant.origin) || lv(plant.foliageTraits as any) || lv(plant.flowerTraits as any) || (lva(plant.nativeRegions as any)?.length > 0) || (lva(plant.introducedRegions as any)?.length > 0) || (lva(plant.attracts as any)?.length > 0) || (plant.ecologicalFlags && Object.values(plant.ecologicalFlags).some(Boolean))) && (
                                       <section className="bg-md-surface-container rounded-[24px] p-6 border border-md-outline-variant/25 space-y-4">
                                         <h3 className="text-base font-bold text-md-on-surface tracking-tight">
                                           {t('lbl_morphology_ecology') || 'Morphology & Ecology'}
                                         </h3>
+
+                                        {(lv(plant.origin) || (lva(plant.nativeRegions as any)?.length > 0) || (lva(plant.introducedRegions as any)?.length > 0)) && (
+                                          <PlantOriginMap
+                                            origin={lv(plant.origin)}
+                                            nativeRegions={lva(plant.nativeRegions as any)}
+                                            introducedRegions={lva(plant.introducedRegions as any)}
+                                            originLabel={t('lbl_origin')}
+                                            nativeLabel={t('lbl_native_regions') || 'Native Origin'}
+                                          />
+                                        )}
 
                                         {plant.ecologicalFlags && Object.values(plant.ecologicalFlags).some(Boolean) && (
                                           <div className="flex flex-wrap gap-2">
