@@ -101,6 +101,11 @@ npm prune --omit=dev --legacy-peer-deps >/dev/null 2>&1 || true
 npm cache clean --force >/dev/null 2>&1 || true
 [[ $EUID -eq 0 ]] && command -v journalctl >/dev/null 2>&1 && journalctl --vacuum-size=50M >/dev/null 2>&1 || true
 
+# Ensure symlink /opt/verdant exists if installed in /root/verdant
+if [ "$INSTALL_DIR" = "/root/verdant" ] && [ ! -e "/opt/verdant" ] && [[ $EUID -eq 0 ]]; then
+  ln -s /root/verdant /opt/verdant 2>/dev/null || true
+fi
+
 # 4. Enforce strict permissions for data security & restart service
 echo -e "\n${CYAN}4/4: Hardening permissions & restarting service...${NC}"
 if id -u verdant >/dev/null 2>&1; then
@@ -109,8 +114,37 @@ fi
 [ -d "$INSTALL_DIR/data" ] && chmod 700 "$INSTALL_DIR/data"
 [ -f "$INSTALL_DIR/.env" ] && chmod 600 "$INSTALL_DIR/.env"
 
-# Restart systemd service if present
-if systemctl list-unit-files 2>/dev/null | grep -q "verdant.service"; then
+# Auto-configure and restart systemd service if running on Linux with systemd
+if command -v systemctl >/dev/null 2>&1 && [[ $EUID -eq 0 ]]; then
+  if ! systemctl list-unit-files 2>/dev/null | grep -q "verdant.service"; then
+    echo -e "${YELLOW}[!] verdant.service not registered. Creating /etc/systemd/system/verdant.service...${NC}"
+    NPM_BIN="$(command -v npm || echo /usr/bin/npm)"
+    cat <<EOF > /etc/systemd/system/verdant.service
+[Unit]
+Description=Verdant Plant Management System
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=${INSTALL_DIR}
+ExecStart=${NPM_BIN} start
+Restart=always
+Environment=NODE_ENV=production
+Environment=PORT=3000
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+    systemctl enable verdant
+  fi
+
+  # Stop any rogue standalone background process on port 3000 before restarting service
+  pkill -f "tsx server.ts" 2>/dev/null || true
+  systemctl restart verdant
+  echo -e "${GREEN}✓ verdant.service is active and running.${NC}"
+elif systemctl list-unit-files 2>/dev/null | grep -q "verdant.service"; then
   systemctl restart verdant
   echo -e "${GREEN}✓ verdant.service restarted successfully.${NC}"
 fi

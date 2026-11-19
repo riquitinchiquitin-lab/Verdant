@@ -140,6 +140,11 @@ fi
 [ -d "$INSTALL_DIR/data" ] && chmod 700 "$INSTALL_DIR/data"
 [ -f "$INSTALL_DIR/.env" ] && chmod 600 "$INSTALL_DIR/.env"
 
+# Ensure symlink /opt/verdant exists if installed in /root/verdant
+if [ "$INSTALL_DIR" = "/root/verdant" ] && [ ! -e "/opt/verdant" ] && [[ $EUID -eq 0 ]]; then
+  ln -s /root/verdant /opt/verdant 2>/dev/null || true
+fi
+
 # 8. Restart service / Docker Compose & health check with rollback
 echo -e "${CYAN}[7/7] Restarting Verdant & verifying health...${NC}"
 if [ "$IS_DOCKER" = true ]; then
@@ -149,8 +154,33 @@ if [ "$IS_DOCKER" = true ]; then
   docker builder prune -af >/dev/null 2>&1 || true
   docker network prune -f >/dev/null 2>&1 || true
   echo -e "${GREEN}✓ Docker Compose stack rebuilt & old Docker files pruned.${NC}"
-elif systemctl list-unit-files 2>/dev/null | grep -q "${SERVICE_NAME}.service"; then
-  systemctl start "$SERVICE_NAME"
+elif command -v systemctl >/dev/null 2>&1 && [[ $EUID -eq 0 ]]; then
+  if ! systemctl list-unit-files 2>/dev/null | grep -q "${SERVICE_NAME}.service"; then
+    echo -e "${YELLOW}[!] ${SERVICE_NAME}.service not registered. Creating /etc/systemd/system/${SERVICE_NAME}.service...${NC}"
+    NPM_BIN="$(command -v npm || echo /usr/bin/npm)"
+    cat <<EOF > /etc/systemd/system/${SERVICE_NAME}.service
+[Unit]
+Description=Verdant Plant Management System
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=${INSTALL_DIR}
+ExecStart=${NPM_BIN} start
+Restart=always
+Environment=NODE_ENV=production
+Environment=PORT=${PORT}
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+    systemctl enable "${SERVICE_NAME}"
+  fi
+
+  pkill -f "tsx server.ts" 2>/dev/null || true
+  systemctl restart "$SERVICE_NAME"
   sleep 3
   if curl -fsS "http://127.0.0.1:${PORT}/api/auth/webauthn/status" >/dev/null 2>&1; then
     echo -e "${GREEN}✓ Health check passed! Verdant is online.${NC}"
