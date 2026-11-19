@@ -1,4 +1,5 @@
 import { Plant } from '../types';
+import { QRCodeWriter, BarcodeFormat, EncodeHintType } from '@zxing/library';
 
 /**
  * Code 128B encoding table (values 0..106).
@@ -92,12 +93,106 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number):
 }
 
 /**
- * Renders an Option B (15 × 50 mm @ 203 DPI) landscape sticker onto a 400 × 96 px canvas.
+ * Hard-binarizes a canvas image into strictly pure black (#000000) or pure white (#FFFFFF).
+ *
+ * Why this is critical for Niimbot thermal printing:
+ * Niimbot's ImageEncoder.encode uses `color !== 0xffffff` as the condition for a black dot.
+ * Standard HTML5 Canvas antialiases text and curves with soft gray edge pixels (e.g., #EEEEEE).
+ * Without binarization, every single gray subpixel gets turned into a 100% black thermal burn.
+ * On 203 DPI thermal printheads, this causes catastrophic "dot bloom", bleeding letters together
+ * and turning 11-12px subtitles into solid unreadable black smudges.
+ *
+ * Applying a strict luminance threshold completely removes antialiasing halos, preserving
+ * wide-open letter counters ('e', 'o', 'a', 'c') and razor-sharp linear/QR barcodes.
+ */
+export function binarizeCanvas(canvas: HTMLCanvasElement, threshold: number = 160): HTMLCanvasElement {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return canvas;
+
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imgData.data;
+  const len = data.length;
+
+  for (let i = 0; i < len; i += 4) {
+    // If pixel is semi-transparent, treat transparent background as white
+    const alpha = data[i + 3] / 255;
+    const r = data[i] * alpha + 255 * (1 - alpha);
+    const g = data[i + 1] * alpha + 255 * (1 - alpha);
+    const b = data[i + 2] * alpha + 255 * (1 - alpha);
+
+    // Standard Rec. 601 perceived luminance
+    const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+
+    // Strict threshold: any pixel brighter than threshold becomes pure white; else pure black
+    const val = luminance >= threshold ? 255 : 0;
+    data[i] = val;
+    data[i + 1] = val;
+    data[i + 2] = val;
+    data[i + 3] = 255;
+  }
+
+  ctx.putImageData(imgData, 0, 0);
+  return canvas;
+}
+
+export type LabelLayoutType = 'qr' | 'barcode';
+
+/**
+ * Draws a crisp QR code onto the canvas using @zxing/library's QRCodeWriter.
+ * Uses integer block scaling so that every QR module corresponds to an exact integer
+ * number of physical 203 DPI thermal dots.
+ */
+function drawQrCodeToCanvas(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  destX: number,
+  destY: number,
+  boxSize: number
+): void {
+  try {
+    const writer = new QRCodeWriter();
+    const hints = new Map();
+    hints.set(EncodeHintType.MARGIN, 0);
+    // Request minimum size to get the native module matrix
+    const matrix = writer.encode(text, BarcodeFormat.QR_CODE, 0, 0, hints);
+    const modCount = matrix.getWidth(); // typically 21 or 25 modules
+    const modSize = Math.max(1, Math.floor(boxSize / modCount));
+    const renderSize = modCount * modSize;
+    const offsetX = destX + Math.floor((boxSize - renderSize) / 2);
+    const offsetY = destY + Math.floor((boxSize - renderSize) / 2);
+
+    ctx.fillStyle = '#000000';
+    for (let row = 0; row < modCount; row++) {
+      for (let col = 0; col < modCount; col++) {
+        if (matrix.get(col, row)) {
+          ctx.fillRect(offsetX + col * modSize, offsetY + row * modSize, modSize, modSize);
+        }
+      }
+    }
+  } catch {
+    // Fallback if zxing fails: draw a clear placeholder box
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(destX, destY, boxSize, boxSize);
+    ctx.fillStyle = '#000000';
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('QR', destX + boxSize / 2, destY + boxSize / 2 + 3);
+  }
+}
+
+/**
+ * Renders an Option B (15 × 50 mm @ 203 DPI) sticker onto a 400 × 96 px canvas.
+ * Supports both modern 2-column 'qr' layout (recommended for 15x50mm) and optimized 'barcode' layout.
+ *
+ * Automatically binarizes the canvas to eliminate all anti-aliasing gray halos that
+ * cause smudged, illegible printing on Niimbot thermal printers.
  */
 export function renderD110LabelCanvas(
   plant: Plant,
   nickname: string,
-  targetCanvas?: HTMLCanvasElement | null
+  targetCanvas?: HTMLCanvasElement | null,
+  layout: LabelLayoutType = 'qr'
 ): HTMLCanvasElement {
   const canvas = targetCanvas || document.createElement('canvas');
   canvas.width = D110_LABEL_W_PX;
@@ -110,52 +205,100 @@ export function renderD110LabelCanvas(
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, D110_LABEL_W_PX, D110_LABEL_H_PX);
 
-  const padX = 14;
-  const maxTextWidth = D110_LABEL_W_PX - padX * 2;
-
-  // Line 1: Bold Nickname
-  ctx.fillStyle = '#000000';
-  ctx.font = 'bold 20px system-ui, -apple-system, sans-serif';
-  ctx.textBaseline = 'top';
-  ctx.textAlign = 'left';
-  ctx.fillText(fitText(ctx, nickname || plant.species || 'Plant', maxTextWidth), padX, 3);
-
-  // Line 2: Species · Family
-  const subline = [plant.species, plant.family].filter(Boolean).join(' · ');
-  ctx.font = '600 12px system-ui, -apple-system, sans-serif';
-  ctx.fillText(fitText(ctx, subline || 'Verdant Specimen', maxTextWidth), padX, 24);
-
-  // Line 3: Code 128B Barcode (integer bar width for razor-sharp 203 DPI thermal printing)
   const barcodeValue = getShortBarcodeId(plant.id);
-  const modules = encodeCode128B(barcodeValue);
-  const maxBarcodeWidth = D110_LABEL_W_PX - 24;
-  const barWidth = modules.length * 2 <= maxBarcodeWidth ? 2 : 1;
-  const totalBarcodeWidth = modules.length * barWidth;
-  const startX = Math.floor((D110_LABEL_W_PX - totalBarcodeWidth) / 2);
-  const barcodeY = 40;
-  const barcodeH = 40;
 
-  ctx.fillStyle = '#000000';
-  for (let i = 0; i < modules.length; i++) {
-    if (modules[i] === 1) {
-      ctx.fillRect(startX + i * barWidth, barcodeY, barWidth, barcodeH);
+  if (layout === 'qr') {
+    // -------------------------------------------------------------
+    // LAYOUT 1: SPLIT 2-COLUMN QR + SPECS (OPTIMAL FOR 15 × 50 mm)
+    // Left: 84×84 px QR code with full quiet zone
+    // Right: Spacious 3 lines of high-contrast botanical typography
+    // -------------------------------------------------------------
+    const qrSize = 82;
+    const qrX = 8;
+    const qrY = 7;
+    drawQrCodeToCanvas(ctx, barcodeValue, qrX, qrY, qrSize);
+
+    const textX = qrX + qrSize + 14;
+    const textW = D110_LABEL_W_PX - textX - 8;
+
+    ctx.fillStyle = '#000000';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+
+    // Line 1: Plant Nickname (Bold 21px, crisp)
+    ctx.font = 'bold 21px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const displayName = nickname || plant.species || 'Plant';
+    ctx.fillText(fitText(ctx, displayName, textW), textX, 7);
+
+    // Line 2: Botanical Species (14px semibold with room to breathe)
+    ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const speciesText = plant.species || 'Verdant Specimen';
+    ctx.fillText(fitText(ctx, speciesText, textW), textX, 35);
+
+    // Line 3: Family + ID Badge (11px monospace)
+    ctx.font = '700 11px ui-monospace, SFMono-Regular, Menlo, monospace';
+    const familyAndId = [plant.family, barcodeValue].filter(Boolean).join(' · ');
+    ctx.fillText(fitText(ctx, familyAndId, textW), textX, 58);
+
+    // Line 4: Compact timestamp or brand signature
+    ctx.font = '500 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText('VERDANT BOTANICAL ARCHIVE', textX, 76);
+  } else {
+    // -------------------------------------------------------------
+    // LAYOUT 2: LINEAR CODE 128B BARCODE (SPACIOUS & DE-CLUTTERED)
+    // Optimized vertical balance: reduced barcode height & integer 2px bars
+    // -------------------------------------------------------------
+    const padX = 14;
+    const maxTextWidth = D110_LABEL_W_PX - padX * 2;
+
+    ctx.fillStyle = '#000000';
+    ctx.textBaseline = 'top';
+
+    // Line 1: Bold Nickname (19px)
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 19px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText(fitText(ctx, nickname || plant.species || 'Plant', maxTextWidth), padX, 3);
+
+    // Line 2: Species · Family (12px, clean spacing)
+    const subline = [plant.species, plant.family].filter(Boolean).join(' · ');
+    ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText(fitText(ctx, subline || 'Verdant Specimen', maxTextWidth), padX, 24);
+
+    // Line 3: Code 128B Barcode (26px height with 2px integer bars)
+    const modules = encodeCode128B(barcodeValue);
+    const maxBarcodeWidth = D110_LABEL_W_PX - 28;
+    const barWidth = modules.length * 2 <= maxBarcodeWidth ? 2 : 1;
+    const totalBarcodeWidth = modules.length * barWidth;
+    const startX = Math.floor((D110_LABEL_W_PX - totalBarcodeWidth) / 2);
+    const barcodeY = 41;
+    const barcodeH = 26;
+
+    for (let i = 0; i < modules.length; i++) {
+      if (modules[i] === 1) {
+        ctx.fillRect(startX + i * barWidth, barcodeY, barWidth, barcodeH);
+      }
     }
+
+    // Line 4: Human-readable ID (12px monospace, well separated from barcode bottom)
+    ctx.font = 'bold 12px ui-monospace, SFMono-Regular, Menlo, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(barcodeValue, D110_LABEL_W_PX / 2, 73);
   }
 
-  // Line 4: Human-readable ID
-  ctx.font = 'bold 11px ui-monospace, SFMono-Regular, Menlo, monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(fitText(ctx, barcodeValue, maxTextWidth), D110_LABEL_W_PX / 2, 82);
-
-  return canvas;
+  // Hard binarize to eliminate thermal edge bleeding / anti-alias bloom
+  return binarizeCanvas(canvas, 160);
 }
 
 /**
  * Renders the landscape 400×96 label rotated 90° onto a 96×400 portrait canvas
  * matching the Niimbot D110 printhead (w_px=96, h_px=400) and returns a PNG data URL.
  */
-export function renderD110PrintDataUrl(plant: Plant, nickname: string): string {
-  const landscape = renderD110LabelCanvas(plant, nickname);
+export function renderD110PrintDataUrl(
+  plant: Plant,
+  nickname: string,
+  layout: LabelLayoutType = 'qr'
+): string {
+  const landscape = renderD110LabelCanvas(plant, nickname, null, layout);
   const portrait = document.createElement('canvas');
   portrait.width = D110_LABEL_H_PX;  // 96
   portrait.height = D110_LABEL_W_PX; // 400
@@ -187,6 +330,8 @@ export interface NiimbotPrintProgressInfo {
 
 export interface NiimbotPrintOptions {
   transport?: 'bluetooth' | 'serial';
+  layout?: LabelLayoutType;
+  density?: number; // 1 = light, 2 = normal, 3 = high
   onProgress?: (info: NiimbotPrintProgressInfo) => void;
 }
 
@@ -199,7 +344,7 @@ export async function printLabelsToNiimbot(
   lv: (val: any) => string,
   options: NiimbotPrintOptions = {}
 ): Promise<void> {
-  const { transport = 'bluetooth', onProgress } = options;
+  const { transport = 'bluetooth', layout = 'qr', density: customDensity, onProgress } = options;
 
   if (transport === 'bluetooth' && !isNiimbotWebBluetoothSupported()) {
     throw new Error(
@@ -234,12 +379,12 @@ export async function printLabelsToNiimbot(
     const meta = client.getModelMetadata();
     const taskType = client.getPrintTaskType() ?? 'D110';
     const printDirection = meta?.printDirection ?? 'left';
-    const density = meta?.densityDefault ?? 2;
+    const density = customDensity ?? meta?.densityDefault ?? 2;
 
     if (onProgress) {
       onProgress({
         total: plants.length,
-        message: `Connected to ${meta?.model ?? 'Niimbot'} (${taskType}). Preparing...`,
+        message: `Connected to ${meta?.model ?? 'Niimbot'} (${taskType}). Density: ${density}. Preparing...`,
       });
     }
 
@@ -255,7 +400,7 @@ export async function printLabelsToNiimbot(
 
     for (let i = 0; i < plants.length; i++) {
       const plant = plants[i];
-      const canvas = renderD110LabelCanvas(plant, lv(plant.nickname));
+      const canvas = renderD110LabelCanvas(plant, lv(plant.nickname), null, layout);
       const encoded = ImageEncoder.encodeCanvas(canvas, PageColorType.SingleColor, printDirection);
 
       if (onProgress) {

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Bluetooth, Download, FileSpreadsheet, Tag, Check, Usb } from 'lucide-react';
+import { Bluetooth, Download, FileSpreadsheet, Tag, Check, Usb, QrCode, Barcode, Sparkles, Sliders } from 'lucide-react';
 import { usePlants } from '../context/PlantContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +14,7 @@ import {
   printLabelsToNiimbot,
   printLabelsToNiimbotD110,
   renderD110LabelCanvas,
+  LabelLayoutType,
 } from '../services/barcodeService';
 
 export const LabelsView: React.FC = () => {
@@ -24,6 +25,8 @@ export const LabelsView: React.FC = () => {
   const [selectedHouseId, setSelectedHouseId] = useState<string>(user?.houseId || 'ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [labelLayout, setLabelLayout] = useState<LabelLayoutType>('qr');
+  const [printDensity, setPrintDensity] = useState<number>(2); // 1 = Light, 2 = Normal, 3 = High Contrast
   const [isPrinting, setIsPrinting] = useState(false);
   const [printStatus, setPrintStatus] = useState<string | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
@@ -38,10 +41,10 @@ export const LabelsView: React.FC = () => {
     return plants.filter(p => {
       const matchesHouse = isGlobalUser
         ? selectedHouseId === 'ALL'
-          ? true
-          : selectedHouseId === 'UNATTRIBUTED'
-            ? !p.houseId
-            : p.houseId === selectedHouseId
+        ? true
+        : selectedHouseId === 'UNATTRIBUTED'
+          ? !p.houseId
+          : p.houseId === selectedHouseId
         : (Boolean(user?.houseId) && p.houseId === user?.houseId);
       const q = searchQuery.toLowerCase();
       const matchesSearch = !q ||
@@ -63,9 +66,14 @@ export const LabelsView: React.FC = () => {
 
   useEffect(() => {
     if (previewPlant && previewCanvasRef.current) {
-      renderD110LabelCanvas(previewPlant, lv(previewPlant.nickname), previewCanvasRef.current);
+      renderD110LabelCanvas(
+        previewPlant,
+        lv(previewPlant.nickname),
+        previewCanvasRef.current,
+        labelLayout
+      );
     }
-  }, [previewPlant, lv]);
+  }, [previewPlant, lv, labelLayout]);
 
   const handleExport = () => {
     const plantsToExport = plants.filter(p => selectedIds.has(p.id));
@@ -79,7 +87,7 @@ export const LabelsView: React.FC = () => {
     if (!previewPlant || !previewCanvasRef.current) return;
     const url = previewCanvasRef.current.toDataURL('image/png');
     const link = document.createElement('a');
-    link.download = `label_${previewPlant.id}_15x50mm.png`;
+    link.download = `label_${previewPlant.id}_15x50mm_${labelLayout}.png`;
     link.href = url;
     link.click();
   };
@@ -94,6 +102,8 @@ export const LabelsView: React.FC = () => {
     try {
       await printLabelsToNiimbot(plantsToPrint, lv, {
         transport,
+        layout: labelLayout,
+        density: printDensity,
         onProgress: (info) => {
           if (info.message) {
             setPrintStatus(info.message);
@@ -197,38 +207,91 @@ export const LabelsView: React.FC = () => {
         </div>
       )}
 
-      {/* Live Option B Sticker Preview */}
+      {/* Live Option B Sticker Preview & Print Tuning */}
       {previewPlant && (
-        <div className="m3-card-elevated rounded-3xl p-4 md:p-6 border border-md-outline-variant/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-md-primary">
-                Option B Preview · 15 × 50 mm
-              </span>
-              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-md-surface-container-high text-md-on-surface-variant">
-                {D110_LABEL_W_PX} × {D110_LABEL_H_PX} px
-              </span>
+        <div className="m3-card-elevated rounded-3xl p-5 md:p-6 border border-md-outline-variant/30 space-y-5">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-md-primary">
+                  15 × 50 mm Label Preview
+                </span>
+                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-md-primary/10 text-md-primary border border-md-primary/20">
+                  Roll: T15*50-130 (130 labels/roll)
+                </span>
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-md-surface-container-high text-md-on-surface-variant">
+                  {D110_LABEL_W_PX} × {D110_LABEL_H_PX} px (203 DPI)
+                </span>
+              </div>
+              <p className="text-xs text-md-on-surface-variant">
+                Binarized thermal bitmap with zero anti-aliasing bloom. Perfect for Niimbot D11 / D110 / D101 printers.
+              </p>
             </div>
-            <p className="text-xs text-md-on-surface-variant">
-              {bleSupported || serialSupported
-                ? `Ready for direct Niimbot printing via ${[bleSupported && 'Bluetooth', serialSupported && 'USB Serial'].filter(Boolean).join(' or ')} on Chrome/Edge.`
-                : 'Web Bluetooth & Serial unavailable in this browser. Export Excel or PNG to print.'}
-            </p>
+
+            {/* Layout Toggle & Density Selector */}
+            <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+              <div className="inline-flex rounded-2xl bg-md-surface-container-high p-1 border border-md-outline-variant/40">
+                <button
+                  type="button"
+                  onClick={() => setLabelLayout('qr')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    labelLayout === 'qr'
+                      ? 'bg-md-primary text-md-on-primary shadow-xs'
+                      : 'text-md-on-surface-variant hover:text-md-on-surface'
+                  }`}
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                  QR Code + Specs
+                  <span className="text-[10px] px-1 py-0.2 rounded bg-white/20 uppercase tracking-wider">Best</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLabelLayout('barcode')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    labelLayout === 'barcode'
+                      ? 'bg-md-primary text-md-on-primary shadow-xs'
+                      : 'text-md-on-surface-variant hover:text-md-on-surface'
+                  }`}
+                >
+                  <Barcode className="w-3.5 h-3.5" />
+                  Linear Barcode
+                </button>
+              </div>
+
+              {/* Thermal Printhead Density */}
+              <div className="flex items-center gap-1.5 bg-md-surface-container-high px-3 py-1.5 rounded-2xl border border-md-outline-variant/40">
+                <Sliders className="w-3.5 h-3.5 text-md-on-surface-variant" />
+                <span className="text-xs font-semibold text-md-on-surface-variant">Burn:</span>
+                <select
+                  value={printDensity}
+                  onChange={(e) => setPrintDensity(Number(e.target.value))}
+                  className="bg-transparent text-xs font-bold text-md-on-surface outline-none cursor-pointer"
+                  title="Printhead Heat Density: Use Light or Normal if labels show ink bleed"
+                >
+                  <option value={1}>Light (1)</option>
+                  <option value={2}>Normal (2)</option>
+                  <option value={3}>High Contrast (3)</option>
+                </select>
+              </div>
+            </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full md:w-auto">
-            <div className="bg-white p-2.5 rounded-2xl border border-md-outline-variant/50 shadow-xs overflow-x-auto max-w-full">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t border-md-outline-variant/20">
+            <div className="w-full sm:w-auto bg-white p-3 rounded-2xl border border-md-outline-variant/50 shadow-xs overflow-x-auto flex items-center justify-center">
               <canvas
                 ref={previewCanvasRef}
                 width={D110_LABEL_W_PX}
                 height={D110_LABEL_H_PX}
-                className="block h-[72px] w-auto image-rendering-pixelated"
+                className="block h-[76px] w-auto max-w-full image-rendering-pixelated shadow-xs"
               />
             </div>
-            <Button variant="outlined" size="sm" onClick={handleDownloadPreviewPng}>
-              <Download className="w-4 h-4" />
-              PNG
-            </Button>
+
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              <Button variant="outlined" size="sm" onClick={handleDownloadPreviewPng}>
+                <Download className="w-4 h-4" />
+                Download PNG
+              </Button>
+            </div>
           </div>
         </div>
       )}
