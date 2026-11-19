@@ -893,8 +893,6 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                         )}
                                       </section>
                                     )}
-
-                                      <CultivationCareSpecs plant={plant} defaultView="table" />
                                 </div>
 
                                 {/* RIGHT: TOXICITY ALERT + SOIL RECIPE PILL BARS + AI INSIGHT */}

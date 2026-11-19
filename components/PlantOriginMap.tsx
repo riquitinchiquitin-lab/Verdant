@@ -217,7 +217,6 @@ export const PlantOriginMap: React.FC<PlantOriginMapProps> = ({
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
-  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
 
   // Automated Theme Detection: responds to system preference, localStorage, and theme class mutations
@@ -249,7 +248,11 @@ export const PlantOriginMap: React.FC<PlantOriginMapProps> = ({
     };
   }, []);
 
-  const { points, nativeContinents, introducedContinents } = useMemo(() => {
+  // Stabilize string array dependencies to prevent unnecessary re-computations
+  const nativeKey = (nativeRegions || []).filter(Boolean).join('|');
+  const introKey = (introducedRegions || []).filter(Boolean).join('|');
+
+  const { points } = useMemo(() => {
     const allPoints: GeoPoint[] = [];
     const seen = new Set<string>();
     const nativeConts = new Set<ContinentId>();
@@ -285,19 +288,24 @@ export const PlantOriginMap: React.FC<PlantOriginMapProps> = ({
     };
 
     if (origin) addText(origin, 'native');
-    nativeRegions.forEach((r) => addText(r, 'native'));
-    introducedRegions.forEach((r) => addText(r, 'introduced'));
+    (nativeRegions || []).forEach((r) => addText(r, 'native'));
+    (introducedRegions || []).forEach((r) => addText(r, 'introduced'));
 
     return {
       points: allPoints,
       nativeContinents: nativeConts,
       introducedContinents: introConts,
     };
-  }, [origin, nativeRegions, introducedRegions]);
+  }, [origin, nativeKey, introKey]);
 
-  // Initialize and update Leaflet OpenStreetMap instance
+  const pointsKey = useMemo(() => {
+    return points.map((p) => `${p.lat.toFixed(4)},${p.lon.toFixed(4)},${p.kind}`).join(';');
+  }, [points]);
+
+  // Initialize Leaflet OpenStreetMap instance ONCE on mount
   useEffect(() => {
     if (!mapContainerRef.current) return;
+    if (mapInstanceRef.current) return;
 
     // Default center on first point or global view
     const initialCenter: [number, number] = points.length > 0
@@ -305,49 +313,77 @@ export const PlantOriginMap: React.FC<PlantOriginMapProps> = ({
       : [20, 0];
     const initialZoom = points.length > 0 ? (points.length === 1 ? 5 : 4) : 2;
 
-    if (!mapInstanceRef.current) {
-      const map = L.map(mapContainerRef.current, {
-        center: initialCenter,
-        zoom: initialZoom,
-        minZoom: 2,
-        maxZoom: 18,
-        zoomControl: false,
-        attributionControl: false,
-      });
+    const map = L.map(mapContainerRef.current, {
+      center: initialCenter,
+      zoom: initialZoom,
+      minZoom: 2,
+      maxZoom: 18,
+      zoomControl: false,
+      attributionControl: false,
+    });
 
-      L.control.zoom({ position: 'topright' }).addTo(map);
-
-      mapInstanceRef.current = map;
-    }
-
-    const map = mapInstanceRef.current;
-
-    // Remove existing tile layer
-    if (tileLayerRef.current) {
-      map.removeLayer(tileLayerRef.current);
-      tileLayerRef.current = null;
-    }
+    L.control.zoom({ position: 'topright' }).addTo(map);
 
     // Zero-Key Official OpenStreetMap Tiles (tile.openstreetmap.org)
-    // Dark mode applies crisp CSS inversion filters directly to native OSM tiles
     const tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
     const attribution = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (planet.openstreetmap.org)';
 
-    const newTileLayer = L.tileLayer(tileUrl, {
-      className: isDark ? 'osm-dark-tiles' : 'osm-light-tiles',
+    L.tileLayer(tileUrl, {
       maxZoom: 19,
       attribution,
     }).addTo(map);
 
-    tileLayerRef.current = newTileLayer;
+    const markersGroup = L.layerGroup().addTo(map);
+    markersLayerRef.current = markersGroup;
+    mapInstanceRef.current = map;
 
-    // Clear and redraw markers
-    if (markersLayerRef.current) {
-      map.removeLayer(markersLayerRef.current);
-      markersLayerRef.current = null;
+    // Single delayed size invalidation after modal transition paint
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 250);
+
+    // Debounced container resize observer to avoid infinite render oscillation
+    let resizeTimer: ReturnType<typeof setTimeout>;
+    let lastW = 0;
+    let lastH = 0;
+
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver((entries) => {
+          for (const entry of entries) {
+            const { width, height } = entry.contentRect;
+            if (Math.abs(width - lastW) > 6 || Math.abs(height - lastH) > 6) {
+              lastW = width;
+              lastH = height;
+              clearTimeout(resizeTimer);
+              resizeTimer = setTimeout(() => {
+                map.invalidateSize();
+              }, 200);
+            }
+          }
+        })
+      : null;
+
+    if (resizeObserver && mapContainerRef.current) {
+      resizeObserver.observe(mapContainerRef.current);
     }
 
-    const markersGroup = L.layerGroup();
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(resizeTimer);
+      resizeObserver?.disconnect();
+      map.remove();
+      mapInstanceRef.current = null;
+      markersLayerRef.current = null;
+    };
+  }, []);
+
+  // Update Markers and Fit Bounds ONLY when coordinates or labels change
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const markersGroup = markersLayerRef.current;
+    if (!map || !markersGroup) return;
+
+    markersGroup.clearLayers();
 
     points.forEach((pt) => {
       const isNative = pt.kind === 'native';
@@ -384,47 +420,14 @@ export const PlantOriginMap: React.FC<PlantOriginMapProps> = ({
       markersGroup.addLayer(marker);
     });
 
-    markersGroup.addTo(map);
-    markersLayerRef.current = markersGroup;
-
-    // Smoothly pan & fit bounds
+    // Smoothly pan & fit bounds without resetting if already focused
     if (points.length === 1) {
       map.setView([points[0].lat, points[0].lon], 5);
     } else if (points.length > 1) {
       const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lon]));
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 6 });
     }
-
-    // Leaflet container invalidation after container paint & on resize
-    const timer = setTimeout(() => {
-      map.invalidateSize();
-    }, 200);
-
-    const resizeObserver = typeof ResizeObserver !== 'undefined'
-      ? new ResizeObserver(() => {
-          map.invalidateSize();
-        })
-      : null;
-
-    if (resizeObserver && mapContainerRef.current) {
-      resizeObserver.observe(mapContainerRef.current);
-    }
-
-    return () => {
-      clearTimeout(timer);
-      resizeObserver?.disconnect();
-    };
-  }, [isDark, points, nativeLabel, introducedLabel]);
-
-  // Clean up Leaflet on unmount
-  useEffect(() => {
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, []);
+  }, [pointsKey, nativeLabel, introducedLabel]);
 
   const handleRecenter = () => {
     if (!mapInstanceRef.current) return;
@@ -472,24 +475,16 @@ export const PlantOriginMap: React.FC<PlantOriginMapProps> = ({
 
       {/* ZERO-KEY OSM DARK MODE CSS FILTER */}
       <style>{`
-        .osm-dark-tiles,
-        .osm-dark-tiles .leaflet-tile,
-        .osm-dark-tiles .leaflet-tile-pane,
-        .osm-dark-tiles .leaflet-layer,
-        .osm-dark-tiles img {
+        .osm-dark-tiles .leaflet-tile {
           filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7) !important;
         }
-        .osm-light-tiles,
-        .osm-light-tiles .leaflet-tile,
-        .osm-light-tiles .leaflet-tile-pane,
-        .osm-light-tiles .leaflet-layer,
-        .osm-light-tiles img {
+        .osm-light-tiles .leaflet-tile {
           filter: none !important;
         }
       `}</style>
 
       {/* MAP VIEW CONTAINER (AUTOMATED THEME OSM) */}
-      <div className="relative w-full h-80 sm:h-96 rounded-2xl overflow-hidden bg-md-surface-container border border-md-outline-variant/20 shadow-inner">
+      <div className={`relative w-full h-80 sm:h-96 rounded-2xl overflow-hidden bg-md-surface-container border border-md-outline-variant/20 shadow-inner ${isDark ? 'osm-dark-tiles' : 'osm-light-tiles'}`}>
         <div
           ref={mapContainerRef}
           className="w-full h-full"
