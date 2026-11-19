@@ -1,5 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ScanBarcode, Camera, Keyboard } from 'lucide-react';
+import {
+  QRCodeReader,
+  MultiFormatOneDReader,
+  BarcodeFormat,
+  DecodeHintType,
+  RGBLuminanceSource,
+  BinaryBitmap,
+  HybridBinarizer,
+} from '@zxing/library';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 
@@ -16,8 +25,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const rafRef = useRef<number | null>(null);
-  const zxingControlsRef = useRef<{ stop: () => void } | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | number | null>(null);
   const hasScannedRef = useRef(false);
 
   const [error, setError] = useState<string | null>(null);
@@ -27,15 +35,9 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   const [torchOn, setTorchOn] = useState(false);
 
   const stopCamera = useCallback(() => {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-    if (zxingControlsRef.current) {
-      try {
-        zxingControlsRef.current.stop();
-      } catch {}
-      zxingControlsRef.current = null;
+    if (timerRef.current !== null) {
+      clearInterval(timerRef.current as any);
+      timerRef.current = null;
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => {
@@ -96,44 +98,51 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
     hasScannedRef.current = false;
     setError(null);
     setManualCode('');
-    let cancelled = false;
+    let isCancelled = false;
 
     const startScanner = async () => {
-      // 1. Acquire media stream with robust fallbacks
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        setError('Camera access is not supported or requires a secure HTTPS connection. Please enter the ID manually below.');
+        return;
+      }
+
+      // Step 1: Acquire Camera Stream
       let stream: MediaStream | null = null;
-
-      const constraintsList = [
-        { video: { facingMode: { exact: facingMode } }, audio: false },
-        { video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
-        { video: { facingMode: { ideal: facingMode } }, audio: false },
-        { video: true, audio: false },
-      ];
-
-      for (const constraints of constraintsList) {
-        if (cancelled) return;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: facingMode },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        });
+      } catch (err: any) {
+        // Fallback: try default video without constraints
         try {
-          stream = await navigator.mediaDevices.getUserMedia(constraints);
-          if (stream) break;
-        } catch (err: any) {
-          // If permission denied explicitly, don't keep polling
-          if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
-            if (!cancelled) {
-              setError('Camera permission was denied. Please allow camera access in browser settings, or enter the ID below.');
-            }
-            return;
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        } catch (err2: any) {
+          if (isCancelled) return;
+          if (err2?.name === 'NotAllowedError' || err2?.name === 'PermissionDeniedError') {
+            setError('Camera permission was denied. Please allow camera access in browser permissions or enter the code below.');
+          } else if (err2?.name === 'NotFoundError' || err2?.name === 'DevicesNotFoundError') {
+            setError('No camera found on this device. You can enter or zap the plant ID below.');
+          } else if (err2?.name === 'NotReadableError' || err2?.name === 'TrackStartError') {
+            setError('Camera is currently locked or in use by another tab/application.');
+          } else {
+            setError(err2?.message || 'Could not access camera.');
           }
+          return;
         }
       }
 
-      if (cancelled) {
-        if (stream) {
-          stream.getTracks().forEach((t) => t.stop());
-        }
+      if (isCancelled) {
+        if (stream) stream.getTracks().forEach((t) => t.stop());
         return;
       }
 
       if (!stream) {
-        setError('No available camera found on this device. You can type or zap the plant ID below.');
+        setError('No camera stream available.');
         return;
       }
 
@@ -143,7 +152,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       try {
         const track = stream.getVideoTracks()[0];
         const capabilities: any = track && typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
-        if (capabilities && capabilities.torch) {
+        if (capabilities?.torch) {
           setHasTorch(true);
         }
       } catch {}
@@ -153,111 +162,132 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
 
       video.srcObject = stream;
       video.setAttribute('playsinline', 'true');
+      video.setAttribute('webkit-playsinline', 'true');
       video.setAttribute('muted', 'true');
       video.muted = true;
 
       try {
         await video.play();
       } catch (err: any) {
-        // AbortError can occur if modal closes quickly or autoplay restricted
-        if (err?.name !== 'AbortError' && !cancelled) {
-          console.warn('Video play error:', err);
+        if (err?.name !== 'AbortError' && !isCancelled) {
+          console.warn('Video play warning:', err);
         }
       }
 
-      if (cancelled) return;
+      if (isCancelled) return;
 
-      // 2. Barcode Detection Pipeline
-      // Strategy A: Native BarcodeDetector (fast, hardware accelerated, battery efficient)
+      // Step 2: Initialize Decoders
+      // Decoder A: Native BarcodeDetector (if supported by browser/device)
+      let nativeDetector: any = null;
       const BarcodeDetectorCtor = (window as any).BarcodeDetector;
-      let nativeDetectorWorking = false;
-
-      if (BarcodeDetectorCtor) {
+      if (typeof BarcodeDetectorCtor === 'function') {
         try {
-          const supportedFormats = typeof BarcodeDetectorCtor.getSupportedFormats === 'function'
+          const supported: string[] = typeof BarcodeDetectorCtor.getSupportedFormats === 'function'
             ? await BarcodeDetectorCtor.getSupportedFormats()
-            : ['qr_code', 'code_128', 'code_39', 'ean_13'];
-
-          const desiredFormats = ['qr_code', 'code_128', 'code_39', 'ean_13', 'data_matrix'];
-          const activeFormats = desiredFormats.filter((fmt) => supportedFormats.includes(fmt));
-
-          const detector = new BarcodeDetectorCtor({
-            formats: activeFormats.length > 0 ? activeFormats : ['qr_code', 'code_128'],
-          });
-
-          nativeDetectorWorking = true;
-
-          const detectLoop = async () => {
-            if (cancelled || hasScannedRef.current) return;
-            if (video && video.readyState >= video.HAVE_CURRENT_DATA) {
-              try {
-                const barcodes = await detector.detect(video);
-                if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
-                  emitCode(barcodes[0].rawValue);
-                  return;
-                }
-              } catch {
-                // Ignore transient frame errors
-              }
-            }
-            rafRef.current = requestAnimationFrame(detectLoop);
-          };
-
-          rafRef.current = requestAnimationFrame(detectLoop);
-          return;
-        } catch (detectorErr) {
-          console.warn('Native BarcodeDetector initialization failed, falling back to ZXing:', detectorErr);
-          nativeDetectorWorking = false;
+            : [];
+          const wanted = ['qr_code', 'code_128', 'code_39', 'ean_13', 'upc_a'].filter((f) => supported.includes(f));
+          if (wanted.length > 0) {
+            nativeDetector = new BarcodeDetectorCtor({ formats: wanted });
+          }
+        } catch {
+          nativeDetector = null;
         }
       }
 
-      // Strategy B: Universal ZXing decode loop
-      if (!nativeDetectorWorking) {
+      // Decoder B: Direct @zxing/library Readers (fail-safe fallback)
+      const qrReader = new QRCodeReader();
+      const oneDHints = new Map();
+      oneDHints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        BarcodeFormat.CODE_128,
+        BarcodeFormat.CODE_39,
+        BarcodeFormat.EAN_13,
+      ]);
+      const oneDReader = new MultiFormatOneDReader(oneDHints);
+
+      // Offscreen analysis canvas
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+      // Step 3: Scan loop running every 120ms (smooth, lightweight, responsive)
+      let isProcessingFrame = false;
+
+      const scanFrame = async () => {
+        if (isCancelled || hasScannedRef.current || isProcessingFrame) return;
+        if (!video || video.readyState < 2 || video.videoWidth === 0) return;
+
+        isProcessingFrame = true;
         try {
-          const { BrowserMultiFormatReader } = await import('@zxing/browser');
-          const { BarcodeFormat, DecodeHintType } = await import('@zxing/library');
-
-          if (cancelled || !videoRef.current) return;
-
-          const hints = new Map();
-          hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-            BarcodeFormat.QR_CODE,
-            BarcodeFormat.CODE_128,
-            BarcodeFormat.CODE_39,
-            BarcodeFormat.EAN_13,
-          ]);
-          hints.set(DecodeHintType.TRY_HARDER, true);
-
-          const reader = new BrowserMultiFormatReader(hints, {
-            delayBetweenScanAttempts: 200,
-            delayBetweenScanSuccess: 500,
-          });
-
-          // decodeFromVideoElement will read the already playing video stream!
-          const controls = await reader.decodeFromVideoElement(videoRef.current, (result) => {
-            if (result && !cancelled) {
-              emitCode(result.getText());
+          // Attempt 1: Native BarcodeDetector
+          if (nativeDetector) {
+            try {
+              const barcodes = await nativeDetector.detect(video);
+              if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                emitCode(barcodes[0].rawValue);
+                return;
+              }
+            } catch {
+              // Ignore native frame failure, fall through to software decoder
             }
-          });
+          }
 
-          if (cancelled) {
-            controls.stop();
-          } else {
-            zxingControlsRef.current = controls;
+          // Attempt 2: ZXing Software Decoder
+          if (ctx) {
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
+            // Downscale to max 480px width for fast 3ms frame processing
+            const scale = Math.min(1, 480 / vw);
+            const cw = Math.round(vw * scale);
+            const ch = Math.round(vh * scale);
+
+            if (canvas.width !== cw || canvas.height !== ch) {
+              canvas.width = cw;
+              canvas.height = ch;
+            }
+
+            ctx.drawImage(video, 0, 0, cw, ch);
+            const imgData = ctx.getImageData(0, 0, cw, ch);
+            const data = imgData.data;
+            const totalPixels = cw * ch;
+
+            // Compute 1-byte perceived luminance array
+            const luminances = new Uint8ClampedArray(totalPixels);
+            for (let i = 0; i < totalPixels; i++) {
+              luminances[i] = (data[i * 4] * 0.299 + data[i * 4 + 1] * 0.587 + data[i * 4 + 2] * 0.114) | 0;
+            }
+
+            const lumSource = new RGBLuminanceSource(luminances, cw, ch);
+            const bitmap = new BinaryBitmap(new HybridBinarizer(lumSource));
+
+            // Check QR Code first
+            try {
+              const qrRes = qrReader.decode(bitmap);
+              if (qrRes && qrRes.getText()) {
+                emitCode(qrRes.getText());
+                return;
+              }
+            } catch {}
+
+            // Check 1D Barcode (Code 128 / Code 39 / EAN 13)
+            try {
+              const oneDRes = oneDReader.decode(bitmap);
+              if (oneDRes && oneDRes.getText()) {
+                emitCode(oneDRes.getText());
+                return;
+              }
+            } catch {}
           }
-        } catch (zxingErr) {
-          console.error('ZXing Scanner Fallback Error:', zxingErr);
-          if (!cancelled) {
-            setError('Unable to analyze camera frames. You can still enter or zap the barcode ID below.');
-          }
+        } finally {
+          isProcessingFrame = false;
         }
-      }
+      };
+
+      timerRef.current = setInterval(scanFrame, 120);
     };
 
     startScanner();
 
     return () => {
-      cancelled = true;
+      isCancelled = true;
       stopCamera();
     };
   }, [isOpen, facingMode, emitCode, stopCamera]);
