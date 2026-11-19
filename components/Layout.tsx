@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -132,9 +132,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     ? plants.find((p) => p.id === scannedPlantId) || null
     : null;
 
-  const handleScanSuccess = (rawCode: string) => {
+  const handleScanSuccess = useCallback((rawCode: string) => {
     setIsScannerOpen(false);
-    const cleaned = rawCode.trim();
+    const cleaned = (rawCode || '').trim();
     if (!cleaned) return;
 
     // Support compact V-XXXXXXXX Code 128 IDs, full plant IDs, or legacy pipe-delimited codes
@@ -154,7 +154,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     } else {
       showNotification(`No plant found for barcode "${candidateId}"`, 'WARNING');
     }
-  };
+  }, [plants, showNotification]);
 
   useEffect(() => {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
@@ -213,6 +213,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </div>
       )}
 
+      <AddPlantModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSave={addPlant} />
+      <BarcodeScannerModal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} onScanSuccess={handleScanSuccess} />
+      <PlantDetailsModal isOpen={!!scannedPlant} plant={scannedPlant} onClose={() => setScannedPlantId(null)} />
+
       {/* Mobile Scrim */}
       {isSidebarOpen && (
         <div
@@ -223,10 +227,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
       {/* M3 Navigation Drawer */}
       <aside className={`fixed lg:static inset-y-0 left-0 w-72 bg-md-surface-container-low border-r border-md-outline-variant/30 z-50 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform duration-300 flex flex-col no-print pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]`}>
-        <AddPlantModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSave={addPlant} />
-        <BarcodeScannerModal isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} onScanSuccess={handleScanSuccess} />
-        <PlantDetailsModal isOpen={!!scannedPlant} plant={scannedPlant} onClose={() => setScannedPlantId(null)} />
-
         <div className="px-6 pt-7 pb-5">
           <Link to="/" className="flex items-center gap-3.5 group" onClick={() => setIsSidebarOpen(false)}>
             <div className="w-10 h-10 rounded-2xl bg-md-primary-container text-md-on-primary-container flex items-center justify-center p-1.5 group-hover:scale-105 transition-transform duration-300">

@@ -27,6 +27,11 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<NodeJS.Timeout | number | null>(null);
   const hasScannedRef = useRef(false);
+  const onScanSuccessRef = useRef(onScanSuccess);
+
+  useEffect(() => {
+    onScanSuccessRef.current = onScanSuccess;
+  }, [onScanSuccess]);
 
   const [error, setError] = useState<string | null>(null);
   const [manualCode, setManualCode] = useState('');
@@ -64,9 +69,11 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       if (!cleaned || hasScannedRef.current) return;
       hasScannedRef.current = true;
       stopCamera();
-      onScanSuccess(cleaned);
+      if (onScanSuccessRef.current) {
+        onScanSuccessRef.current(cleaned);
+      }
     },
-    [onScanSuccess, stopCamera]
+    [stopCamera]
   );
 
   const toggleTorch = async () => {
@@ -290,7 +297,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       isCancelled = true;
       stopCamera();
     };
-  }, [isOpen, facingMode, emitCode, stopCamera]);
+  }, [isOpen, facingMode]);
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
