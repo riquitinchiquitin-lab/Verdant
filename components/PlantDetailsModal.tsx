@@ -28,6 +28,7 @@ import { checkPlantCompatibility } from '../utils/compatibility';
 import { refreshPlantRecord } from '../services/plantAi';
 import { CultivationCareSpecs } from './CultivationCareSpecs';
 import { BotanicalMonographSection } from './BotanicalMonographSection';
+import { InstructionStepsCard } from './InstructionStepsCard';
 
 interface PlantDetailsModalProps {
   isOpen: boolean;
@@ -1213,27 +1214,16 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                     </div>
                                 </section>
 
-                                {lv(plant.propagationInstructions) ? (
-                                    <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">
-                                        <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">{t('lbl_propagation_instructions')}</h3>
-                                        <p className="text-sm text-md-on-surface leading-relaxed whitespace-pre-wrap">
-                                            {lv(plant.propagationInstructions)}
-                                        </p>
-                                    </section>
-                                ) : (
-                                    <section className="bg-md-surface-container-low/50 rounded-[28px] p-8 border border-dashed border-md-outline-variant/50 space-y-4 flex flex-col items-center justify-center text-center">
-                                        <div className="w-12 h-12 bg-md-surface-container-highest text-md-on-surface-variant rounded-2xl flex items-center justify-center">
-                                            <Dna className="w-6 h-6" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <h3 className="text-xs font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_propagation_instructions')}</h3>
-                                            <p className="text-xs text-md-on-surface-variant/80">{t('msg_no_propagation_instructions')}</p>
-                                        </div>
-                                        <Button variant="ghost" size="sm" className="text-[11px] font-semibold uppercase tracking-wider text-md-primary" onClick={() => setIsEditOpen(true)}>
-                                            + {t('btn_add_instructions')}
-                                        </Button>
-                                    </section>
-                                )}
+                                <InstructionStepsCard
+                                    title={t('lbl_propagation_instructions')}
+                                    icon={<Scissors className="w-4 h-4" />}
+                                    instructionsText={lv(plant.propagationInstructions)}
+                                    emptyIcon={<Dna className="w-6 h-6" />}
+                                    emptyTitle={t('lbl_propagation_instructions')}
+                                    emptyMessage={t('msg_no_propagation_instructions')}
+                                    onAddClick={() => setIsEditOpen(true)}
+                                    addBtnText={t('btn_add_instructions')}
+                                />
 
                                 <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">
                                     <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">{t('lbl_provenance_source')}</h3>
@@ -1253,27 +1243,16 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                     </div>
                                 </section>
 
-                                {lv(plant.repottingInstructions) ? (
-                                    <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">
-                                        <h3 className="text-xs font-semibold uppercase tracking-widest text-md-primary">{t('lbl_repotting_instructions')}</h3>
-                                        <p className="text-sm text-md-on-surface leading-relaxed whitespace-pre-wrap">
-                                            {lv(plant.repottingInstructions)}
-                                        </p>
-                                    </section>
-                                ) : (
-                                    <section className="bg-md-surface-container-low/50 rounded-[28px] p-8 border border-dashed border-md-outline-variant/50 space-y-4 flex flex-col items-center justify-center text-center">
-                                        <div className="w-12 h-12 bg-md-surface-container-highest text-md-on-surface-variant rounded-2xl flex items-center justify-center">
-                                            <Sprout className="w-6 h-6" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <h3 className="text-xs font-semibold uppercase tracking-wider text-md-on-surface-variant">{t('lbl_repotting_instructions')}</h3>
-                                            <p className="text-xs text-md-on-surface-variant/80">{t('msg_no_repotting_instructions')}</p>
-                                        </div>
-                                        <Button variant="ghost" size="sm" className="text-[11px] font-semibold uppercase tracking-wider text-md-primary" onClick={() => setIsEditOpen(true)}>
-                                            + {t('btn_add_instructions')}
-                                        </Button>
-                                    </section>
-                                )}
+                                <InstructionStepsCard
+                                    title={t('lbl_repotting_instructions')}
+                                    icon={<Sprout className="w-4 h-4" />}
+                                    instructionsText={lv(plant.repottingInstructions)}
+                                    emptyIcon={<Sprout className="w-6 h-6" />}
+                                    emptyTitle={t('lbl_repotting_instructions')}
+                                    emptyMessage={t('msg_no_repotting_instructions')}
+                                    onAddClick={() => setIsEditOpen(true)}
+                                    addBtnText={t('btn_add_instructions')}
+                                />
                             </div>
 
                             <section className="m3-card-elevated rounded-[28px] p-6 md:p-8 border border-md-outline-variant/30 space-y-6">

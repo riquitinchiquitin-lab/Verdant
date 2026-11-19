@@ -171,55 +171,131 @@ export function renderD110PrintDataUrl(plant: Plant, nickname: string): string {
   return portrait.toDataURL('image/png');
 }
 
-declare global {
-  interface Window {
-    Niimbot?: {
-      isSupported: () => boolean;
-      printImage: (url: string, opts: any) => Promise<void>;
-      printBatch: (urls: string[], opts: any) => Promise<void>;
-      disconnect: () => Promise<void>;
-      printer?: { modelId?: number; label?: string; dpi?: number };
-    };
-  }
-}
-
 export function isNiimbotWebBluetoothSupported(): boolean {
   return typeof navigator !== 'undefined' && Boolean((navigator as any).bluetooth);
 }
 
+export function isNiimbotWebSerialSupported(): boolean {
+  return typeof navigator !== 'undefined' && Boolean((navigator as any).serial);
+}
+
+export interface NiimbotPrintProgressInfo {
+  page?: number;
+  total?: number;
+  message?: string;
+}
+
+export interface NiimbotPrintOptions {
+  transport?: 'bluetooth' | 'serial';
+  onProgress?: (info: NiimbotPrintProgressInfo) => void;
+}
+
 /**
- * Connects to a Niimbot D110 over Web Bluetooth and prints the selected plant labels.
+ * Connects to a Niimbot printer over Web Bluetooth or Web Serial using @mmote/niimbluelib
+ * (the reference library powering niim.blue) and prints the selected plant labels.
  */
-export async function printLabelsToNiimbotD110(
+export async function printLabelsToNiimbot(
   plants: Plant[],
   lv: (val: any) => string,
-  onProgress?: (info: { page?: number; total?: number; message?: string }) => void
+  options: NiimbotPrintOptions = {}
 ): Promise<void> {
-  if (!isNiimbotWebBluetoothSupported()) {
+  const { transport = 'bluetooth', onProgress } = options;
+
+  if (transport === 'bluetooth' && !isNiimbotWebBluetoothSupported()) {
     throw new Error(
       'Web Bluetooth is not available in this browser. Use Chrome/Edge on Android or Desktop over HTTPS (or Bluefy on iOS).'
     );
   }
-
-  // @ts-expect-error - niimbot-web-bluetooth ships untyped JS attaching window.Niimbot
-  await import('niimbot-web-bluetooth');
-  const niimbot = window.Niimbot;
-  if (!niimbot) {
-    throw new Error('Niimbot Web Bluetooth driver failed to initialize.');
+  if (transport === 'serial' && !isNiimbotWebSerialSupported()) {
+    throw new Error(
+      'Web Serial is not available in this browser. Use Chrome or Edge on Desktop.'
+    );
   }
 
-  const dataUrls = plants.map(p => renderD110PrintDataUrl(p, lv(p.nickname)));
-  await niimbot.printBatch(dataUrls, {
-    model: D110_MODEL,
-    size: D110_SIZE_T15x50,
-    onProgress: (ev: any) => {
+  const {
+    NiimbotBluetoothClient,
+    NiimbotSerialClient,
+    ImageEncoder,
+    PageColorType,
+    LabelType,
+  } = await import('@mmote/niimbluelib');
+
+  const client = transport === 'serial' ? new NiimbotSerialClient() : new NiimbotBluetoothClient();
+
+  if (onProgress) {
+    onProgress({
+      message: `Connecting via ${transport === 'serial' ? 'USB' : 'Bluetooth'}...`,
+    });
+  }
+
+  await client.connect();
+
+  try {
+    const meta = client.getModelMetadata();
+    const taskType = client.getPrintTaskType() ?? 'D110';
+    const printDirection = meta?.printDirection ?? 'left';
+    const density = meta?.densityDefault ?? 2;
+
+    if (onProgress) {
+      onProgress({
+        total: plants.length,
+        message: `Connected to ${meta?.model ?? 'Niimbot'} (${taskType}). Preparing...`,
+      });
+    }
+
+    const printTask = client.protocol.newPrintTask(taskType, {
+      totalPages: plants.length,
+      density,
+      labelType: LabelType.WithGaps,
+      statusPollIntervalMs: 150,
+      statusTimeoutMs: 10000,
+    });
+
+    await printTask.printInit();
+
+    for (let i = 0; i < plants.length; i++) {
+      const plant = plants[i];
+      const canvas = renderD110LabelCanvas(plant, lv(plant.nickname));
+      const encoded = ImageEncoder.encodeCanvas(canvas, PageColorType.SingleColor, printDirection);
+
       if (onProgress) {
         onProgress({
-          page: ev?.page,
-          total: dataUrls.length,
-          message: ev?.status || ev?.phase,
+          page: i + 1,
+          total: plants.length,
+          message: `Printing ${i + 1} of ${plants.length}...`,
         });
       }
-    },
-  });
+
+      await printTask.printPage(encoded, 1);
+      await printTask.waitForPageFinished();
+    }
+
+    await printTask.waitForFinished();
+    await printTask.printEnd();
+
+    if (onProgress) {
+      onProgress({
+        page: plants.length,
+        total: plants.length,
+        message: `Finished printing ${plants.length} label(s).`,
+      });
+    }
+  } finally {
+    try {
+      await client.disconnect();
+    } catch {
+      // Disconnect cleanup error ignored
+    }
+  }
+}
+
+/**
+ * Backwards-compatible wrapper targeting D110 over Web Bluetooth.
+ */
+export async function printLabelsToNiimbotD110(
+  plants: Plant[],
+  lv: (val: any) => string,
+  onProgress?: (info: NiimbotPrintProgressInfo) => void
+): Promise<void> {
+  return printLabelsToNiimbot(plants, lv, { transport: 'bluetooth', onProgress });
 }

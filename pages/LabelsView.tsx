@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Bluetooth, Download, FileSpreadsheet, Tag, Check } from 'lucide-react';
+import { Bluetooth, Download, FileSpreadsheet, Tag, Check, Usb } from 'lucide-react';
 import { usePlants } from '../context/PlantContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,8 @@ import {
   D110_LABEL_H_PX,
   getShortBarcodeId,
   isNiimbotWebBluetoothSupported,
+  isNiimbotWebSerialSupported,
+  printLabelsToNiimbot,
   printLabelsToNiimbotD110,
   renderD110LabelCanvas,
 } from '../services/barcodeService';
@@ -30,6 +32,7 @@ export const LabelsView: React.FC = () => {
 
   const isGlobalUser = ['OWNER', 'CO_CEO'].includes(user?.role || '');
   const bleSupported = isNiimbotWebBluetoothSupported();
+  const serialSupported = isNiimbotWebSerialSupported();
 
   const filteredPlants = useMemo(() => {
     return plants.filter(p => {
@@ -81,22 +84,27 @@ export const LabelsView: React.FC = () => {
     link.click();
   };
 
-  const handlePrintD110 = async () => {
+  const handlePrint = async (transport: 'bluetooth' | 'serial' = 'bluetooth') => {
     const plantsToPrint = plants.filter(p => selectedIds.has(p.id));
     if (plantsToPrint.length === 0 || isPrinting) return;
 
     setIsPrinting(true);
     setPrintError(null);
-    setPrintStatus(`Connecting to Niimbot D110 (${plantsToPrint.length} label${plantsToPrint.length > 1 ? 's' : ''})...`);
+    setPrintStatus(`Connecting to Niimbot via ${transport === 'serial' ? 'USB' : 'Bluetooth'} (${plantsToPrint.length} label${plantsToPrint.length > 1 ? 's' : ''})...`);
     try {
-      await printLabelsToNiimbotD110(plantsToPrint, lv, (info) => {
-        if (info.page && info.total) {
-          setPrintStatus(`Printing ${info.page} / ${info.total}...`);
-        }
+      await printLabelsToNiimbot(plantsToPrint, lv, {
+        transport,
+        onProgress: (info) => {
+          if (info.message) {
+            setPrintStatus(info.message);
+          } else if (info.page && info.total) {
+            setPrintStatus(`Printing ${info.page} / ${info.total}...`);
+          }
+        },
       });
-      setPrintStatus(`Printed ${plantsToPrint.length} label${plantsToPrint.length > 1 ? 's' : ''} to Niimbot D110.`);
+      setPrintStatus(`Printed ${plantsToPrint.length} label${plantsToPrint.length > 1 ? 's' : ''} to Niimbot successfully.`);
     } catch (err: any) {
-      setPrintError(err?.message || 'Failed to print to Niimbot D110.');
+      setPrintError(err?.message || 'Failed to print to Niimbot.');
       setPrintStatus(null);
     } finally {
       setIsPrinting(false);
@@ -150,16 +158,29 @@ export const LabelsView: React.FC = () => {
             <FileSpreadsheet className="w-4 h-4" />
             {t('labels_export_selected', { count: selectedIds.size.toString() })}
           </Button>
+          {serialSupported && (
+            <Button
+              variant="tonal"
+              size="md"
+              onClick={() => handlePrint('serial')}
+              disabled={selectedIds.size === 0 || isPrinting}
+              isLoading={isPrinting}
+              className="flex-1 sm:flex-none"
+            >
+              <Usb className="w-4 h-4" />
+              USB ({selectedIds.size})
+            </Button>
+          )}
           <Button
             variant="primary"
             size="md"
-            onClick={handlePrintD110}
+            onClick={() => handlePrint('bluetooth')}
             disabled={selectedIds.size === 0 || isPrinting}
             isLoading={isPrinting}
             className="flex-1 sm:flex-none"
           >
             <Bluetooth className="w-4 h-4" />
-            Print D110 ({selectedIds.size})
+            Bluetooth ({selectedIds.size})
           </Button>
         </div>
       </div>
@@ -189,9 +210,9 @@ export const LabelsView: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-md-on-surface-variant">
-              {bleSupported
-                ? 'Ready for direct Web Bluetooth printing on Chrome/Edge (Android & Desktop).'
-                : 'Web Bluetooth unavailable in this browser. Export Excel or PNG to print.'}
+              {bleSupported || serialSupported
+                ? `Ready for direct Niimbot printing via ${[bleSupported && 'Bluetooth', serialSupported && 'USB Serial'].filter(Boolean).join(' or ')} on Chrome/Edge.`
+                : 'Web Bluetooth & Serial unavailable in this browser. Export Excel or PNG to print.'}
             </p>
           </div>
 

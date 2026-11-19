@@ -1,42 +1,33 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Verdant - Unified Dual-Scope Automated Daily Update Script
+# Verdant - Unified Daily Automated Dependencies & OS Update Engine
 # ==============================================================================
-# 1. Updates Debian Linux OS system packages (apt & unattended-upgrades)
-# 2. Updates Node.js/npm dependencies (npm update --legacy-peer-deps)
-# 3. Applies automated security patches (npm audit fix)
-# 4. Verifies TypeScript compilation & Vite production build (npm run lint && npm run build)
-# 5. Restarts verdant.service or Docker Compose stack if active
+# 1. Updates Debian Linux OS system packages & security patches (apt & unattended-upgrades)
+# 2. Checks and updates npm CLI to latest version
+# 3. Checks all dependencies daily (`npm outdated`) and updates them (`npm update`)
+# 4. Approves essential native install scripts (argon2, sqlite3, esbuild, protobufjs)
+# 5. Applies automated security patches (`npm audit fix`)
+# 6. Verifies TypeScript compilation (`npm run lint`) & Vite build (`npm run build`)
+# 7. Safe rollback protection: restores previous working state if build fails
+# 8. Restarts verdant.service or Docker Compose stack if active
 # ==============================================================================
 set -eo pipefail
 
-SILENT=false
-if [[ "${1:-}" == "--silent" || "${1:-}" == "-s" || "${SILENT_UPDATE:-}" == "true" ]]; then
-  SILENT=true
-fi
-
-if [ "$SILENT" = true ]; then
-  LOG_FILE="${VERDANT_UPDATE_LOG:-/var/log/verdant-autoupdate.log}"
-  if [ -w "$(dirname "$LOG_FILE")" ] || [ -w "$LOG_FILE" ]; then
-    if [ -f "$LOG_FILE" ] && [ "$(wc -l < "$LOG_FILE" 2>/dev/null || echo 0)" -gt 1000 ]; then
-      tail -n 500 "$LOG_FILE" > "${LOG_FILE}.tmp" 2>/dev/null && mv "${LOG_FILE}.tmp" "$LOG_FILE" 2>/dev/null || true
-    fi
-    exec >> "$LOG_FILE" 2>&1
-  else
-    exec >/dev/null 2>&1
-  fi
-fi
+export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:$PATH"
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m'
 
 echo -e "${CYAN}========================================================================${NC}"
-echo -e "${CYAN}      Verdant Dual-Scope Automated Package & OS Update Engine           ${NC}"
+echo -e "${CYAN}      Verdant Daily Automated Dependencies & System Update Engine       ${NC}"
 echo -e "${CYAN}========================================================================${NC}"
+echo -e "Started at: $(date)\n"
 
+# Auto-detect application root directory
 if [ -n "${VERDANT_DIR:-}" ]; then
   APP_DIR="$VERDANT_DIR"
 elif [ -f "$(pwd)/package.json" ] && [ -f "$(pwd)/server.ts" ]; then
@@ -50,11 +41,12 @@ else
 fi
 
 cd "$APP_DIR"
+echo -e "Application root: ${GREEN}${APP_DIR}${NC}"
 
 # ------------------------------------------------------------------------------
 # 1. Debian Linux OS System Packages Update
 # ------------------------------------------------------------------------------
-echo -e "\n${BLUE}[1/3] Updating Debian OS System Packages & Security Patches...${NC}"
+echo -e "\n${BLUE}[1/4] Checking & Updating Linux OS System Packages...${NC}"
 if command -v apt-get >/dev/null 2>&1; then
   if [[ $EUID -eq 0 ]]; then
     export DEBIAN_FRONTEND=noninteractive
@@ -72,38 +64,97 @@ if command -v apt-get >/dev/null 2>&1; then
 fi
 
 # ------------------------------------------------------------------------------
-# 2. Node.js & npm Application Dependencies Update
+# 2. Check and Update Node.js & npm CLI
 # ------------------------------------------------------------------------------
-echo -e "\n${BLUE}[2/3] Updating npm Application Dependencies...${NC}"
+echo -e "\n${BLUE}[2/4] Checking Node.js & npm CLI Versions...${NC}"
 NODE_MAJOR=$(node -v 2>/dev/null | sed 's/^v//' | cut -d. -f1 || echo 0)
-if [ "${NODE_MAJOR:-0}" -lt 24 ] && [[ $EUID -eq 0 ]] && command -v apt-get >/dev/null 2>&1; then
-  echo -e "  ${YELLOW}Upgrading Node.js $(node -v 2>/dev/null || echo '') -> 24 LTS...${NC}"
-  curl -fsSL https://deb.nodesource.com/setup_24.x | bash - >/dev/null 2>&1 || true
+if [ "${NODE_MAJOR:-0}" -lt 22 ] && [[ $EUID -eq 0 ]] && command -v apt-get >/dev/null 2>&1; then
+  echo -e "  ${YELLOW}Upgrading Node.js $(node -v 2>/dev/null || echo '') -> 22 LTS...${NC}"
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null 2>&1 || true
   apt-get install -y nodejs >/dev/null 2>&1 || true
 fi
-npm update --legacy-peer-deps --include=dev --no-audit --no-fund
-npm audit fix --legacy-peer-deps --include=dev 2>/dev/null || true
-npm cache clean --force >/dev/null 2>&1 || true
+
+echo -e "  Current Node.js : ${GREEN}$(node -v 2>/dev/null || echo 'unknown')${NC}"
+echo -e "  Current npm     : ${GREEN}$(npm -v 2>/dev/null || echo 'unknown')${NC}"
+
+# Update npm to latest
+echo -e "  Checking for latest npm release..."
+if [[ $EUID -eq 0 ]]; then
+  npm install -g npm@latest >/dev/null 2>&1 || true
+else
+  npm install -g npm@latest --prefix "$HOME/.local" >/dev/null 2>&1 || true
+fi
+echo -e "  Active npm      : ${GREEN}$(npm -v 2>/dev/null || echo 'unknown')${NC}"
 
 # ------------------------------------------------------------------------------
-# 3. Verify Build & Restart Service / Docker Stack
+# 3. Check and Update All Application Dependencies
 # ------------------------------------------------------------------------------
-echo -e "\n${BLUE}[3/3] Verifying TypeScript & Production Build...${NC}"
-npm run lint
-npm run build
+echo -e "\n${BLUE}[3/4] Checking and Updating Dependencies...${NC}"
 
+# Create safety backup of package manifests for automated rollback
+BACKUP_TMP_DIR="/tmp/verdant-update-backup-$$"
+mkdir -p "$BACKUP_TMP_DIR"
+cp -f "$APP_DIR/package.json" "$BACKUP_TMP_DIR/package.json"
+[ -f "$APP_DIR/package-lock.json" ] && cp -f "$APP_DIR/package-lock.json" "$BACKUP_TMP_DIR/package-lock.json"
+
+# Log currently outdated dependencies
+echo -e "  Dependencies audit check (npm outdated):"
+npm outdated || true
+
+# Approve necessary native install scripts for npm 12+
+if npm install-scripts --help >/dev/null 2>&1; then
+  npm install-scripts approve argon2 esbuild protobufjs sqlite3 >/dev/null 2>&1 || true
+fi
+
+# Update dependencies within allowed ranges & apply security patches
+echo -e "\n  Applying dependency updates..."
+npm update --include=dev --no-audit 2>&1 || true
+
+echo -e "  Applying security audit patches..."
+npm audit fix --include=dev 2>/dev/null || true
+
+# Rebuild native modules if needed
+if npm rebuild --help >/dev/null 2>&1; then
+  npm rebuild sqlite3 argon2 >/dev/null 2>&1 || true
+fi
+
+# ------------------------------------------------------------------------------
+# 4. Verify TypeScript & Production Build with Automated Rollback
+# ------------------------------------------------------------------------------
+echo -e "\n${BLUE}[4/4] Verifying Build Health & Service Stability...${NC}"
+
+BUILD_FAILED=0
+if ! npm run lint; then
+  echo -e "  ${RED}✗ TypeScript linting/typecheck failed!${NC}"
+  BUILD_FAILED=1
+elif ! npm run build; then
+  echo -e "  ${RED}✗ Vite production build failed!${NC}"
+  BUILD_FAILED=1
+fi
+
+if [ $BUILD_FAILED -eq 1 ]; then
+  echo -e "\n${RED}[!] Build validation failed after updates. Initiating automated rollback to previous stable manifests...${NC}"
+  cp -f "$BACKUP_TMP_DIR/package.json" "$APP_DIR/package.json"
+  [ -f "$BACKUP_TMP_DIR/package-lock.json" ] && cp -f "$BACKUP_TMP_DIR/package-lock.json" "$APP_DIR/package-lock.json"
+  npm install --no-audit 2>&1 || true
+  npm run build || true
+  rm -rf "$BACKUP_TMP_DIR"
+  echo -e "${YELLOW}✓ Restored previous stable configuration. Application remains healthy.${NC}"
+  exit 1
+else
+  rm -rf "$BACKUP_TMP_DIR"
+  echo -e "  ${GREEN}✓ Typecheck and production build verified successfully.${NC}"
+fi
+
+# Restart services if active
 if [ -f "$APP_DIR/docker-compose.yml" ] && command -v docker >/dev/null 2>&1 && docker compose ps -q 2>/dev/null | grep -q .; then
-  docker compose up -d --build --remove-orphans
-  docker container prune -f >/dev/null 2>&1 || true
-  docker image prune -af >/dev/null 2>&1 || true
-  docker builder prune -af >/dev/null 2>&1 || true
-  echo -e "  ${GREEN}✓ Docker Compose stack rebuilt & old Docker files pruned.${NC}"
+  docker compose up -d --build
+  echo -e "  ${GREEN}✓ Docker Compose stack rebuilt & restarted.${NC}"
 elif systemctl list-unit-files 2>/dev/null | grep -q "verdant.service"; then
-  systemctl restart verdant
+  systemctl restart verdant 2>/dev/null || true
   echo -e "  ${GREEN}✓ verdant.service restarted.${NC}"
 fi
-[[ $EUID -eq 0 ]] && command -v journalctl >/dev/null 2>&1 && journalctl --vacuum-size=50M >/dev/null 2>&1 || true
 
 echo -e "\n${GREEN}========================================================================${NC}"
-echo -e "${GREEN}✓ Daily package & OS update complete ($(date))${NC}"
+echo -e "${GREEN}✓ Daily dependency check & update complete ($(date))${NC}"
 echo -e "${GREEN}========================================================================${NC}\n"

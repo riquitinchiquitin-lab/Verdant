@@ -186,8 +186,6 @@ function resolveRegion(text: string, kind: 'native' | 'introduced'): GeoPoint[] 
   return matches;
 }
 
-type MapLayerType = 'osm_dark' | 'osm_standard' | 'vector';
-
 export const PlantOriginMap: React.FC<PlantOriginMapProps> = ({
   origin,
   nativeRegions = [],
@@ -196,13 +194,48 @@ export const PlantOriginMap: React.FC<PlantOriginMapProps> = ({
   nativeLabel = 'Native Origin',
   introducedLabel = 'Introduced / Naturalized',
 }) => {
-  const [mapLayer, setMapLayer] = useState<MapLayerType>('osm_dark');
-  const [hoveredPoint, setHoveredPoint] = useState<GeoPoint | null>(null);
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    if (typeof document !== 'undefined') {
+      if (document.documentElement.classList.contains('dark')) return true;
+    }
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
+
+  // Automated Theme Detection: responds to system preference and theme class mutations
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const updateTheme = () => {
+      const hasDarkClass = document.documentElement.classList.contains('dark');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setIsDark(hasDarkClass || prefersDark);
+    };
+
+    updateTheme();
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleMediaChange = () => updateTheme();
+    mediaQuery.addEventListener?.('change', handleMediaChange);
+
+    const observer = new MutationObserver(() => updateTheme());
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class', 'data-theme'],
+    });
+
+    return () => {
+      mediaQuery.removeEventListener?.('change', handleMediaChange);
+      observer.disconnect();
+    };
+  }, []);
 
   const { points, nativeContinents, introducedContinents } = useMemo(() => {
     const allPoints: GeoPoint[] = [];
@@ -241,13 +274,7 @@ export const PlantOriginMap: React.FC<PlantOriginMapProps> = ({
 
   // Initialize and update Leaflet OpenStreetMap instance
   useEffect(() => {
-    if (mapLayer === 'vector' || !mapContainerRef.current) {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-      return;
-    }
+    if (!mapContainerRef.current) return;
 
     // Default center on first point or global view
     const initialCenter: [number, number] = points.length > 0
@@ -278,17 +305,13 @@ export const PlantOriginMap: React.FC<PlantOriginMapProps> = ({
       tileLayerRef.current = null;
     }
 
-    // Apply selected OpenStreetMap tile provider
-    const tileUrl = mapLayer === 'osm_dark'
-      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-      : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-
-    const attribution = mapLayer === 'osm_dark'
-      ? '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors, CartoDB'
-      : '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (planet.openstreetmap.org)';
+    // Zero-Key Official OpenStreetMap Tiles (tile.openstreetmap.org)
+    // Dark mode applies crisp CSS inversion filters directly to native OSM tiles
+    const tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const attribution = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (planet.openstreetmap.org)';
 
     const newTileLayer = L.tileLayer(tileUrl, {
-      subdomains: mapLayer === 'osm_dark' ? 'abcd' : 'abc',
+      className: isDark ? 'osm-dark-tiles' : 'osm-light-tiles',
       maxZoom: 19,
       attribution,
     }).addTo(map);
@@ -308,11 +331,11 @@ export const PlantOriginMap: React.FC<PlantOriginMapProps> = ({
       const pinColor = isNative ? '#10b981' : '#f59e0b';
       const badgeText = isNative ? nativeLabel : introducedLabel;
 
+      // Calm static botanical pin without flashing/ping loops
       const html = `
-        <div style="position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
-          <div style="position: absolute; width: 32px; height: 32px; border-radius: 9999px; background-color: ${pinColor}; opacity: 0.25; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-          <div style="position: relative; width: 26px; height: 26px; border-radius: 9999px; background-color: ${pinColor}; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4); border: 2px solid #ffffff; display: flex; align-items: center; justify-content: center;">
-            <div style="width: 8px; height: 8px; border-radius: 9999px; background-color: #ffffff;"></div>
+        <div style="position: relative; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;">
+          <div style="position: relative; width: 24px; height: 24px; border-radius: 9999px; background-color: ${pinColor}; box-shadow: 0 0 10px rgba(16, 185, 129, 0.6), 0 3px 6px rgba(0, 0, 0, 0.4); border: 2.5px solid #ffffff; display: flex; align-items: center; justify-content: center;">
+            <div style="width: 7px; height: 7px; border-radius: 9999px; background-color: #ffffff;"></div>
           </div>
         </div>
       `;
@@ -320,9 +343,9 @@ export const PlantOriginMap: React.FC<PlantOriginMapProps> = ({
       const customIcon = L.divIcon({
         className: 'custom-osm-pin',
         html,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-        popupAnchor: [0, -16],
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+        popupAnchor: [0, -14],
       });
 
       const marker = L.marker([pt.lat, pt.lon], { icon: customIcon });
@@ -355,7 +378,7 @@ export const PlantOriginMap: React.FC<PlantOriginMapProps> = ({
     }, 200);
 
     return () => clearTimeout(timer);
-  }, [mapLayer, points, nativeLabel, introducedLabel]);
+  }, [isDark, points, nativeLabel, introducedLabel]);
 
   // Clean up Leaflet on unmount
   useEffect(() => {
@@ -397,148 +420,45 @@ export const PlantOriginMap: React.FC<PlantOriginMapProps> = ({
           )}
         </div>
 
-        {/* LAYER TOGGLE & RECENTER */}
+        {/* RECENTER BUTTON */}
         <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-xl bg-md-surface-container border border-md-outline-variant/25 p-0.5 text-xs font-medium">
-            <button
-              type="button"
-              onClick={() => setMapLayer('osm_dark')}
-              className={`px-2.5 py-1 rounded-lg transition-all ${
-                mapLayer === 'osm_dark'
-                  ? 'bg-md-primary text-md-on-primary font-bold shadow-xs'
-                  : 'text-md-on-surface-variant hover:text-md-on-surface'
-              }`}
-            >
-              OSM Dark
-            </button>
-            <button
-              type="button"
-              onClick={() => setMapLayer('osm_standard')}
-              className={`px-2.5 py-1 rounded-lg transition-all ${
-                mapLayer === 'osm_standard'
-                  ? 'bg-md-primary text-md-on-primary font-bold shadow-xs'
-                  : 'text-md-on-surface-variant hover:text-md-on-surface'
-              }`}
-            >
-              OSM Standard
-            </button>
-            <button
-              type="button"
-              onClick={() => setMapLayer('vector')}
-              className={`px-2.5 py-1 rounded-lg transition-all ${
-                mapLayer === 'vector'
-                  ? 'bg-md-primary text-md-on-primary font-bold shadow-xs'
-                  : 'text-md-on-surface-variant hover:text-md-on-surface'
-              }`}
-            >
-              Vector
-            </button>
-          </div>
-
-          {mapLayer !== 'vector' && (
-            <button
-              type="button"
-              onClick={handleRecenter}
-              title="Recenter on Botanical Origin"
-              className="p-1.5 rounded-xl bg-md-surface-container border border-md-outline-variant/25 text-md-on-surface-variant hover:text-md-primary hover:border-md-primary/40 transition-all"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleRecenter}
+            title="Recenter on Botanical Origin"
+            className="p-1.5 rounded-xl bg-md-surface-container border border-md-outline-variant/25 text-md-on-surface-variant hover:text-md-primary hover:border-md-primary/40 transition-all flex items-center gap-1.5 px-2.5 text-xs font-medium"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Recenter</span>
+          </button>
         </div>
       </div>
 
-      {/* MAP VIEW CONTAINER */}
+      {/* ZERO-KEY OSM DARK MODE CSS FILTER */}
+      <style>{`
+        .osm-dark-tiles,
+        .osm-dark-tiles .leaflet-tile,
+        .osm-dark-tiles .leaflet-tile-pane,
+        .osm-dark-tiles .leaflet-layer,
+        .osm-dark-tiles img {
+          filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7) !important;
+        }
+        .osm-light-tiles,
+        .osm-light-tiles .leaflet-tile,
+        .osm-light-tiles .leaflet-tile-pane,
+        .osm-light-tiles .leaflet-layer,
+        .osm-light-tiles img {
+          filter: none !important;
+        }
+      `}</style>
+
+      {/* MAP VIEW CONTAINER (AUTOMATED THEME OSM) */}
       <div className="relative w-full h-80 sm:h-96 rounded-2xl overflow-hidden bg-md-surface-container border border-md-outline-variant/20 shadow-inner">
-        {/* LEAFLET OPENSTREETMAP VIEW */}
         <div
           ref={mapContainerRef}
-          className={`w-full h-full transition-opacity duration-300 ${
-            mapLayer === 'vector' ? 'hidden' : 'block'
-          }`}
+          className="w-full h-full"
           style={{ zIndex: 1 }}
         />
-
-        {/* DETAILED VECTOR WORLD MAP FALLBACK */}
-        {mapLayer === 'vector' && (
-          <div className="relative w-full h-full flex items-center justify-center bg-md-surface-container-high/60 p-2">
-            <svg
-              viewBox="0 0 1000 500"
-              className="w-full h-full select-none"
-              role="img"
-              aria-label={`Detailed world origin map${origin ? ` for ${origin}` : ''}`}
-            >
-              {/* Graticule guidelines */}
-              <line x1="0" y1="250" x2="1000" y2="250" stroke="currentColor" strokeOpacity="0.1" strokeDasharray="4 4" />
-              <line x1="0" y1="185" x2="1000" y2="185" stroke="currentColor" strokeOpacity="0.06" strokeDasharray="3 6" />
-              <line x1="0" y1="315" x2="1000" y2="315" stroke="currentColor" strokeOpacity="0.06" strokeDasharray="3 6" />
-              <line x1="500" y1="0" x2="500" y2="500" stroke="currentColor" strokeOpacity="0.06" strokeDasharray="3 6" />
-
-              {/* Detailed Coastlines */}
-              {DETAILED_CONTINENTS.map((c) => {
-                const isNative = nativeContinents.has(c.id);
-                const isIntro = introducedContinents.has(c.id);
-                return (
-                  <path
-                    key={c.id}
-                    d={c.d}
-                    className={
-                      isNative
-                        ? 'fill-emerald-500/25 stroke-emerald-500/70 hover:fill-emerald-500/35 transition-colors cursor-pointer'
-                        : isIntro
-                          ? 'fill-amber-500/20 stroke-amber-500/60 hover:fill-amber-500/30 transition-colors cursor-pointer'
-                          : 'fill-md-surface-container-highest/80 stroke-md-outline-variant/35'
-                    }
-                    strokeWidth="1.2"
-                    strokeLinejoin="round"
-                  >
-                    <title>{c.name}</title>
-                  </path>
-                );
-              })}
-
-              {/* Vector Region Pins */}
-              {points.map((pt, idx) => {
-                const { x, y } = projectToSvg(pt.lon, pt.lat);
-                const isNative = pt.kind === 'native';
-                return (
-                  <g
-                    key={`${pt.name}-${idx}`}
-                    transform={`translate(${x}, ${y})`}
-                    className="cursor-pointer"
-                    onMouseEnter={() => setHoveredPoint(pt)}
-                    onMouseLeave={() => setHoveredPoint((prev) => (prev === pt ? null : prev))}
-                    onClick={() => setHoveredPoint((prev) => (prev === pt ? null : pt))}
-                  >
-                    <circle
-                      r="16"
-                      className={isNative ? 'fill-emerald-500/25 animate-ping' : 'fill-amber-500/25 animate-ping'}
-                    />
-                    <circle
-                      r="7"
-                      className={
-                        isNative
-                          ? 'fill-emerald-500 stroke-md-surface'
-                          : 'fill-amber-500 stroke-md-surface'
-                      }
-                      strokeWidth="2"
-                    />
-                  </g>
-                );
-              })}
-            </svg>
-
-            {hoveredPoint && (
-              <div className="absolute bottom-3 left-3 px-3.5 py-1.5 rounded-full bg-md-surface/95 backdrop-blur-md border border-md-outline-variant/30 shadow-lg flex items-center gap-2 text-xs font-semibold text-md-on-surface">
-                <MapPin className={`w-3.5 h-3.5 ${hoveredPoint.kind === 'native' ? 'text-emerald-500' : 'text-amber-500'}`} />
-                <span>{hoveredPoint.name}</span>
-                <span className="text-[10px] text-md-on-surface-variant font-normal">
-                  ({hoveredPoint.kind === 'native' ? nativeLabel : introducedLabel})
-                </span>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* FOOTER: LEGEND & OPENSTREETMAP DATA ATTRIBUTION */}
