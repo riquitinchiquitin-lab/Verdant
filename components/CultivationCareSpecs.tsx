@@ -6,7 +6,6 @@ import {
   Wind, 
   FlaskConical, 
   Activity, 
-  Scissors, 
   Bug, 
   Leaf, 
   LayoutGrid, 
@@ -292,32 +291,16 @@ export const CultivationCareSpecs: React.FC<CultivationCareSpecsProps> = ({
     });
   }
 
-  // 10. Propagation
-  const propMethods = lva(plant.propagationMethods as any);
-  const propNotes = lv(plant.propagationInstructions);
-  if (propMethods?.length > 0 || propNotes) {
-    const propDisplay = propMethods?.length > 0 ? propMethods.join(', ') : 'Division, Cuttings';
-    items.push({
-      id: 'propagation',
-      label: t('lbl_propagation') || 'Propagation',
-      category: 'Propagation',
-      icon: <Scissors className="w-4 h-4 text-blue-500" />,
-      valueDisplay: propDisplay,
-      requirementText: propDisplay,
-      notes: propNotes || 'Propagate during active growth season using sanitized tools.',
-      hasGauge: false
-    });
-  }
-
-  // 11. Custom Care Specs (if specifically defined in plant.careSpecs by AI)
+  // Custom Care Specs (if specifically defined in plant.careSpecs by AI)
+  // Note: Propagation is intentionally omitted here as it is comprehensively detailed in the Phenophase tab
   if (plant.careSpecs && plant.careSpecs.length > 0) {
     plant.careSpecs.forEach((spec, idx) => {
       const paramName = lv(spec.parameter);
-      // Avoid exact duplicates if already covered above
+      // Avoid exact duplicates or propagation (managed in Phenophase tab)
       const isAlreadyCovered = items.some(
         it => it.label.toLowerCase() === paramName.toLowerCase() ||
               paramName.toLowerCase().includes(it.id)
-      );
+      ) || paramName.toLowerCase().includes('propagat');
       if (!isAlreadyCovered) {
         items.push({
           id: `care-spec-${idx}`,
