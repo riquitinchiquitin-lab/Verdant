@@ -131,15 +131,26 @@ const GEO_LOOKUP: Array<{ keywords: string[]; lon: number; lat: number; continen
   { keywords: ['argentina', 'chile', 'uruguay', 'paraguay', 'patagonia'], lon: -64.0, lat: -34.0, continent: 'south_america' },
   { keywords: ['south america', 'neotropics', 'neotropical', 'tropical america'], lon: -60.0, lat: -8.0, continent: 'south_america' },
 
-  // Africa
-  { keywords: ['madagascar'], lon: 46.8, lat: -18.8, continent: 'africa' },
-  { keywords: ['west africa', 'nigeria', 'ghana', 'cameroon', 'ivory coast', 'senegal', 'guinea', 'congo', 'gabon', 'tropical africa'], lon: 7.5, lat: 6.5, continent: 'africa' },
-  { keywords: ['central africa', 'dr congo', 'zaire'], lon: 23.6, lat: -2.8, continent: 'africa' },
-  { keywords: ['east africa', 'kenya', 'tanzania', 'ethiopia', 'uganda', 'usambara'], lon: 37.9, lat: -1.3, continent: 'africa' },
-  { keywords: ['cape', 'cape province', 'natal'], lon: 18.5, lat: -33.9, continent: 'africa' },
-  { keywords: ['south africa', 'southern africa', 'namibia', 'botswana', 'zimbabwe', 'mozambique'], lon: 25.0, lat: -28.0, continent: 'africa' },
-  { keywords: ['canary islands', 'madeira', 'azores', 'macaronesia'], lon: -15.5, lat: 28.1, continent: 'africa' },
-  { keywords: ['north africa', 'morocco', 'algeria', 'tunisia', 'egypt'], lon: 10.0, lat: 30.0, continent: 'africa' },
+  // Africa & Indian Ocean Botanical Hotspots
+  { keywords: ['angola', 'luanda', 'benguela', 'huila'], lon: 17.5, lat: -12.5, continent: 'africa' },
+  { keywords: ['namibia', 'windhoek'], lon: 17.1, lat: -22.6, continent: 'africa' },
+  { keywords: ['botswana', 'gaborone', 'okavango'], lon: 24.7, lat: -22.3, continent: 'africa' },
+  { keywords: ['zambia', 'lusaka'], lon: 27.8, lat: -13.1, continent: 'africa' },
+  { keywords: ['zimbabwe', 'harare'], lon: 29.2, lat: -19.0, continent: 'africa' },
+  { keywords: ['mozambique', 'maputo'], lon: 35.5, lat: -18.7, continent: 'africa' },
+  { keywords: ['malawi', 'lilongwe', 'lake malawi'], lon: 34.3, lat: -13.3, continent: 'africa' },
+  { keywords: ['tanzania', 'zanzibar', 'kilimanjaro', 'usambara'], lon: 34.9, lat: -6.4, continent: 'africa' },
+  { keywords: ['kenya', 'nairobi', 'rift valley'], lon: 37.9, lat: -0.0, continent: 'africa' },
+  { keywords: ['uganda', 'kampala', 'rwenzori'], lon: 32.3, lat: 1.4, continent: 'africa' },
+  { keywords: ['rwanda', 'burundi'], lon: 29.9, lat: -2.6, continent: 'africa' },
+  { keywords: ['madagascar', 'malagasy'], lon: 46.8, lat: -18.8, continent: 'africa' },
+  { keywords: ['west africa', 'nigeria', 'ghana', 'cameroon', 'ivory coast', 'cote d\'ivoire', 'senegal', 'guinea', 'congo', 'gabon', 'tropical africa', 'liberia', 'sierra leone', 'togo', 'benin'], lon: 7.5, lat: 6.5, continent: 'africa' },
+  { keywords: ['central africa', 'dr congo', 'zaire', 'democratic republic of the congo'], lon: 23.6, lat: -2.8, continent: 'africa' },
+  { keywords: ['east africa', 'ethiopia', 'abyssinia', 'somalia', 'horn of africa'], lon: 39.8, lat: 9.1, continent: 'africa' },
+  { keywords: ['cape', 'cape province', 'natal', 'karoo', 'fynbos'], lon: 18.5, lat: -33.9, continent: 'africa' },
+  { keywords: ['south africa', 'southern africa', 'lesotho', 'swaziland', 'eswatini'], lon: 25.0, lat: -28.0, continent: 'africa' },
+  { keywords: ['canary islands', 'madeira', 'azores', 'macaronesia', 'cabo verde', 'cape verde'], lon: -15.5, lat: 28.1, continent: 'africa' },
+  { keywords: ['north africa', 'morocco', 'algeria', 'tunisia', 'egypt', 'libya'], lon: 10.0, lat: 30.0, continent: 'africa' },
   { keywords: ['africa'], lon: 20.0, lat: 2.0, continent: 'africa' },
 
   // Mexico & North America
@@ -209,14 +220,15 @@ export const PlantOriginMap: React.FC<PlantOriginMapProps> = ({
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
 
-  // Automated Theme Detection: responds to system preference and theme class mutations
+  // Automated Theme Detection: responds to system preference, localStorage, and theme class mutations
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const updateTheme = () => {
       const hasDarkClass = document.documentElement.classList.contains('dark');
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setIsDark(hasDarkClass || prefersDark);
+      const storedTheme = typeof localStorage !== 'undefined' ? localStorage.getItem('verdant-theme') : null;
+      setIsDark(hasDarkClass || storedTheme === 'dark' || (!storedTheme && prefersDark));
     };
 
     updateTheme();
@@ -248,7 +260,18 @@ export const PlantOriginMap: React.FC<PlantOriginMapProps> = ({
       const parts = txt.split(/[,;/]+|\band\b/i).map((s) => s.trim()).filter(Boolean);
       const targets = parts.length > 0 ? parts : [txt.trim()];
       for (const part of targets) {
-        const resolved = resolveRegion(part, kind);
+        let resolved = resolveRegion(part, kind);
+        if (resolved.length === 0) {
+          // Token fallback: check individual words (e.g. "Angola (Huíla)", "Southern Angola")
+          const tokens = part.replace(/[()[\]{}]/g, ' ').split(/\s+/).filter((w) => w.length > 2);
+          for (const token of tokens) {
+            const tokenResolved = resolveRegion(token, kind);
+            if (tokenResolved.length > 0) {
+              resolved = tokenResolved;
+              break;
+            }
+          }
+        }
         for (const pt of resolved) {
           const key = `${pt.lon},${pt.lat},${pt.kind}`;
           if (!seen.has(key)) {
@@ -372,12 +395,25 @@ export const PlantOriginMap: React.FC<PlantOriginMapProps> = ({
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 6 });
     }
 
-    // Leaflet container invalidation after container paint
+    // Leaflet container invalidation after container paint & on resize
     const timer = setTimeout(() => {
       map.invalidateSize();
     }, 200);
 
-    return () => clearTimeout(timer);
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => {
+          map.invalidateSize();
+        })
+      : null;
+
+    if (resizeObserver && mapContainerRef.current) {
+      resizeObserver.observe(mapContainerRef.current);
+    }
+
+    return () => {
+      clearTimeout(timer);
+      resizeObserver?.disconnect();
+    };
   }, [isDark, points, nativeLabel, introducedLabel]);
 
   // Clean up Leaflet on unmount
