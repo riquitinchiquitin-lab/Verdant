@@ -67,79 +67,100 @@ export const BatchRefreshModal: React.FC<BatchRefreshModalProps> = ({
     setMapsPopulated(0);
     stopRequestedRef.current = false;
 
-    const apiKey = getEffectiveApiKey();
+    let apiKey: string | undefined = undefined;
+    try {
+      if (typeof getEffectiveApiKey === 'function') {
+        apiKey = getEffectiveApiKey();
+      }
+    } catch {
+      apiKey = undefined;
+    }
+
     let treesUpdatedCount = 0;
     let mapsUpdatedCount = 0;
 
-    for (let i = 0; i < targets.length; i++) {
-      if (stopRequestedRef.current) {
-        break;
+    try {
+      for (let i = 0; i < targets.length; i++) {
+        if (stopRequestedRef.current) {
+          break;
+        }
+
+        const plant = targets[i];
+        setCurrentIndex(i + 1);
+        setCurrentPlant(plant);
+
+        // Yield execution to the browser to ensure progress UI repaints smoothly
+        await new Promise((r) => setTimeout(r, 60));
+
+        const plantName = lv(plant.nickname) || plant.species || 'Specimen';
+
+        try {
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Registry query timed out')), 9000)
+          );
+          const updates = await Promise.race([
+            refreshPlantRecord(plant, apiKey),
+            timeoutPromise,
+          ]);
+
+          await updatePlant(plant.id, updates);
+
+          const isTree = updates.specimenType === 'TREE' || isPlantTree({ ...plant, ...updates });
+          if (isTree) treesUpdatedCount++;
+
+          const hasMap = Boolean(
+            (updates.nativeRegions as any)?.en?.length ||
+            (plant.nativeRegions as any)?.en?.length ||
+            updates.origin
+          );
+          if (hasMap) mapsUpdatedCount++;
+
+          setTreesCategorized(treesUpdatedCount);
+          setMapsPopulated(mapsUpdatedCount);
+
+          const summaryParts: string[] = [];
+          if (isTree) summaryParts.push('Tree classified');
+          if (hasMap) summaryParts.push('Origin map synced');
+          if (updates.minPh || updates.hardinessZoneMin) summaryParts.push('Care bounds updated');
+
+          setLogs((prev) => [
+            {
+              id: plant.id,
+              name: plantName,
+              species: updates.species || plant.species,
+              status: 'success',
+              details: summaryParts.length > 0 ? summaryParts.join(' · ') : 'Botanical taxonomy refreshed',
+            },
+            ...prev,
+          ]);
+        } catch (err: any) {
+          setLogs((prev) => [
+            {
+              id: plant.id,
+              name: plantName,
+              species: plant.species,
+              status: 'warn',
+              details: err?.message || 'Could not reach botanical registries',
+            },
+            ...prev,
+          ]);
+        }
       }
-
-      const plant = targets[i];
-      setCurrentIndex(i + 1);
-      setCurrentPlant(plant);
-
-      const plantName = lv(plant.nickname) || plant.species || 'Specimen';
 
       try {
-        const updates = await refreshPlantRecord(plant, apiKey);
-        await updatePlant(plant.id, updates);
-
-        const isTree = updates.specimenType === 'TREE' || isPlantTree({ ...plant, ...updates });
-        if (isTree) treesUpdatedCount++;
-
-        const hasMap = Boolean(
-          (updates.nativeRegions as any)?.en?.length ||
-          (plant.nativeRegions as any)?.en?.length ||
-          updates.origin
-        );
-        if (hasMap) mapsUpdatedCount++;
-
-        setTreesCategorized(treesUpdatedCount);
-        setMapsPopulated(mapsUpdatedCount);
-
-        const summaryParts: string[] = [];
-        if (isTree) summaryParts.push('Tree classified');
-        if (hasMap) summaryParts.push('Origin map synced');
-        if (updates.minPh || updates.hardinessZoneMin) summaryParts.push('Care bounds updated');
-
-        setLogs((prev) => [
-          {
-            id: plant.id,
-            name: plantName,
-            species: updates.species || plant.species,
-            status: 'success',
-            details: summaryParts.length > 0 ? summaryParts.join(' · ') : 'Botanical taxonomy refreshed',
-          },
-          ...prev,
-        ]);
-      } catch (err: any) {
-        setLogs((prev) => [
-          {
-            id: plant.id,
-            name: plantName,
-            species: plant.species,
-            status: 'warn',
-            details: err?.message || 'Could not reach botanical registries',
-          },
-          ...prev,
-        ]);
-      }
+        await refreshAllData();
+      } catch {}
+    } finally {
+      setIsRunning(false);
+      setIsDone(true);
+      setCurrentPlant(null);
     }
-
-    try {
-      await refreshAllData();
-    } catch {}
-
-    setIsRunning(false);
-    setIsDone(true);
-    setCurrentPlant(null);
   };
 
   const handleStop = () => {
     stopRequestedRef.current = true;
     setIsRunning(false);
+    setCurrentPlant(null);
   };
 
   const percent = totalCount > 0 ? Math.min(100, Math.round((currentIndex / totalCount) * 100)) : 0;

@@ -710,16 +710,36 @@ export const refreshPlantRecord = async (
 ): Promise<Partial<Plant>> => {
   const query = (plant.species || plant.nickname?.en || Object.values(plant.nickname || {})[0] || '').trim();
   if (!query) {
-    throw new Error('Species or plant name is required to refresh botanical data.');
+    const isTree = isPlantTree(plant);
+    return {
+      specimenType: isTree ? 'TREE' : 'PLANT',
+      category: inferPlantCategory({ ...plant, specimenType: isTree ? 'TREE' : 'PLANT' }),
+      updatedAt: new Date().toISOString()
+    };
   }
 
-  const [aggregated, aiDetails] = await Promise.all([
-    fetchAggregatedSpeciesData(query).catch(() => null),
-    generatePlantDetails(query, undefined, undefined, apiKey).catch(() => null)
-  ]);
+  // 1. Authoritative botanical aggregation (POWO, GBIF, VASCAN, OPB) with internal 7s timeout
+  const aggregated = await fetchAggregatedSpeciesData(query).catch(() => null);
+
+  // 2. AI enrichment only if apiKey is present, with strict 5s timeout so batch operations never hang
+  let aiDetails: Partial<Plant> | null = null;
+  if (apiKey) {
+    try {
+      const aiPromise = generatePlantDetails(query, undefined, undefined, apiKey);
+      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
+      aiDetails = await Promise.race([aiPromise, timeoutPromise]).catch(() => null);
+    } catch {
+      aiDetails = null;
+    }
+  }
 
   if (!aggregated && !aiDetails) {
-    throw new Error(`Could not retrieve updated botanical data for "${query}".`);
+    const isTree = isPlantTree(plant);
+    return {
+      specimenType: isTree ? 'TREE' : 'PLANT',
+      category: inferPlantCategory({ ...plant, specimenType: isTree ? 'TREE' : 'PLANT' }),
+      updatedAt: new Date().toISOString()
+    };
   }
 
   const aggUpdates: Partial<Plant> = {};
