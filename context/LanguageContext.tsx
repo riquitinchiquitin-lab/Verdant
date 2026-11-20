@@ -338,6 +338,7 @@ const staticTranslations: Record<string, Record<string, string>> = {
     placeholder_propagation_methods: "Nodal Cuttings, Division...",
     placeholder_guide: "Step-by-step guide...",
     btn_refresh_ai: "Refresh AI Data",
+    btn_print_label: "Print Label",
     lbl_input_source: "Input Source",
     msg_choose_input_source: "Choose an input source for botanical identification.",
     msg_ai_ready: "AI Identification Service Ready",

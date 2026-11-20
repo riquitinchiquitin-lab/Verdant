@@ -19,6 +19,7 @@ import { getCompatibleItems } from '../services/compatibilityService';
 import { CURRENCIES, getCurrencyForLanguage } from '../constants';
 import { generateUUID } from '../services/crypto';
 import { inferPlantCategory } from '../utils/botanicalCategory';
+import { PrintLabelModal } from './PrintLabelModal';
 
 interface AddPlantModalProps {
   isOpen: boolean;
@@ -70,6 +71,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
   const [quickSpecies, setQuickSpecies] = useState('');
   const [quickSpecimenType, setQuickSpecimenType] = useState<'PLANT' | 'TREE'>('PLANT');
   const [savedPlant, setSavedPlant] = useState<Plant | null>(null);
+  const [isPrintPromptOpen, setIsPrintPromptOpen] = useState(false);
   const [isPrintingLabel, setIsPrintingLabel] = useState(false);
   const [printStatus, setPrintStatus] = useState<string | null>(null);
 
@@ -152,6 +154,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
     setQuickSpecies('');
     setQuickSpecimenType('PLANT');
     setSavedPlant(null);
+    setIsPrintPromptOpen(false);
     setIsPrintingLabel(false);
     setPrintStatus(null);
   };
@@ -362,6 +365,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
       await onSave(newPlant);
       setSavedPlant(newPlant);
       setScanMode('DONE');
+      setIsPrintPromptOpen(true);
       if (printAfter) {
         void handlePrintSavedLabel(newPlant);
       }
@@ -434,6 +438,7 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
       await onSave(newPlant);
       setSavedPlant(newPlant);
       setScanMode('DONE');
+      setIsPrintPromptOpen(true);
       if (printAfter) {
         void handlePrintSavedLabel(newPlant);
       }
@@ -1128,11 +1133,10 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
               <Button
                 type="button"
                 variant="primary"
-                isLoading={isPrintingLabel}
-                onClick={() => void handlePrintSavedLabel(savedPlant)}
+                onClick={() => setIsPrintPromptOpen(true)}
               >
                 <Printer className="w-4 h-4" />
-                <span>Print Label (Niimbot D110)</span>
+                <span>Print Label</span>
               </Button>
               <Button
                 type="button"
@@ -1160,6 +1164,15 @@ export const AddPlantModal: React.FC<AddPlantModalProps> = ({ isOpen, onClose, o
           </div>
         )}
       </div>
+
+      {savedPlant && (
+        <PrintLabelModal
+          isOpen={isPrintPromptOpen}
+          onClose={() => setIsPrintPromptOpen(false)}
+          plant={savedPlant}
+          isInitialPrompt={true}
+        />
+      )}
     </Modal>
   );
 };

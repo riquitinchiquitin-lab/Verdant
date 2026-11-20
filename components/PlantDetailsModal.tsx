@@ -31,6 +31,7 @@ import { CultivationCareSpecs } from './CultivationCareSpecs';
 import { BotanicalMonographSection } from './BotanicalMonographSection';
 import { InstructionStepsCard } from './InstructionStepsCard';
 import { GrowthLogModal } from './GrowthLogModal';
+import { PrintLabelModal } from './PrintLabelModal';
 
 interface PlantDetailsModalProps {
   isOpen: boolean;
@@ -101,6 +102,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
   const [isMoistureOpen, setIsMoistureOpen] = useState(false);
   const [isPhenophaseOpen, setIsPhenophaseOpen] = useState(false);
   const [isGrowthOpen, setIsGrowthOpen] = useState(false);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [isNoteOpen, setIsNoteOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'DOSSIER' | 'TIMELINE' | 'TECH' | 'PHENOPHASE'>('DOSSIER');
   const [lastLoggedAction, setLastLoggedAction] = useState<LogType | null>(null);
@@ -618,6 +620,14 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                         className="m3-state-layer w-11 h-11 rounded-full bg-md-surface-container-high border border-md-outline-variant/30 text-md-on-surface-variant hover:text-md-primary flex items-center justify-center transition-colors"
                       >
                         <Edit3 className="w-4 h-4" />
+                      </motion.button>
+                      <motion.button
+                        whileTap={{ scale: 0.94 }}
+                        onClick={() => setIsPrintModalOpen(true)}
+                        title={t('btn_print_label') || 'Print Label'}
+                        className="m3-state-layer w-11 h-11 rounded-full bg-md-surface-container-high border border-md-outline-variant/30 text-md-on-surface-variant hover:text-md-primary flex items-center justify-center transition-colors"
+                      >
+                        <Tag className="w-4 h-4" />
                       </motion.button>
                       <motion.button
                         whileTap={{ scale: 0.94 }}
@@ -1611,6 +1621,13 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
         plant={plant}
         onLog={handleGrowthLog}
       />
+      {plant && (
+        <PrintLabelModal
+          isOpen={isPrintModalOpen}
+          onClose={() => setIsPrintModalOpen(false)}
+          plant={plant}
+        />
+      )}
       <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={handleUpdateMainImageFromFile} />
       <input type="file" ref={addPhotoInputRef} className="hidden" accept="image/*" onChange={handleAddNewImageFromFile} />
       <PlantLogEntry

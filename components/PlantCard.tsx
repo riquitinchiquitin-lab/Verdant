@@ -5,9 +5,10 @@ import { useLanguage } from '../context/LanguageContext';
 import { usePlants } from '../context/PlantContext';
 import { compressImage } from '../services/imageUtils';
 import { generateUUID } from '../services/crypto';
-import { Droplets, Star, Check, RefreshCw, Sun, Thermometer, Wind, Globe } from 'lucide-react';
+import { Droplets, Star, Check, RefreshCw, Sun, Thermometer, Wind, Globe, Tag, Printer } from 'lucide-react';
 import { refreshPlantRecord } from '../services/plantAi';
 import { isPlantTree } from '../utils/botanicalCategory';
+import { PrintLabelModal } from './PrintLabelModal';
 
 interface PlantCardProps {
   plant: Partial<Plant>;
@@ -63,6 +64,7 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
 
   const [isUploading, setIsUploading] = useState<'AVATAR' | 'LOG' | null>(null);
   const [isRefreshingData, setIsRefreshingData] = useState(false);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [lastLoggedAction, setLastLoggedAction] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -375,9 +377,31 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
                                 <RefreshCw className={`w-4 h-4 ${isRefreshingData ? 'animate-spin text-md-primary' : ''}`} />
                             </Button>
                         )}
+                        {plant.id && (
+                            <Button
+                                variant="outlined"
+                                size="md"
+                                title={t('btn_print_label') || 'Print Label'}
+                                aria-label={t('btn_print_label') || 'Print Label'}
+                                className="px-3 shrink-0"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsPrintModalOpen(true);
+                                }}
+                            >
+                                <Tag className="w-4 h-4 text-md-on-surface-variant hover:text-md-primary" />
+                            </Button>
+                        )}
                     </div>
                 )}
             </div>
+            {plant.id && isPrintModalOpen && (
+                <PrintLabelModal
+                    isOpen={isPrintModalOpen}
+                    onClose={() => setIsPrintModalOpen(false)}
+                    plant={plant as Plant}
+                />
+            )}
         </div>
     );
 };
