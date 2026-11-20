@@ -149,6 +149,12 @@ elif systemctl list-unit-files 2>/dev/null | grep -q "verdant.service"; then
   echo -e "${GREEN}✓ verdant.service restarted successfully.${NC}"
 fi
 
+# Ensure daily 4:00 AM auto-update timer/cron is active
+if [ -f "$INSTALL_DIR/scripts/install-daily-autoupdate.sh" ]; then
+  echo -e "\n${CYAN}Verifying daily 4:00 AM auto-update scheduler...${NC}"
+  bash "$INSTALL_DIR/scripts/install-daily-autoupdate.sh" || true
+fi
+
 echo -e "\n${GREEN}========================================================================${NC}"
 echo -e "${GREEN}✓ Verdant has been successfully updated!${NC}"
 echo -e "Check status: ${YELLOW}systemctl status verdant${NC}"

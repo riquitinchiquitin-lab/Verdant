@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import { RefreshCw, CheckCircle2, AlertCircle, TreeDeciduous, Sprout, Globe2, Sparkles, X, Play, Square } from 'lucide-react';
 import { usePlants } from '../context/PlantContext';
 import { useLanguage } from '../context/LanguageContext';
-import { useSystem } from '../context/SystemContext';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { Plant } from '../types';
@@ -28,9 +27,8 @@ export const BatchRefreshModal: React.FC<BatchRefreshModalProps> = ({
   onClose,
   initialScope = 'ALL',
 }) => {
-  const { plants, updatePlant, refreshAllData } = usePlants();
+  const { plants, updatePlant, refreshAllData, getEffectiveApiKey } = usePlants();
   const { lv } = useLanguage();
-  const { getEffectiveApiKey } = useSystem();
 
   const [scope, setScope] = useState<'ALL' | 'TREES' | 'PLANTS'>(initialScope);
   const [isRunning, setIsRunning] = useState(false);

@@ -50,11 +50,10 @@ EOF
 
     cat >/etc/systemd/system/verdant-autoupdate.timer <<EOF
 [Unit]
-Description=Run Verdant Daily Auto-Update at 03:30
+Description=Run Verdant Daily Auto-Update at 04:00 AM
 
 [Timer]
-OnCalendar=*-*-* 03:30:00
-RandomizedDelaySec=15m
+OnCalendar=*-*-* 04:00:00
 Persistent=true
 
 [Install]
@@ -63,16 +62,16 @@ EOF
 
     systemctl daemon-reload
     systemctl enable --now verdant-autoupdate.timer
-    echo -e "${GREEN}✓ Installed & enabled systemd timer: verdant-autoupdate.timer (daily at 03:30)${NC}"
+    echo -e "${GREEN}✓ Installed & enabled systemd timer: verdant-autoupdate.timer (daily at 04:00 AM)${NC}"
     systemctl list-timers verdant-autoupdate.timer --no-pager || true
   else
     cat >/etc/cron.d/verdant-autoupdate <<EOF
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-30 3 * * * root VERDANT_DIR=${APP_DIR} bash ${APP_DIR}/scripts/auto-update-all.sh >> /var/log/verdant-autoupdate.log 2>&1
+0 4 * * * root VERDANT_DIR=${APP_DIR} bash ${APP_DIR}/scripts/auto-update-all.sh >> /var/log/verdant-autoupdate.log 2>&1
 EOF
     chmod 644 /etc/cron.d/verdant-autoupdate
-    echo -e "${GREEN}✓ Installed daily cron job at /etc/cron.d/verdant-autoupdate (daily at 03:30)${NC}"
+    echo -e "${GREEN}✓ Installed daily cron job at /etc/cron.d/verdant-autoupdate (daily at 04:00 AM)${NC}"
   fi
   exit 0
 fi
@@ -81,7 +80,7 @@ fi
 echo -e "${YELLOW}ℹ️  Running as non-root user (${USER:-$(whoami)}).${NC}"
 
 if command -v crontab >/dev/null 2>&1; then
-  CRON_LINE="30 3 * * * VERDANT_DIR=${APP_DIR} bash ${APP_DIR}/scripts/auto-update-all.sh >> \${HOME}/verdant-autoupdate.log 2>&1"
+  CRON_LINE="0 4 * * * VERDANT_DIR=${APP_DIR} bash ${APP_DIR}/scripts/auto-update-all.sh >> \${HOME}/verdant-autoupdate.log 2>&1"
   ( crontab -l 2>/dev/null | grep -v "auto-update-all.sh" ; echo "$CRON_LINE" ) | crontab -
   echo -e "${GREEN}✓ Added daily update job to user crontab:${NC}"
   echo -e "  ${CYAN}${CRON_LINE}${NC}"
@@ -95,5 +94,5 @@ else
   echo -e "To install on your host/server:"
   echo -e "  ${CYAN}sudo bash ${APP_DIR}/scripts/install-daily-autoupdate.sh${NC}"
   echo -e "Or add this line to your crontab (crontab -e):"
-  echo -e "  ${CYAN}30 3 * * * VERDANT_DIR=${APP_DIR} bash ${APP_DIR}/scripts/auto-update-all.sh >> /var/log/verdant-autoupdate.log 2>&1${NC}"
+  echo -e "  ${CYAN}0 4 * * * VERDANT_DIR=${APP_DIR} bash ${APP_DIR}/scripts/auto-update-all.sh >> /var/log/verdant-autoupdate.log 2>&1${NC}"
 fi

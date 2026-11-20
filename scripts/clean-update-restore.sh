@@ -194,4 +194,10 @@ EOF
   fi
 fi
 
+# Ensure daily 4:00 AM auto-update timer/cron is active
+if [ -f "$INSTALL_DIR/scripts/install-daily-autoupdate.sh" ]; then
+  echo -e "\n${CYAN}Verifying daily 4:00 AM auto-update scheduler...${NC}"
+  bash "$INSTALL_DIR/scripts/install-daily-autoupdate.sh" || true
+fi
+
 echo -e "\n${GREEN}${BOLD}✓ Clean update & verification complete!${NC}"

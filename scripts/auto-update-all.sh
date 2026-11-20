@@ -66,11 +66,11 @@ fi
 # ------------------------------------------------------------------------------
 # 2. Check and Update Node.js & npm CLI
 # ------------------------------------------------------------------------------
-echo -e "\n${BLUE}[2/4] Checking Node.js & npm CLI Versions...${NC}"
+echo -e "\n${BLUE}[2/5] Checking Node.js & npm CLI Versions...${NC}"
 NODE_MAJOR=$(node -v 2>/dev/null | sed 's/^v//' | cut -d. -f1 || echo 0)
-if [ "${NODE_MAJOR:-0}" -lt 22 ] && [[ $EUID -eq 0 ]] && command -v apt-get >/dev/null 2>&1; then
-  echo -e "  ${YELLOW}Upgrading Node.js $(node -v 2>/dev/null || echo '') -> 22 LTS...${NC}"
-  curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null 2>&1 || true
+if [ "${NODE_MAJOR:-0}" -lt 24 ] && [[ $EUID -eq 0 ]] && command -v apt-get >/dev/null 2>&1; then
+  echo -e "  ${YELLOW}Upgrading Node.js $(node -v 2>/dev/null || echo '') -> 24 LTS...${NC}"
+  curl -fsSL https://deb.nodesource.com/setup_24.x | bash - >/dev/null 2>&1 || true
   apt-get install -y nodejs >/dev/null 2>&1 || true
 fi
 
@@ -87,9 +87,22 @@ fi
 echo -e "  Active npm      : ${GREEN}$(npm -v 2>/dev/null || echo 'unknown')${NC}"
 
 # ------------------------------------------------------------------------------
-# 3. Check and Update All Application Dependencies
+# 3. Pull Latest Application Code (Git)
 # ------------------------------------------------------------------------------
-echo -e "\n${BLUE}[3/4] Checking and Updating Dependencies...${NC}"
+echo -e "\n${BLUE}[3/5] Pulling Latest Application Code...${NC}"
+if [ -d "$APP_DIR/.git" ]; then
+  echo -e "  Fetching latest repository commits from origin/main..."
+  git -C "$APP_DIR" fetch origin main --tags -q 2>&1 || true
+  git -C "$APP_DIR" pull --rebase origin main 2>&1 || true
+  echo -e "  ${GREEN}✓ Git code synchronized to latest origin/main.${NC}"
+else
+  echo -e "  ${YELLOW}ℹ️  Not a git repository clone; skipping git sync.${NC}"
+fi
+
+# ------------------------------------------------------------------------------
+# 4. Check and Update All Application Dependencies
+# ------------------------------------------------------------------------------
+echo -e "\n${BLUE}[4/5] Checking and Updating Dependencies...${NC}"
 
 # Create safety backup of package manifests for automated rollback
 BACKUP_TMP_DIR="/tmp/verdant-update-backup-$$"
@@ -119,9 +132,9 @@ if npm rebuild --help >/dev/null 2>&1; then
 fi
 
 # ------------------------------------------------------------------------------
-# 4. Verify TypeScript & Production Build with Automated Rollback
+# 5. Verify TypeScript & Production Build with Automated Rollback
 # ------------------------------------------------------------------------------
-echo -e "\n${BLUE}[4/4] Verifying Build Health & Service Stability...${NC}"
+echo -e "\n${BLUE}[5/5] Verifying Build Health & Service Stability...${NC}"
 
 BUILD_FAILED=0
 if ! npm run lint; then

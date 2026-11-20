@@ -14,8 +14,8 @@ export function isPlantTree(plant?: Partial<Plant> | null): boolean {
 
   // Check category across all languages
   if (plant.category) {
-    if (typeof plant.category === 'string') {
-      const c = plant.category.toLowerCase();
+    if (typeof (plant.category as unknown) === 'string') {
+      const c = (plant.category as unknown as string).toLowerCase();
       if (c.includes('tree') || c.includes('arbre') || c.includes('árbol') || c.includes('pohon') || c.includes('baum') || c.includes('bonsai')) {
         return true;
       }
@@ -34,8 +34,8 @@ export function isPlantTree(plant?: Partial<Plant> | null): boolean {
 
   // Check growth habit across all languages
   if (plant.growthHabit) {
-    const habitStr = typeof plant.growthHabit === 'string'
-      ? plant.growthHabit.toLowerCase()
+    const habitStr = typeof (plant.growthHabit as unknown) === 'string'
+      ? (plant.growthHabit as unknown as string).toLowerCase()
       : Object.values(plant.growthHabit).join(' ').toLowerCase();
     if (
       habitStr.includes('tree') ||

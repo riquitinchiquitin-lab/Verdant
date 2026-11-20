@@ -61,5 +61,9 @@ systemctl daemon-reload
 systemctl enable verdant
 # systemctl start verdant # Don't start yet, might need env vars
 
+# --- Install Daily 4:00 AM Auto-Update Timer ---
+echo "Installing daily 4:00 AM auto-update timer..."
+bash ${APP_DIR}/scripts/install-daily-autoupdate.sh || true
+
 echo "Installation complete!"
 echo "Please configure your .env file in ${APP_DIR} and then run: systemctl start verdant"
