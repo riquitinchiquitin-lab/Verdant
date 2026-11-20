@@ -148,6 +148,11 @@ fi
 # 8. Restart service / Docker Compose & health check with rollback
 echo -e "${CYAN}[7/7] Restarting Verdant & verifying health...${NC}"
 if [ "$IS_DOCKER" = true ]; then
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl stop "${SERVICE_NAME}" 2>/dev/null || true
+    systemctl disable "${SERVICE_NAME}" 2>/dev/null || true
+  fi
+  fuser -k 3000/tcp 2>/dev/null || true
   docker compose up -d --build --remove-orphans
   docker container prune -f >/dev/null 2>&1 || true
   docker image prune -af >/dev/null 2>&1 || true

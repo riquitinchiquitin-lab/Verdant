@@ -61,8 +61,14 @@ else
 fi
 
 # Check if running via Docker Compose
-if [ -f "$INSTALL_DIR/docker-compose.yml" ] && command -v docker >/dev/null 2>&1 && docker compose ps -q 2>/dev/null | grep -q .; then
+if [ -f "$INSTALL_DIR/docker-compose.yml" ] && command -v docker >/dev/null 2>&1 && { docker compose ps -q 2>/dev/null | grep -q . || [ -n "${CF_UNIFIED_TOKEN:-}" ] || grep -q "CF_UNIFIED_TOKEN" "$INSTALL_DIR/.env" 2>/dev/null; }; then
   echo -e "\n${CYAN}2/4: Rebuilding & restarting Docker Compose stack...${NC}"
+  # Ensure host service isn't occupying port 3000
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl stop verdant 2>/dev/null || true
+    systemctl disable verdant 2>/dev/null || true
+  fi
+  fuser -k 3000/tcp 2>/dev/null || true
   mkdir -p "$INSTALL_DIR/data"
   chown -R 1000:1000 "$INSTALL_DIR/data"
   chmod 700 "$INSTALL_DIR/data"
