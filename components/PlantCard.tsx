@@ -7,6 +7,7 @@ import { compressImage } from '../services/imageUtils';
 import { generateUUID } from '../services/crypto';
 import { Droplets, Star, Check, RefreshCw, Sun, Thermometer, Wind, Globe } from 'lucide-react';
 import { refreshPlantRecord } from '../services/plantAi';
+import { isPlantTree } from '../utils/botanicalCategory';
 
 interface PlantCardProps {
   plant: Partial<Plant>;
@@ -200,11 +201,11 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
                         <span className="italic font-serif">{plant.species}</span>
                         {plant.scientificAuthor ? <span className="text-md-on-surface-variant font-normal ml-1">{plant.scientificAuthor}</span> : null}
                     </p>
-                    {(plant.family || lv(plant.growthHabit as any) || plant.specimenType) && (
+                    {(plant.family || lv(plant.growthHabit as any) || plant.specimenType || isPlantTree(plant)) && (
                         <p className="text-[11px] text-md-on-surface-variant truncate mt-0.5">
                             {[
                                 plant.family,
-                                lv(plant.growthHabit as any) || (plant.specimenType === 'TREE' ? 'Tree' : null)
+                                lv(plant.growthHabit as any) || (isPlantTree(plant) ? 'Tree' : null)
                             ].filter(Boolean).join(' · ')}
                         </p>
                     )}

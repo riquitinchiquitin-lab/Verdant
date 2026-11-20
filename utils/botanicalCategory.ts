@@ -1,7 +1,83 @@
-import { LocalizedString } from '../types';
+import { LocalizedString, Plant } from '../types';
 
 export const TARGET_LANGS = ['en', 'zh', 'ja', 'ko', 'es', 'fr', 'pt', 'de', 'id', 'vi', 'tl'] as const;
 export type SupportedLang = typeof TARGET_LANGS[number];
+
+/**
+ * Authoritatively determines whether a specimen is a tree.
+ * Checks explicit specimenType, multilingual category values, growth habit,
+ * lifeform indicators, and botanical taxonomy/genus/species names.
+ */
+export function isPlantTree(plant?: Partial<Plant> | null): boolean {
+  if (!plant) return false;
+  if (plant.specimenType === 'TREE') return true;
+
+  // Check category across all languages
+  if (plant.category) {
+    if (typeof plant.category === 'string') {
+      const c = plant.category.toLowerCase();
+      if (c.includes('tree') || c.includes('arbre') || c.includes('árbol') || c.includes('pohon') || c.includes('baum') || c.includes('bonsai')) {
+        return true;
+      }
+    } else if (typeof plant.category === 'object') {
+      const vals = Object.values(plant.category);
+      for (const v of vals) {
+        if (typeof v === 'string') {
+          const c = v.toLowerCase();
+          if (c.includes('tree') || c.includes('arbre') || c.includes('árbol') || c.includes('pohon') || c.includes('baum') || c.includes('bonsai')) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+
+  // Check growth habit across all languages
+  if (plant.growthHabit) {
+    const habitStr = typeof plant.growthHabit === 'string'
+      ? plant.growthHabit.toLowerCase()
+      : Object.values(plant.growthHabit).join(' ').toLowerCase();
+    if (
+      habitStr.includes('tree') ||
+      habitStr.includes('arborescent') ||
+      habitStr.includes('shrub/tree') ||
+      habitStr.includes('small tree') ||
+      habitStr.includes('arbre') ||
+      habitStr.includes('árbol')
+    ) {
+      return true;
+    }
+  }
+
+  // Check botanical taxonomy / corpus
+  const s = (plant.species || '').toLowerCase();
+  const n = (typeof plant.nickname === 'string' ? plant.nickname : Object.values(plant.nickname || {}).join(' ')).toLowerCase();
+  const g = (plant.genus || '').toLowerCase();
+  const f = (plant.family || '').toLowerCase();
+  const text = `${s} ${n} ${g} ${f}`;
+
+  const treeKeywords = [
+    'tree', 'arbre', 'árbol', 'pohon', 'baum', 'bonsai',
+    'ficus', 'fig', 'citrus', 'lemon', 'orange', 'lime', 'grapefruit',
+    'olive', 'olea', 'pachira', 'money tree', 'rubber plant', 'rubber tree',
+    'fiddle leaf', 'weeping fig', 'schefflera', 'umbrella tree',
+    'dracaena marginata', 'dracaena reflexa', 'dracaena fragrans', 'dracaena draco', 'dragon tree',
+    'eucalyptus', 'acer', 'maple', 'pinus', 'pine', 'quercus', 'oak',
+    'betula', 'birch', 'fraxinus', 'ash', 'ulmus', 'elm', 'prunus', 'cherry', 'plum',
+    'malus', 'apple', 'magnolia', 'salix', 'willow', 'populus', 'poplar',
+    'jacaranda', 'cupressus', 'cypress', 'juniperus', 'juniper', 'cedrus', 'cedar',
+    'baobab', 'adansonia', 'araucaria', 'norfolk island pine', 'ginkgo',
+    'camellia', 'lagerstroemia', 'crepe myrtle'
+  ];
+
+  for (const kw of treeKeywords) {
+    if (text.includes(kw)) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 export const STANDARD_CATEGORIES: Record<string, LocalizedString> = {
   TREE: {

@@ -7,13 +7,15 @@ import { useLanguage } from '../context/LanguageContext';
 import { useSystem } from '../context/SystemContext';
 import { Button } from '../components/ui/Button';
 import { Plant } from '../types';
-import { Plus } from 'lucide-react';
+import { Plus, RefreshCw } from 'lucide-react';
 import { AddPlantModal } from '../components/AddPlantModal';
 import { PlantCard } from '../components/PlantCard';
 import { PlantDetailsModal } from '../components/PlantDetailsModal';
+import { BatchRefreshModal } from '../components/BatchRefreshModal';
 import { Logo } from '../components/ui/Logo';
 import { PlantTelemetry } from '../components/PlantTelemetry';
 import { exportPlantsToNiimbotExcel } from '../services/exportService';
+import { isPlantTree } from '../utils/botanicalCategory';
 
 interface DashboardProps {
   initialSpecimenFilter?: 'ALL' | 'PLANT' | 'TREE';
@@ -26,6 +28,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialSpecimenFilter = 'A
   const { plants, addPlant, restoreDemoData, houses, searchFilter } = usePlants();
   const { t, lv } = useLanguage();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isBatchRefreshOpen, setIsBatchRefreshOpen] = useState(false);
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
   const [viewMode, setViewMode] = useState<'MY_HOUSE' | 'ALL'>('MY_HOUSE');
   const [selectedHouseFilter, setSelectedHouseFilter] = useState<string | 'ALL' | 'UNATTRIBUTED'>('ALL');
@@ -37,13 +40,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialSpecimenFilter = 'A
 
   const isAdmin = user?.role === 'OWNER' || user?.role === 'CO_CEO';
 
-  const isTreeSpecimen = (p: Plant) => {
-    if (p.specimenType === 'TREE') return true;
-    if (p.specimenType === 'PLANT') return false;
-    const cat = (p.category?.en || '').toLowerCase();
-    const habit = (p.growthHabit?.en || '').toLowerCase();
-    return cat.includes('tree') || habit.includes('tree');
-  };
+  const isTreeSpecimen = (p: Plant) => isPlantTree(p);
 
   const baseFiltered = useMemo(() => {
     return plants.filter(p => {
@@ -100,6 +97,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialSpecimenFilter = 'A
     <div className="max-w-7xl mx-auto space-y-6 pb-20 transition-all">
         <AddPlantModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSave={addPlant} />
         <PlantDetailsModal isOpen={!!selectedPlant} plant={selectedPlant} onClose={() => setSelectedPlant(null)} />
+        <BatchRefreshModal
+            isOpen={isBatchRefreshOpen}
+            onClose={() => setIsBatchRefreshOpen(false)}
+            initialScope={specimenFilter === 'TREE' ? 'TREES' : (specimenFilter === 'PLANT' ? 'PLANTS' : 'ALL')}
+        />
 
         {/* M3 PAGE HEADER */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-4 md:px-10 pt-6 pb-2">
@@ -128,6 +130,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialSpecimenFilter = 'A
                     </select>
                 )}
                 <Button
+                    variant="tonal"
+                    size="md"
+                    onClick={() => setIsBatchRefreshOpen(true)}
+                    title="Refresh all biological data, taxonomy, origin maps, and tree classifications"
+                >
+                    <RefreshCw className="w-4 h-4" />
+                    <span className="hidden sm:inline">Refresh All Data</span>
+                </Button>
+                <Button
                     variant="primary"
                     size="md"
                     onClick={() => setIsAddModalOpen(true)}
@@ -141,7 +152,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialSpecimenFilter = 'A
         <PlantTelemetry />
 
         {/* SPECIMEN TYPE SECTION BAR (ALL / PLANTS / TREES) */}
-        <div className="px-4 md:px-10 flex items-center justify-between gap-3">
+        <div className="px-4 md:px-10 flex flex-wrap items-center justify-between gap-3">
           <div className="inline-flex bg-md-surface-container-high p-1 rounded-full border border-md-outline-variant/25">
             {([
               { id: 'ALL', label: `All (${baseFiltered.length})` },
@@ -161,6 +172,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialSpecimenFilter = 'A
               </button>
             ))}
           </div>
+
+          <button
+            onClick={() => setIsBatchRefreshOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-md-primary hover:text-md-primary/80 transition-colors bg-md-primary/10 hover:bg-md-primary/15 rounded-full"
+            title="Refresh biological data and maps for all specimens"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Sync All Botanical Data & Maps</span>
+          </button>
         </div>
 
         <div className="px-4 md:px-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 pb-8">

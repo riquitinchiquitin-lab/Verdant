@@ -5,7 +5,7 @@ import { Plant, LocalizedString, LocalizedArray } from '../types';
 import { fetchTrefleData, fetchOpenPlantBookData, fetchPerenualData, searchGroundingData, fetchGbifData, fetchPowoData, fetchINaturalistData, fetchNcsuData, fetchVascanData, fetchAggregatedSpeciesData } from './botanicalServices';
 import { trackUsage } from './usageService';
 import { generateUUID } from './crypto';
-import { inferPlantCategory } from '../utils/botanicalCategory';
+import { inferPlantCategory, isPlantTree } from '../utils/botanicalCategory';
 
 const TARGET_LANGS = ['en', 'zh', 'ja', 'ko', 'es', 'fr', 'pt', 'de', 'id', 'vi', 'tl'];
 
@@ -753,17 +753,39 @@ export const refreshPlantRecord = async (
     if (aggregated.sourceIds?.itisTsn) aggUpdates.itisTsn = String(aggregated.sourceIds.itisTsn);
     if (aggregated.sourceIds?.eppoCode) aggUpdates.eppoCode = String(aggregated.sourceIds.eppoCode);
     if (aggregated.sourceIds?.inaturalist) aggUpdates.inaturalistId = Number(aggregated.sourceIds.inaturalist);
-    if (aggregated.distribution?.canadianProvinces?.length) {
-      aggUpdates.canadianProvinces = aggregated.distribution.canadianProvinces.map(
-        (p: any) => `${p.province}: ${p.status}`
+    if (aggregated.distribution?.countriesNative && aggregated.distribution.countriesNative.length > 0) {
+      aggUpdates.nativeRegions = { en: aggregated.distribution.countriesNative };
+      aggUpdates.origin = { en: aggregated.distribution.countriesNative.slice(0, 4).join(', ') };
+    }
+    if (aggregated.distribution?.countriesIntroduced && aggregated.distribution.countriesIntroduced.length > 0) {
+      aggUpdates.introducedRegions = { en: aggregated.distribution.countriesIntroduced };
+    }
+    if (aggregated.distribution?.canadianProvinces && typeof aggregated.distribution.canadianProvinces === 'object') {
+      aggUpdates.canadianProvinces = Object.entries(aggregated.distribution.canadianProvinces).map(
+        ([prov, status]) => `${prov}: ${status}`
       );
     }
+    if (aggregated.traits?.growthHabit) {
+      aggUpdates.growthHabit = { en: aggregated.traits.growthHabit };
+    }
+    if (aggregated.taxonomy?.lifeform) {
+      aggUpdates.growthHabit = aggUpdates.growthHabit || { en: aggregated.taxonomy.lifeform };
+    }
   }
+
+  // Determine specimenType ('TREE' vs 'PLANT') using authoritative botanical analysis
+  const isTree = isPlantTree({
+    ...plant,
+    ...(aiDetails || {}),
+    ...aggUpdates,
+  });
+  const resolvedSpecimenType: 'TREE' | 'PLANT' = isTree ? 'TREE' : 'PLANT';
 
   const resolvedCategory = inferPlantCategory({
     ...plant,
     ...(aiDetails || {}),
     ...aggUpdates,
+    specimenType: resolvedSpecimenType,
     category: aiDetails?.category || plant.category
   });
 
@@ -771,6 +793,7 @@ export const refreshPlantRecord = async (
     ...(aiDetails || {}),
     ...aggUpdates,
     category: resolvedCategory,
+    specimenType: resolvedSpecimenType,
     // Preserve user-owned & specimen-identity fields
     nickname: plant.nickname,
     images: plant.images,
@@ -784,7 +807,6 @@ export const refreshPlantRecord = async (
     lastPotSizeCm: plant.lastPotSizeCm,
     lastPotSizeInches: plant.lastPotSizeInches,
     isPriority: plant.isPriority,
-    specimenType: plant.specimenType,
     updatedAt: new Date().toISOString(),
     lastModified: new Date().toISOString(),
   };
