@@ -21,7 +21,8 @@ import { getSecurityPolicy, SecurityPolicyStatus } from '../services/webauthn';
 import { exportCombinedLogsToExcel } from '../services/exportService';
 import { lookupLocationZone } from '../services/botanicalServices';
 import { SOIL_LABELS } from '../utils/compatibility';
-import { ShieldCheck, KeyRound, CheckCircle2, AlertTriangle, Globe, MapPin, Search } from 'lucide-react';
+import { BatchRefreshModal } from '../components/BatchRefreshModal';
+import { ShieldCheck, KeyRound, CheckCircle2, AlertTriangle, Globe, MapPin, Search, RefreshCw } from 'lucide-react';
 
 export const AdminView: React.FC = () => {
   const { user, token } = useAuth();
@@ -30,6 +31,7 @@ export const AdminView: React.FC = () => {
   const { houses, plants, updateHouse, deleteHouse, addHouse, updatePlant, deleteAllLogs, deleteLogsByDay } = usePlants();
   const { users, addUser, updateUser, deleteUser, removeUserPermanently } = usePersonnel();
   const [activeTab, setActiveTab] = useState<'HOUSES' | 'PERSONNEL' | 'PLANTS' | 'DATABASE' | 'SECURITY' | 'HOSTING' | 'API_KEYS' | 'LOGS'>('HOUSES');
+  const [isBatchRefreshOpen, setIsBatchRefreshOpen] = useState(false);
   const [policyStatus, setPolicyStatus] = useState<SecurityPolicyStatus | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -954,7 +956,29 @@ export const AdminView: React.FC = () => {
             </div>
         )}
 
-        <h1 className="text-5xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('menu_admin')}</h1>
+        {(isOwner || isDirector) && (
+            <BatchRefreshModal
+                isOpen={isBatchRefreshOpen}
+                onClose={() => setIsBatchRefreshOpen(false)}
+                initialScope="ALL"
+            />
+        )}
+
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <h1 className="text-5xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('menu_admin')}</h1>
+            {(isOwner || isDirector) && (
+                <Button
+                    variant="primary"
+                    size="md"
+                    onClick={() => setIsBatchRefreshOpen(true)}
+                    className="rounded-2xl shadow-xs"
+                    title="Refresh all biological data, Kew POWO / GBIF distributions, and tree classifications"
+                >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh All Data
+                </Button>
+            )}
+        </div>
         
         <SystemTelemetry />
 
@@ -1113,8 +1137,22 @@ export const AdminView: React.FC = () => {
         )}
         {activeTab === 'PLANTS' && (
             <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('tab_plants')}</h2>
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                    <div>
+                        <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('tab_plants')}</h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Manage specimens, house assignments, and biological taxonomy</p>
+                    </div>
+                    {(isOwner || isDirector) && (
+                        <Button
+                            variant="primary"
+                            size="md"
+                            onClick={() => setIsBatchRefreshOpen(true)}
+                            className="rounded-2xl"
+                        >
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Refresh All Data
+                        </Button>
+                    )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {visiblePlants.map(plant => {
@@ -1164,6 +1202,26 @@ export const AdminView: React.FC = () => {
                     <Button variant="primary" onClick={handleDownloadBackup} isLoading={isBackingUp} className="w-full h-14 rounded-2xl font-black uppercase">
                         {t('btn_download_backup')}
                     </Button>
+                </div>
+                <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-200 dark:border-slate-800 shadow-sm space-y-6 text-slate-900 dark:text-white md:col-span-2">
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                        <div className="space-y-1">
+                            <h3 className="text-xl font-black uppercase">Botanical Taxonomy & Map Sync</h3>
+                            <p className="text-sm text-slate-500 max-w-2xl">
+                                Synchronize all plant and tree records across global registries (Kew Royal Botanic Gardens POWO, GBIF, VASCAN, OpenPlantBook). Corrects tree classifications, maps native geographic distribution ranges, and refreshes care tolerances.
+                            </p>
+                        </div>
+                        {(isOwner || isDirector) && (
+                            <Button
+                                variant="primary"
+                                onClick={() => setIsBatchRefreshOpen(true)}
+                                className="h-14 px-8 rounded-2xl font-black uppercase shrink-0"
+                            >
+                                <RefreshCw className="w-4 h-4 mr-2" />
+                                Refresh All Data
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </div>
         )}
