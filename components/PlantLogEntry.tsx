@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, Droplets, FlaskConical, Sprout, Scissors, Leaf, Flower2, Activity } from 'lucide-react';
+import { FileText, Droplets, FlaskConical, Sprout, Scissors, Leaf, Flower2, Activity, Ruler } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { useLanguage } from '../context/LanguageContext';
@@ -32,6 +32,7 @@ export const PlantLogEntry: React.FC<PlantLogEntryProps> = ({
   const logTypes: { value: LogType; icon: React.ReactNode; label: string }[] = [
     { value: 'NOTE', icon: <FileText className="w-5 h-5" />, label: t('log_note') || 'Note' },
     { value: 'WATER', icon: <Droplets className="w-5 h-5" />, label: t('log_water') || 'Water' },
+    { value: 'GROWTH', icon: <Ruler className="w-5 h-5" />, label: t('log_growth') || 'Grow Size' },
     { value: 'FERTILIZED', icon: <FlaskConical className="w-5 h-5" />, label: t('log_fertilized') || 'Fertilize' },
     { value: 'REPOTTED', icon: <Sprout className="w-5 h-5" />, label: t('log_repotted') || 'Repot' },
     { value: 'PRUNED', icon: <Scissors className="w-5 h-5" />, label: t('log_pruned') || 'Prune' },

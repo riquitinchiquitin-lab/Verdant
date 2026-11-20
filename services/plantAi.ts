@@ -628,7 +628,7 @@ export const createPlant = (data: Partial<Plant>): Plant => {
  */
 export const analyzePlantHealth = async (
   plant: Plant,
-  base64: string,
+  base64?: string | null,
   userObservations?: string,
   apiKey?: string
 ): Promise<{ diagnosis: LocalizedString; recoveryPlan: LocalizedArray } | null> => {
@@ -640,26 +640,32 @@ export const analyzePlantHealth = async (
     required: TARGET_LANGS
   };
 
+  const hasImage = Boolean(base64 && base64.trim().length > 0);
   const prompt = `
-    Act as a Master Botanical Pathologist. 
-    Analyze the image for health issues affecting this "${plant.species}". 
-    USER OBSERVATIONS: "${userObservations || 'None provided'}"
-    Look for: chlorosis, necrosis, pest trails, fungal spots, or wilting.
-    Provide a concise technical diagnosis and a step-by-step recovery plan.
-    Localize all text into these 11 codes: ${TARGET_LANGS.join(',')}.
+    Act as a Master Botanical Pathologist and Plant Health Specialist. 
+    ${hasImage ? 'Analyze the specimen photo and observations' : 'Analyze the described observations and botanical symptoms'} for health issues affecting this "${plant.species}". 
+    SPECIMEN IDENTIFIERS: Nickname "${plant.nickname?.en || Object.values(plant.nickname || {})[0] || 'Specimen'}", Family "${plant.family || 'Unknown'}", Growth Habit "${plant.growthHabit?.en || 'Standard'}".
+    USER OBSERVATIONS & SYMPTOMS: "${userObservations || (hasImage ? 'Visual inspection from photo' : 'General wellness check')}".
+    Examine for: chlorosis, leaf curl, nutrient deficiencies, pest damage, root issues, fungal spots, overwatering/underwatering signs, or environmental stress.
+    Provide an accurate technical diagnosis and a concrete, actionable step-by-step recovery plan.
+    Localize all text into these 11 language codes: ${TARGET_LANGS.join(',')}.
   `;
 
   try {
     reportSystemHit();
+    const parts: any[] = [];
+    if (hasImage && base64) {
+      const mimeMatch = base64.match(/data:([^;]+);base64,/);
+      const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      const rawData = base64.includes(',') ? base64.split(',')[1] : base64;
+      parts.push({ inlineData: { mimeType, data: rawData } });
+    }
+    parts.push({ text: prompt });
+
     const response = await callGeminiWithRetry(() => generateGeminiContent({
       model,
       personalApiKey: apiKey,
-      contents: {
-        parts: [
-          { inlineData: { mimeType: 'image/jpeg', data: base64.split(',')[1] } },
-          { text: prompt }
-        ]
-      },
+      contents: { parts },
       config: {
         responseMimeType: "application/json",
         responseSchema: {

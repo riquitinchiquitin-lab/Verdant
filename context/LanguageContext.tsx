@@ -665,6 +665,7 @@ const staticTranslations: Record<string, Record<string, string>> = {
     log_image: "Image",
     log_fertilized: "Fertilized",
     log_disease_check: "Disease Check",
+    log_growth: "Grow Size",
     diagnostic: "Diagnostic",
     lbl_hydration: "Hydration",
     lbl_light: "Light",

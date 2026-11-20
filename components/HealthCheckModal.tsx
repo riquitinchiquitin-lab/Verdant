@@ -17,48 +17,60 @@ interface HealthCheckModalProps {
 
 export const HealthCheckModal: React.FC<HealthCheckModalProps> = ({ isOpen, onClose, plant }) => {
   const { t, lv, lva } = useLanguage();
-  const { addLog, getEffectiveApiKey } = usePlants();
+  const { addLog, updatePlant, getEffectiveApiKey } = usePlants();
   const [observations, setObservations] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<{ diagnosis: LocalizedString; recoveryPlan: LocalizedArray } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleCapture = (base64: string) => {
     setPhoto(base64);
     setIsCapturing(false);
+    setErrorMessage(null);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
       const base64 = await compressImage(e.target.files[0]);
       setPhoto(base64);
+      setErrorMessage(null);
     }
   };
 
   const handleRunCheck = async () => {
-    if (!photo) return;
+    if (!photo && !observations.trim()) return;
     setIsLoading(true);
+    setErrorMessage(null);
     try {
       const diagnosis = await analyzePlantHealth(plant, photo, observations, getEffectiveApiKey());
       if (diagnosis) {
         setResult(diagnosis);
-        // Save to history
+        // Save to history log
         await addLog(plant.id, {
           id: `h-${generateUUID()}`,
           date: new Date().toISOString(),
           type: 'DISEASE_CHECK',
-          imageUrl: photo,
+          imageUrl: photo || undefined,
           localizedNote: diagnosis.diagnosis,
           metadata: { 
             recoveryPlan: diagnosis.recoveryPlan,
             observations: observations
           }
         });
+        // Update current plant record health status
+        const diagText = lv(diagnosis.diagnosis);
+        if (diagText) {
+          await updatePlant(plant.id, { healthStatus: diagText.slice(0, 100) });
+        }
+      } else {
+        setErrorMessage('Diagnostic analysis could not be completed. Please ensure your Gemini API key is configured or provide a clearer photo / symptom description.');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setErrorMessage(e?.message || 'Botanical diagnostic service encountered an unexpected error.');
     } finally {
       setIsLoading(false);
     }
@@ -68,6 +80,7 @@ export const HealthCheckModal: React.FC<HealthCheckModalProps> = ({ isOpen, onCl
     setObservations('');
     setPhoto(null);
     setResult(null);
+    setErrorMessage(null);
     setIsLoading(false);
   };
 
@@ -87,7 +100,14 @@ export const HealthCheckModal: React.FC<HealthCheckModalProps> = ({ isOpen, onCl
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
+          {errorMessage && (
+            <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 text-xs text-rose-800 dark:text-rose-200 flex items-start gap-3">
+              <svg className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              <div className="flex-1 font-medium leading-relaxed">{errorMessage}</div>
+            </div>
+          )}
+
           {!result ? (
             <>
               <div className="space-y-4">
@@ -177,7 +197,7 @@ export const HealthCheckModal: React.FC<HealthCheckModalProps> = ({ isOpen, onCl
               variant="primary" 
               className="w-full rounded-2xl h-14 font-black uppercase tracking-widest"
               onClick={handleRunCheck}
-              disabled={!photo || isLoading}
+              disabled={(!photo && !observations.trim()) || isLoading}
               isLoading={isLoading}
             >
               {t('btn_run_check') || 'Initiate Analysis'}

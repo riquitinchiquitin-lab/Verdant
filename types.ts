@@ -71,7 +71,7 @@ export interface House {
   };
 }
 
-export type LogType = 'WATER' | 'MOISTURE' | 'NOTE' | 'NEW_LEAF' | 'FLOWER' | 'REPOTTED' | 'PRUNED' | 'IMAGE' | 'FERTILIZED' | 'DISEASE_CHECK' | 'PHENOPHASE' | 'ROTATED';
+export type LogType = 'WATER' | 'MOISTURE' | 'NOTE' | 'NEW_LEAF' | 'FLOWER' | 'REPOTTED' | 'PRUNED' | 'IMAGE' | 'FERTILIZED' | 'DISEASE_CHECK' | 'PHENOPHASE' | 'ROTATED' | 'GROWTH';
 
 export type PhenophaseType = 'FIRST_BUD' | 'FULL_BLOOM' | 'SEED_SET' | 'DORMANCY_ENTRANCE' | 'FIRST_LEAF_SPRING' | 'BUDDING' | 'IN_FLOWER' | 'DORMANCY_START';
 

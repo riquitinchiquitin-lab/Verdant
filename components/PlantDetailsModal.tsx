@@ -30,6 +30,7 @@ import { isPlantTree } from '../utils/botanicalCategory';
 import { CultivationCareSpecs } from './CultivationCareSpecs';
 import { BotanicalMonographSection } from './BotanicalMonographSection';
 import { InstructionStepsCard } from './InstructionStepsCard';
+import { GrowthLogModal } from './GrowthLogModal';
 
 interface PlantDetailsModalProps {
   isOpen: boolean;
@@ -99,6 +100,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
   const [isFertilizerOpen, setIsFertilizerOpen] = useState(false);
   const [isMoistureOpen, setIsMoistureOpen] = useState(false);
   const [isPhenophaseOpen, setIsPhenophaseOpen] = useState(false);
+  const [isGrowthOpen, setIsGrowthOpen] = useState(false);
   const [isNoteOpen, setIsNoteOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'DOSSIER' | 'TIMELINE' | 'TECH' | 'PHENOPHASE'>('DOSSIER');
   const [lastLoggedAction, setLastLoggedAction] = useState<LogType | null>(null);
@@ -279,12 +281,56 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
       'NEW_LEAF': t('log_new_leaf'),
       'FLOWER': t('log_flower'),
       'DISEASE_CHECK': t('log_disease_check'),
+      'GROWTH': t('log_growth') || 'Grow Size',
     };
     const actionText = actionTextMap[type] || type;
     
     const dateString = date.toLocaleDateString(language, { month: 'long', day: 'numeric' });
     setAlertMessage(t('log_alert_message').replace('{action}', actionText).replace('{date}', dateString));
     
+    setTimeout(() => setLastLoggedAction(null), 2000);
+    setTimeout(() => setAlertMessage(null), 4000);
+  };
+
+  const handleGrowthLog = async (data: {
+    heightCm: number;
+    spreadCm?: number;
+    leafCount?: number;
+    stemDiameterMm?: number;
+    notes?: string;
+  }) => {
+    if (!plant) return;
+    const summaryParts: string[] = [`Height: ${data.heightCm} cm`];
+    if (data.spreadCm) summaryParts.push(`Spread: ${data.spreadCm} cm`);
+    if (data.leafCount) summaryParts.push(`${data.leafCount} leaves`);
+    if (data.stemDiameterMm) summaryParts.push(`Stem: ${data.stemDiameterMm} mm`);
+    if (data.notes) summaryParts.push(data.notes);
+
+    const summary = summaryParts.join(' · ');
+
+    await addLog(plant.id, {
+      id: `g-${generateUUID()}`,
+      date: new Date().toISOString(),
+      type: 'GROWTH',
+      value: data.heightCm,
+      localizedNote: { en: summary, [language]: summary },
+      metadata: data
+    });
+
+    const updates: Partial<Plant> = {
+      avgHeight: data.heightCm,
+    };
+    if (!plant.maxHeight || data.heightCm > plant.maxHeight) {
+      updates.maxHeight = data.heightCm;
+    }
+    if (data.spreadCm) {
+      updates.maxSpread = data.spreadCm;
+    }
+    await updatePlant(plant.id, updates);
+    setLastLoggedAction('GROWTH');
+
+    const dateString = new Date().toLocaleDateString(language, { month: 'long', day: 'numeric' });
+    setAlertMessage(t('log_alert_message').replace('{action}', t('log_growth') || 'Grow Size').replace('{date}', dateString));
     setTimeout(() => setLastLoggedAction(null), 2000);
     setTimeout(() => setAlertMessage(null), 4000);
   };
@@ -359,6 +405,7 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
         case 'MOISTURE': return <MoistureProbeIcon className="w-5 h-5" />;
         case 'PHENOPHASE': return <Dna className="w-5 h-5" />;
         case 'ROTATED': return <PotRotationIcon className="w-5 h-5" />;
+        case 'GROWTH': return <Ruler className="w-5 h-5" />;
         default: return <Tag className="w-5 h-5" />;
     }
   };
@@ -534,6 +581,14 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                     >
                       <Activity className="w-4 h-4" />
                       <span>{t('lbl_health')}</span>
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => setIsGrowthOpen(true)}
+                      className={`m3-state-layer h-11 px-4 sm:px-5 rounded-full text-xs font-semibold flex items-center gap-2 transition-all ${lastLoggedAction === 'GROWTH' ? 'bg-md-primary text-md-on-primary' : 'bg-md-surface-container-high text-md-on-surface hover:bg-md-surface-container-highest border border-md-outline-variant/30'}`}
+                    >
+                      <Ruler className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <span>{t('log_growth') || 'Grow Size'}</span>
                     </motion.button>
 
                     <div className="flex items-center gap-2 ml-auto">
@@ -1359,6 +1414,34 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                                         </div>
                                                       </div>
                                                     )}
+                                                    {log.type === 'GROWTH' && log.metadata && (
+                                                      <div className="mt-3 p-3 rounded-2xl bg-md-surface-container border border-md-outline-variant/30 flex flex-wrap gap-3 items-center">
+                                                        {log.metadata.heightCm !== undefined && (
+                                                          <div className="flex items-center gap-1.5 text-xs font-semibold text-md-on-surface">
+                                                            <Ruler className="w-3.5 h-3.5 text-md-primary" />
+                                                            <span>Height: {log.metadata.heightCm} cm</span>
+                                                          </div>
+                                                        )}
+                                                        {log.metadata.spreadCm !== undefined && (
+                                                          <div className="flex items-center gap-1.5 text-xs font-semibold text-md-on-surface">
+                                                            <span className="text-md-on-surface-variant">•</span>
+                                                            <span>Spread: {log.metadata.spreadCm} cm</span>
+                                                          </div>
+                                                        )}
+                                                        {log.metadata.leafCount !== undefined && (
+                                                          <div className="flex items-center gap-1.5 text-xs font-semibold text-md-on-surface">
+                                                            <span className="text-md-on-surface-variant">•</span>
+                                                            <span>{log.metadata.leafCount} leaves</span>
+                                                          </div>
+                                                        )}
+                                                        {log.metadata.stemDiameterMm !== undefined && (
+                                                          <div className="flex items-center gap-1.5 text-xs font-semibold text-md-on-surface">
+                                                            <span className="text-md-on-surface-variant">•</span>
+                                                            <span>Trunk: {log.metadata.stemDiameterMm} mm</span>
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))
@@ -1521,6 +1604,12 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
         onClose={() => setIsPhenophaseOpen(false)}
         plant={plant}
         onLog={handlePhenophaseLog}
+      />
+      <GrowthLogModal
+        isOpen={isGrowthOpen}
+        onClose={() => setIsGrowthOpen(false)}
+        plant={plant}
+        onLog={handleGrowthLog}
       />
       <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={handleUpdateMainImageFromFile} />
       <input type="file" ref={addPhotoInputRef} className="hidden" accept="image/*" onChange={handleAddNewImageFromFile} />
