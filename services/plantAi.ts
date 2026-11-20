@@ -424,15 +424,14 @@ export const generatePlantDetails = async (
 
     const parsed = JSON.parse(cleanJson(response.text || "{}"));
     const fallbackApiImage = opb?.image_url || trefle?.image_url || perenual?.default_image?.medium_url || perenual?.default_image?.regular_url || inat?.taxon?.default_photo?.medium_url;
-    const catEn = (parsed?.category?.en || '').toLowerCase();
-    const habitEn = (parsed?.growthHabit?.en || '').toLowerCase();
-    const inferredSpecimenType: 'PLANT' | 'TREE' = (
-      catEn.includes('tree') ||
-      habitEn.includes('tree') ||
-      (powo?.lifeform || '').toLowerCase().includes('tree') ||
-      (vascan?.habit || '').toLowerCase().includes('tree') ||
-      (ncsu?.plantType || '').toLowerCase().includes('tree')
-    ) ? 'TREE' : 'PLANT';
+    const inferredSpecimenType: 'PLANT' | 'TREE' = isPlantTree({
+      ...parsed,
+      species: scientificName,
+      family: parsed?.family || opb?.family || trefle?.family || gbif?.family,
+      genus: parsed?.genus || trefle?.genus || gbif?.genus,
+      growthHabit: parsed?.growthHabit || powo?.lifeform || vascan?.habit,
+      specimenType: parsed?.specimenType
+    }) ? 'TREE' : 'PLANT';
 
     const autoCategory = inferPlantCategory({
       species: scientificName,
@@ -788,8 +787,18 @@ export const refreshPlantRecord = async (
     if (aggregated.traits?.growthHabit) {
       aggUpdates.growthHabit = { en: aggregated.traits.growthHabit };
     }
+    if ((aggregated as any).ecologicalTraits?.growthForm || (aggregated as any).ecologicalTraits?.lifeform) {
+      const gf = (aggregated as any).ecologicalTraits.growthForm || (aggregated as any).ecologicalTraits.lifeform;
+      aggUpdates.growthHabit = aggUpdates.growthHabit || { en: gf };
+    }
     if (aggregated.taxonomy?.lifeform) {
       aggUpdates.growthHabit = aggUpdates.growthHabit || { en: aggregated.taxonomy.lifeform };
+    }
+    if (aggregated.specimenType === 'TREE') {
+      aggUpdates.specimenType = 'TREE';
+    }
+    if ((aggregated as any).ecologicalTraits?.maxHeightCm) {
+      aggUpdates.maxHeight = (aggregated as any).ecologicalTraits.maxHeightCm;
     }
   }
 

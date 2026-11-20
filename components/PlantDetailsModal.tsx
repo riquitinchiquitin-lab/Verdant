@@ -26,6 +26,7 @@ import { PlantOriginMap } from './PlantOriginMap';
 import { getShortBarcodeId } from '../services/barcodeService';
 import { checkPlantCompatibility } from '../utils/compatibility';
 import { refreshPlantRecord } from '../services/plantAi';
+import { isPlantTree } from '../utils/botanicalCategory';
 import { CultivationCareSpecs } from './CultivationCareSpecs';
 import { BotanicalMonographSection } from './BotanicalMonographSection';
 import { InstructionStepsCard } from './InstructionStepsCard';
@@ -651,6 +652,10 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                                             {[
                                               { label: t('lbl_origin'), value: lv(plant.origin) },
                                               { label: t('lbl_family_genus'), value: `${plant.family || t('lbl_na')} / ${plant.genus || t('lbl_na')}` },
+                                              {
+                                                label: 'Botanical Habit',
+                                                value: isPlantTree(plant) ? 'Tree (Arborescent Woody)' : (lv(plant.growthHabit as any) || 'Plant (Herbaceous / Shrub)')
+                                              },
                                               {
                                                 label: t('lbl_growth_size'),
                                                 value: (plant.maxHeight || plant.maxSpread)

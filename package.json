@@ -53,6 +53,6 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
-    "test:aggregator": "tsx --test aggregator/tests/aggregator.test.ts"
+    "test:aggregator": "tsx --test aggregator/tests/*.test.ts"
   }
 }

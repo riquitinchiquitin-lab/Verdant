@@ -4,74 +4,215 @@ export const TARGET_LANGS = ['en', 'zh', 'ja', 'ko', 'es', 'fr', 'pt', 'de', 'id
 export type SupportedLang = typeof TARGET_LANGS[number];
 
 /**
- * Authoritatively determines whether a specimen is a tree.
- * Checks explicit specimenType, multilingual category values, growth habit,
- * lifeform indicators, and botanical taxonomy/genus/species names.
+ * Authoritatively determines whether a specimen is a botanical tree based on:
+ * 1. Self-supporting woody trunk with secondary growth (lignin / woodiness)
+ * 2. Apical dominance (single defined stem branching above ground vs shrub)
+ * 3. Elevated crown / canopy
+ * 4. Mature height threshold (>= 3m / 300cm in forestry standards)
+ * 5. Arborescent taxonomic lineages & genera (broadleaf hardwoods, conifers, arborescent palms)
+ * 6. Bonsai specimens (miniaturized arborescent woody trees in cultivation)
+ *
+ * Strictly filters out false-positive non-tree flora:
+ * - Creeping climbing vines with "tree" or "fig" in name (e.g. Ficus pumila)
+ * - Herbaceous aroids with "tree" in common name (e.g. Tree Philodendron / Thaumatophyllum)
+ * - Succulents & succulent shrubs (e.g. Crassula ovata "Jade Tree", Euphorbia tirucalli "Pencil Tree")
+ * - Miniature herbaceous plants with maxHeight < 150cm (unless cultivated as bonsai)
  */
 export function isPlantTree(plant?: Partial<Plant> | null): boolean {
   if (!plant) return false;
+
+  // 1. Explicit user or database designation
   if (plant.specimenType === 'TREE') return true;
 
   // Check category across all languages
-  if (plant.category) {
-    if (typeof (plant.category as unknown) === 'string') {
-      const c = (plant.category as unknown as string).toLowerCase();
-      if (c.includes('tree') || c.includes('arbre') || c.includes('árbol') || c.includes('pohon') || c.includes('baum') || c.includes('bonsai')) {
-        return true;
-      }
-    } else if (typeof plant.category === 'object') {
-      const vals = Object.values(plant.category);
-      for (const v of vals) {
-        if (typeof v === 'string') {
-          const c = v.toLowerCase();
-          if (c.includes('tree') || c.includes('arbre') || c.includes('árbol') || c.includes('pohon') || c.includes('baum') || c.includes('bonsai')) {
-            return true;
-          }
-        }
-      }
+  const categoryStr = typeof (plant.category as unknown) === 'string'
+    ? (plant.category as unknown as string).toLowerCase()
+    : Object.values(plant.category || {}).filter((v): v is string => typeof v === 'string').join(' ').toLowerCase();
+
+  const nicknameStr = typeof (plant.nickname as unknown) === 'string'
+    ? (plant.nickname as unknown as string).toLowerCase()
+    : Object.values(plant.nickname || {}).filter((v): v is string => typeof v === 'string').join(' ').toLowerCase();
+
+  const speciesStr = (plant.species || '').toLowerCase().trim();
+  const genusStr = (plant.genus || '').toLowerCase().trim();
+  const familyStr = (plant.family || '').toLowerCase().trim();
+
+  // Growth habit & lifeform strings
+  const habitStr = typeof (plant.growthHabit as unknown) === 'string'
+    ? (plant.growthHabit as unknown as string).toLowerCase()
+    : Object.values(plant.growthHabit || {}).filter((v): v is string => typeof v === 'string').join(' ').toLowerCase();
+
+  // 2. Bonsai cultivation (miniaturized woody arborescent species)
+  if (categoryStr.includes('bonsai') || nicknameStr.includes('bonsai') || habitStr.includes('bonsai')) {
+    return true;
+  }
+
+  // 3. STRICT NON-TREE EXCLUSIONS (Herbs, soft vines, succulents, and dwarf plants)
+  // Even if a plant has "tree" or "fig" in colloquial name, botanical science defines these as non-trees:
+  const nonTreeExclusions = [
+    'ficus pumila',               // Creeping fig (creeping climbing vine, not a tree)
+    'creeping fig',
+    'philodendron bipinnatifidum', // Tree philodendron (herbaceous giant aroid)
+    'thaumatophyllum',
+    'tree philodendron',
+    'lacy tree philodendron',
+    'crassula ovata',             // Jade plant / jade tree (succulent shrub)
+    'crassula argentea',
+    'jade tree',
+    'jade plant',
+    'euphorbia tirucalli',        // Pencil tree / pencil cactus (succulent shrub)
+    'euphorbia trigona',          // African milk tree (succulent)
+    'pencil tree',
+    'african milk tree',
+    'begonia',                    // Cane / tree begonias (herbaceous)
+    'hypoestes',                  // Polka dot plant / tree (herbaceous)
+    'pilea peperomioides',        // Chinese money plant (herbaceous succulent)
+    'chinese money plant',
+    'passiflora',                 // Passion flower vine
+    'epipremnum',                 // Pothos vine
+    'syngonium',                  // Arrowhead vine
+    'scindapsus',
+    'monstera deliciosa',         // Monstera vine / climber
+    'monstera adansonii',
+    'calathea',                   // Prayer plants (herbaceous)
+    'maranta',
+    'ctenanthe',
+    'peperomia',
+    'sansevieria',                // Snake plant (succulent herb)
+    'dracaena trifasciata'
+  ];
+
+  for (const exclusion of nonTreeExclusions) {
+    if (speciesStr.includes(exclusion) || nicknameStr.includes(exclusion)) {
+      return false;
     }
   }
 
-  // Check growth habit across all languages
-  if (plant.growthHabit) {
-    const habitStr = typeof (plant.growthHabit as unknown) === 'string'
-      ? (plant.growthHabit as unknown as string).toLowerCase()
-      : Object.values(plant.growthHabit).join(' ').toLowerCase();
-    if (
-      habitStr.includes('tree') ||
-      habitStr.includes('arborescent') ||
-      habitStr.includes('shrub/tree') ||
-      habitStr.includes('small tree') ||
-      habitStr.includes('arbre') ||
-      habitStr.includes('árbol')
-    ) {
+  // Purely herbaceous families (cannot be trees unless arborescent monocot palms or tree ferns)
+  const strictlyHerbaceousFamilies = [
+    'araceae',      // Aroids (Monstera, Philodendron, Anthurium, Pothos, etc.)
+    'bromeliaceae', // Bromeliads / Tillandsia
+    'gesneriaceae', // African violets
+    'commelinaceae',// Tradescantia
+    'marantaceae',  // Prayer plants
+    'begoniaceae',  // Begonias
+    'crassulaceae', // Crassula, Echeveria, Sedum, Kalanchoe (succulents)
+    'aizoaceae'
+  ];
+
+  if (strictlyHerbaceousFamilies.includes(familyStr)) {
+    return false;
+  }
+
+  // 4. Height Threshold Criterion (Botanical & Forestry Standard: mature height >= 300cm / 3m)
+  // If mature height is strictly under 150cm (1.5m), it is an herb, groundcover, or dwarf shrub
+  if (plant.maxHeight != null && plant.maxHeight > 0 && plant.maxHeight < 150) {
+    return false;
+  }
+  if (plant.avgHeight != null && plant.avgHeight > 0 && plant.avgHeight < 120) {
+    return false;
+  }
+
+  // 5. Category keyword matching
+  if (
+    categoryStr.includes('tree') ||
+    categoryStr.includes('arbre') ||
+    categoryStr.includes('árbol') ||
+    categoryStr.includes('pohon') ||
+    categoryStr.includes('baum')
+  ) {
+    return true;
+  }
+
+  // 6. Growth Habit & Botanical Lifeform (POWO, GBIF, VASCAN, OPB, NCSU)
+  if (
+    habitStr.includes('tree') ||
+    habitStr.includes('arborescent') ||
+    habitStr.includes('shrub/tree') ||
+    habitStr.includes('tree/shrub') ||
+    habitStr.includes('small tree') ||
+    habitStr.includes('medium tree') ||
+    habitStr.includes('large tree') ||
+    habitStr.includes('woody tree') ||
+    habitStr.includes('arbre') ||
+    habitStr.includes('árbol') ||
+    habitStr.includes('phanerophyte') ||
+    habitStr.includes('megaphanerophyte') ||
+    habitStr.includes('mesophanerophyte') ||
+    habitStr.includes('microphanerophyte')
+  ) {
+    return true;
+  }
+
+  // 7. Botanical Taxonomic Lineages (Woody Perennial Genera & Arborescent Houseplants)
+  const fullTaxonText = `${speciesStr} ${nicknameStr} ${genusStr} ${familyStr}`;
+
+  // Dedicated arborescent woody genera & species
+  const treeGeneraAndSpecies = [
+    // Gymnosperms & Conifers
+    'pinus', 'pine', 'picea', 'spruce', 'abies', 'fir', 'cedrus', 'cedar',
+    'cupressus', 'cypress', 'juniperus', 'juniper', 'taxus', 'yew',
+    'sequoia', 'sequoiadendron', 'metasequoia', 'redwood',
+    'ginkgo', 'araucaria', 'norfolk island pine', 'larix', 'larch',
+    'tsuga', 'hemlock', 'thuja', 'arborvitae', 'cryptomeria', 'podocarpus',
+    'chamaecyparis', 'sciadopitys',
+
+    // Broadleaf Hardwoods & Temperate Trees
+    'acer', 'maple', 'quercus', 'oak', 'betula', 'birch', 'fraxinus', 'ash tree',
+    'ulmus', 'elm', 'prunus', 'cherry tree', 'plum tree', 'peach tree', 'almond tree',
+    'malus', 'apple tree', 'pyrus', 'pear tree', 'magnolia', 'salix', 'willow',
+    'populus', 'poplar', 'aspen', 'cottonwood', 'castanea', 'chestnut',
+    'fagus', 'beech', 'tilia', 'linden', 'basswood', 'platanus', 'sycamore', 'plane tree',
+    'liquidambar', 'sweetgum', 'celtis', 'hackberry', 'gleditsia', 'honeylocust',
+    'robinia', 'black locust', 'juglans', 'walnut tree', 'carya', 'pecan', 'hickory',
+    'alnus', 'alder', 'catalpa', 'paulownia', 'tabebuia', 'delonix', 'royal poinciana',
+    'cercis', 'redbud', 'koelreuteria', 'corylus', 'hazelnut tree', 'diospyros', 'persimmon tree',
+    'sorbus', 'rowan', 'carpinus', 'hornbeam', 'liriodendron', 'tulip tree', 'zelkova',
+
+    // Subtropical & Tropical Trees / Arborescent Indoor Trees
+    'olea', 'olive tree', 'eucalyptus', 'jacaranda', 'adansonia', 'baobab',
+    'lagerstroemia', 'crepe myrtle', 'camellia',
+    'citrus', 'lemon tree', 'orange tree', 'lime tree', 'grapefruit tree', 'calamondin',
+    'ficus lyrata', 'fiddle leaf', 'figuier lyre',
+    'ficus elastica', 'rubber tree', 'rubber plant',
+    'ficus benjamina', 'weeping fig',
+    'ficus microcarpa', 'ficus retusa', 'ficus macrophylla', 'ficus religiosa',
+    'ficus carica', 'fig tree', 'ficus sycomorus',
+    'pachira', 'money tree', 'pachira aquatica',
+    'schefflera', 'umbrella tree',
+    'dracaena draco', 'dragon tree', 'dracaena marginata', 'dracaena reflexa', 'dracaena fragrans',
+    'beaucarnea recurvata', 'ponytail palm', 'elephant foot tree',
+    'polyscias', 'ming aralia'
+  ];
+
+  for (const kw of treeGeneraAndSpecies) {
+    if (fullTaxonText.includes(kw)) {
       return true;
     }
   }
 
-  // Check botanical taxonomy / corpus
-  const s = (plant.species || '').toLowerCase();
-  const n = (typeof plant.nickname === 'string' ? plant.nickname : Object.values(plant.nickname || {}).join(' ')).toLowerCase();
-  const g = (plant.genus || '').toLowerCase();
-  const f = (plant.family || '').toLowerCase();
-  const text = `${s} ${n} ${g} ${f}`;
+  // 8. Arborescent Monocot Palms (Arecaceae with mature arborescent single trunk >= 3m)
+  if (familyStr === 'arecaceae' || familyStr === 'palmae') {
+    const arborescentPalms = [
+      'phoenix', 'date palm', 'washingtonia', 'roystonea', 'royal palm',
+      'cocos', 'coconut palm', 'trachycarpus', 'windmill palm',
+      'ravenea rivularis', 'majesty palm', 'howea forsteriana', 'kentia palm',
+      'dypsis lutescens', 'areca palm', 'syagrus'
+    ];
+    for (const palm of arborescentPalms) {
+      if (fullTaxonText.includes(palm)) {
+        return true;
+      }
+    }
+  }
 
-  const treeKeywords = [
-    'tree', 'arbre', 'árbol', 'pohon', 'baum', 'bonsai',
-    'ficus', 'fig', 'citrus', 'lemon', 'orange', 'lime', 'grapefruit',
-    'olive', 'olea', 'pachira', 'money tree', 'rubber plant', 'rubber tree',
-    'fiddle leaf', 'weeping fig', 'schefflera', 'umbrella tree',
-    'dracaena marginata', 'dracaena reflexa', 'dracaena fragrans', 'dracaena draco', 'dragon tree',
-    'eucalyptus', 'acer', 'maple', 'pinus', 'pine', 'quercus', 'oak',
-    'betula', 'birch', 'fraxinus', 'ash', 'ulmus', 'elm', 'prunus', 'cherry', 'plum',
-    'malus', 'apple', 'magnolia', 'salix', 'willow', 'populus', 'poplar',
-    'jacaranda', 'cupressus', 'cypress', 'juniperus', 'juniper', 'cedrus', 'cedar',
-    'baobab', 'adansonia', 'araucaria', 'norfolk island pine', 'ginkgo',
-    'camellia', 'lagerstroemia', 'crepe myrtle'
-  ];
-
-  for (const kw of treeKeywords) {
-    if (text.includes(kw)) {
+  // 9. Tree Ferns (Cyatheales)
+  if (familyStr === 'cyatheaceae' || familyStr === 'dicksoniaceae') {
+    return true;
+  }
+  const treeFerns = ['cyathea', 'dicksonia', 'alsophila', 'sphaeropteris', 'tree fern'];
+  for (const tf of treeFerns) {
+    if (fullTaxonText.includes(tf)) {
       return true;
     }
   }
