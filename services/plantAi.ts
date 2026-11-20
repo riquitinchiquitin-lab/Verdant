@@ -818,11 +818,18 @@ export const refreshPlantRecord = async (
     category: aiDetails?.category || plant.category
   });
 
+  const latestWaterLog = (plant.logs || [])
+    .filter((l) => l.type === 'WATER')
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+  const resolvedLastWatered = plant.lastWatered || latestWaterLog?.date || plant.createdAt || new Date().toISOString();
+  const resolvedWateringInterval = plant.wateringInterval || (aiDetails?.wateringInterval as number) || (aggregated?.cultivation?.wateringIntervalDays as number) || 7;
+
   const merged: Partial<Plant> = {
     ...(aiDetails || {}),
     ...aggUpdates,
     category: resolvedCategory,
     specimenType: resolvedSpecimenType,
+    wateringInterval: resolvedWateringInterval,
     // Preserve user-owned & specimen-identity fields
     nickname: plant.nickname,
     images: plant.images,
@@ -830,7 +837,7 @@ export const refreshPlantRecord = async (
     houseId: plant.houseId,
     room: plant.room,
     provenance: plant.provenance,
-    lastWatered: plant.lastWatered,
+    lastWatered: resolvedLastWatered,
     lastRotated: plant.lastRotated,
     lastPotSize: plant.lastPotSize,
     lastPotSizeCm: plant.lastPotSizeCm,

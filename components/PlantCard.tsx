@@ -108,14 +108,17 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
       }
     }
 
-    if (!plant.lastWatered) {
+    const waterLogs = (plant.logs || []).filter(l => l.type === 'WATER').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const effectiveLastWatered = plant.lastWatered || waterLogs[0]?.date || plant.createdAt;
+
+    if (!effectiveLastWatered) {
       if (!showActions) {
         return { label: t('lbl_new_specimen'), color: 'bg-md-tertiary-container text-md-on-tertiary-container border-md-tertiary/20', percent: 0, daysLeft: '?' };
       }
       return { label: t('status_data_needed'), color: 'bg-md-secondary-container text-md-on-secondary-container border-md-outline-variant/40', percent: 0, daysLeft: '?' };
     }
 
-    const lastDate = new Date(plant.lastWatered);
+    const lastDate = new Date(effectiveLastWatered);
     const intervalMs = effectiveInterval * 86400000;
     let daysLeftNum = Math.ceil((lastDate.getTime() + intervalMs - Date.now()) / 86400000);
     let percent = Math.max(0, Math.min(100, (1 - ((Date.now() - lastDate.getTime()) / intervalMs)) * 100));
@@ -180,9 +183,35 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
                             <Star className="w-3.5 h-3.5 fill-current" />
                         </div>
                     )}
-                    <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-xs border ${status.color}`}>
-                        {status.label}
-                    </span>
+                    <button
+                        type="button"
+                        disabled={isRefreshingData}
+                        onClick={async (e) => {
+                            if (status.label === t('status_data_needed') && plant.id && !isRefreshingData) {
+                                e.stopPropagation();
+                                setIsRefreshingData(true);
+                                try {
+                                    const updates = await refreshPlantRecord(plant as Plant, getEffectiveApiKey());
+                                    await updatePlant(plant.id, updates);
+                                    setAlertMessage(`Botanical data refreshed for ${lv(plant.nickname) || plant.species}`);
+                                    setTimeout(() => setAlertMessage(null), 4000);
+                                } catch (err: any) {
+                                    setAlertMessage(err?.message || 'Failed to refresh botanical data');
+                                    setTimeout(() => setAlertMessage(null), 4000);
+                                } finally {
+                                    setIsRefreshingData(false);
+                                }
+                            }
+                        }}
+                        className={`text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-xs border transition-all ${
+                            status.label === t('status_data_needed')
+                                ? 'cursor-pointer hover:scale-105 active:scale-95 hover:brightness-110 animate-pulse'
+                                : ''
+                        } ${status.color}`}
+                        title={status.label === t('status_data_needed') ? 'Click to fetch botanical data' : undefined}
+                    >
+                        {isRefreshingData ? 'Fetching...' : status.label}
+                    </button>
                 </div>
 
                 <div className="absolute bottom-2.5 left-3 z-10 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-xs">

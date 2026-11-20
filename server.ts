@@ -309,7 +309,9 @@ const verifySessionToken = (token: string): any | null => {
     if (parts.length !== 2) return null;
     const [data, sig] = parts;
     const expectedSig = crypto.createHmac('sha256', getSessionSecret()).update(data).digest('base64url');
-    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))) return null;
+    const sigBuf = Buffer.from(sig);
+    const expectedSigBuf = Buffer.from(expectedSig);
+    if (sigBuf.length !== expectedSigBuf.length || !crypto.timingSafeEqual(sigBuf, expectedSigBuf)) return null;
     const payload = JSON.parse(Buffer.from(data, 'base64url').toString('utf8'));
     if (payload.exp && Date.now() > payload.exp) return null;
     return payload;
@@ -390,8 +392,8 @@ const checkAuth = async (req: express.Request, res: express.Response, next: expr
     }
   }
 
-  // Allow dev-token only when explicitly in development mode
-  if ((process.env.NODE_ENV === 'development' || process.env.ENABLE_DEV_AUTH === 'true') && token === 'dev-token') {
+  // Allow dev-token only when explicitly in non-production development mode
+  if (process.env.NODE_ENV !== 'production' && (process.env.NODE_ENV === 'development' || process.env.ENABLE_DEV_AUTH === 'true') && token === 'dev-token') {
     const role = req.headers['x-user-role'];
     (req as any).userRole = typeof role === 'string' ? role.toUpperCase() : undefined;
     (req as any).userHouseId = req.headers['x-user-house-id'];
