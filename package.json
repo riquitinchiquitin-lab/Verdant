@@ -54,5 +54,14 @@
     "preview": "vite preview",
     "lint": "tsc --noEmit",
     "test:aggregator": "tsx --test aggregator/tests/*.test.ts"
+  },
+  "allowScripts": {
+    "argon2": true,
+    "esbuild": true,
+    "protobufjs": true
+  },
+  "overrides": {
+    "glob": "^14.0.6",
+    "minimatch": "^11.0.9"
   }
 }

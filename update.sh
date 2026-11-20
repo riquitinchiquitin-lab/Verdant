@@ -96,6 +96,10 @@ npm install --legacy-peer-deps --no-audit
 
 # 3. Build production bundle (Vite) & prune devDependencies
 echo -e "\n${CYAN}3/4: Building production bundle & pruning devDependencies...${NC}"
+# Sanitize .env if NODE_ENV is set inside it to avoid Vite build warnings
+if [ -f "$INSTALL_DIR/.env" ]; then
+  sed -i '/^NODE_ENV=/d' "$INSTALL_DIR/.env"
+fi
 npm run build
 npm prune --omit=dev --legacy-peer-deps >/dev/null 2>&1 || true
 npm cache clean --force >/dev/null 2>&1 || true

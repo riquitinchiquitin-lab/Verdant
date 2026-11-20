@@ -51,11 +51,24 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       sourcemap: false,
+      chunkSizeWarningLimit: 1200,
       rollupOptions: {
         external: ['server.ts', 'cleanup.js'],
         input: {
           main: './index.html',
         },
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('leaflet')) return 'vendor-leaflet';
+              if (id.includes('recharts')) return 'vendor-recharts';
+              if (id.includes('framer-motion') || id.includes('motion')) return 'vendor-motion';
+              if (id.includes('lucide-react')) return 'vendor-lucide';
+              if (id.includes('@zxing') || id.includes('write-excel-file') || id.includes('@mmote/niimbluelib')) return 'vendor-tools';
+              if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) return 'vendor-react';
+            }
+          }
+        }
       },
     },
     server: {
