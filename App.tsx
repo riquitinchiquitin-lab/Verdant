@@ -18,6 +18,7 @@ const TasksView = lazy(() => import('./pages/TasksView').then(m => ({ default: m
 const InventoryView = lazy(() => import('./pages/InventoryView').then(m => ({ default: m.InventoryView })));
 const LabelsView = lazy(() => import('./pages/LabelsView').then(m => ({ default: m.LabelsView })));
 const ManualView = lazy(() => import('./pages/ManualView').then(m => ({ default: m.ManualView })));
+const InviteOnboarding = lazy(() => import('./pages/InviteOnboarding').then(m => ({ default: m.InviteOnboarding })));
 
 const RouteFallback: React.FC = () => (
   <div className="flex h-[60vh] items-center justify-center">
@@ -84,6 +85,7 @@ const App: React.FC = () => {
                   <Suspense fallback={<RouteFallback />}>
                     <Routes>
                         <Route path="/login" element={<SecureAuth />} />
+                        <Route path="/invite/:token" element={<InviteOnboarding />} />
                         <Route path="/" element={
                           <ProtectedRoute>
                             <Layout>

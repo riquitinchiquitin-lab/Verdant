@@ -22,7 +22,7 @@ import { exportCombinedLogsToExcel } from '../services/exportService';
 import { lookupLocationZone } from '../services/botanicalServices';
 import { SOIL_LABELS } from '../utils/compatibility';
 import { BatchRefreshModal } from '../components/BatchRefreshModal';
-import { ShieldCheck, KeyRound, CheckCircle2, AlertTriangle, Globe, MapPin, Search, RefreshCw, Eye, EyeOff, Copy, Check, Wand2, Lock, Mail, Link2 } from 'lucide-react';
+import { ShieldCheck, KeyRound, CheckCircle2, AlertTriangle, Globe, MapPin, Search, RefreshCw, Eye, EyeOff, Copy, Check, Wand2, Lock, MessageSquare, Link2 } from 'lucide-react';
 
 export const AdminView: React.FC = () => {
   const { user, token } = useAuth();
@@ -74,6 +74,7 @@ export const AdminView: React.FC = () => {
   const [passwordCopied, setPasswordCopied] = useState(false);
   const [passwordSaveStatus, setPasswordSaveStatus] = useState<string | null>(null);
   const [isSettingPassword, setIsSettingPassword] = useState(false);
+  const [smsPhoneNumber, setSmsPhoneNumber] = useState('');
   const [oneTimeSecretUrl, setOneTimeSecretUrl] = useState<string | null>(null);
   const [oneTimeUrlCopied, setOneTimeUrlCopied] = useState(false);
   const [isSendingOneTime, setIsSendingOneTime] = useState(false);
@@ -330,42 +331,45 @@ export const AdminView: React.FC = () => {
     }
   };
 
-  const handleSendOneTimePassword = async (targetUserId: string, passwordValue: string, sendEmail: boolean = true) => {
-    if (!token || !passwordValue.trim()) return;
+  const handleCreateSmsInvite = async (targetUserId: string, openSmsApp: boolean = false) => {
+    if (!token) return;
     setIsSendingOneTime(true);
     setPasswordSaveStatus(null);
     setOneTimeSecretUrl(null);
     try {
-      const res = await fetchWithAuth(`/api/users/${targetUserId}/send-one-time-password`, token, {
+      const res = await fetchWithAuth(`/api/users/${targetUserId}/create-invite`, token, {
         method: 'POST',
-        body: JSON.stringify({ password: passwordValue, sendEmail, ttlHours: 24 })
+        body: JSON.stringify({ ttlHours: 48 })
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const msg = data.error || 'Failed to generate one-time link';
+      if (!res.ok || !data.inviteUrl) {
+        const msg = data.error || 'Failed to generate SMS onboarding link';
         setPasswordSaveStatus(`⚠️ ${msg}`);
         showNotification(msg, "ERROR");
         return;
       }
 
-      if (data.oneTimeUrl) {
-        setOneTimeSecretUrl(data.oneTimeUrl);
-      }
+      const inviteUrl = data.inviteUrl;
+      setOneTimeSecretUrl(inviteUrl);
 
-      if (data.emailSent) {
-        setPasswordSaveStatus('✓ Password saved & One-Time Self-Destructing Email sent via Nodemailer!');
-        showNotification('One-time email delivered successfully!', "SUCCESS");
-      } else if (sendEmail && !data.smtpConfigured) {
-        setPasswordSaveStatus('✓ Password saved & One-Time Self-Destructing Link generated! (Configure SMTP in Hosting tab to auto-email)');
-        showNotification('One-Time Self-Destructing Link generated!', "SUCCESS");
-      } else if (sendEmail && data.emailError) {
-        setPasswordSaveStatus(`✓ Link ready (SMTP error: ${data.emailError}). Copy link below.`);
+      const smsText = `Welcome to Verdant Botanical Systems! Tap this one-time link to create your NIST-verified password, 2FA, and Passkey: ${inviteUrl}`;
+
+      if (openSmsApp) {
+        const cleanPhone = smsPhoneNumber.replace(/[^0-9+]/g, '');
+        const isApple = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent);
+        const sep = isApple ? '&' : '?';
+        const smsUri = `sms:${cleanPhone}${sep}body=${encodeURIComponent(smsText)}`;
+        window.location.href = smsUri;
+        setPasswordSaveStatus('✓ SMS Invite Link ready & opened in your Messages app!');
       } else {
-        setPasswordSaveStatus('✓ Password saved & One-Time Self-Destructing Link generated!');
-        showNotification('One-Time Self-Destructing Link generated!', "SUCCESS");
+        await navigator.clipboard.writeText(smsText).catch(() => {});
+        setOneTimeUrlCopied(true);
+        setTimeout(() => setOneTimeUrlCopied(false), 2500);
+        setPasswordSaveStatus('✓ SMS Onboarding Invite Link copied to clipboard!');
+        showNotification('SMS Invite Link generated & copied!', "SUCCESS");
       }
     } catch (err: any) {
-      const msg = err?.message || 'One-time link generation failed';
+      const msg = err?.message || 'Invite generation failed';
       setPasswordSaveStatus(`⚠️ ${msg}`);
       showNotification(msg, "ERROR");
     } finally {
@@ -1150,37 +1154,52 @@ export const AdminView: React.FC = () => {
                                     </Button>
                                 )}
                             </div>
-                            {editUserPassword.trim().length >= 8 && (
-                                <div className="grid grid-cols-2 gap-2 pt-1">
+                            {/* SMS Text Message Onboarding Invite Link (NIST Password + 2FA + Passkey) */}
+                            <div className="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-2.5">
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                                    📱 SMS Text Message Onboarding Invite (NIST + 2FA + Passkey)
+                                </label>
+                                <p className="text-[10px] text-slate-400 leading-tight">
+                                    Send a single-use invite link via text message where the user creates their own NIST-verified password, 6-digit 2FA, and biometric Passkey.
+                                </p>
+                                <input
+                                    type="tel"
+                                    value={smsPhoneNumber}
+                                    onChange={(e) => setSmsPhoneNumber(e.target.value)}
+                                    placeholder="Recipient phone number (optional, e.g. +15145550199)"
+                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-900 dark:text-white outline-none focus:ring-2 ring-verdant/30"
+                                />
+                                <div className="grid grid-cols-2 gap-2">
                                     <Button
                                         type="button"
                                         variant="primary"
                                         size="sm"
                                         isLoading={isSendingOneTime}
-                                        onClick={() => void handleSendOneTimePassword(editingUser.id, editUserPassword, true)}
+                                        onClick={() => void handleCreateSmsInvite(editingUser.id, true)}
                                         className="w-full text-[11px] py-2"
                                     >
-                                        <Mail className="w-3.5 h-3.5" />
-                                        <span>Send 1-Time Email</span>
+                                        <MessageSquare className="w-3.5 h-3.5" />
+                                        <span>Send via SMS App</span>
                                     </Button>
                                     <Button
                                         type="button"
                                         variant="outlined"
                                         size="sm"
                                         isLoading={isSendingOneTime}
-                                        onClick={() => void handleSendOneTimePassword(editingUser.id, editUserPassword, false)}
+                                        onClick={() => void handleCreateSmsInvite(editingUser.id, false)}
                                         className="w-full text-[11px] py-2"
                                     >
                                         <Link2 className="w-3.5 h-3.5" />
-                                        <span>Create 1-Time Link</span>
+                                        <span>Copy SMS Invite</span>
                                     </Button>
                                 </div>
-                            )}
+                            </div>
+
                             {oneTimeSecretUrl && (
                                 <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-1.5">
                                     <div className="flex items-center justify-between">
                                         <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-                                            🔥 Self-Destructing Link (Single-Use)
+                                            📱 Single-Use SMS Onboarding Link
                                         </span>
                                         <button
                                             type="button"
@@ -1192,7 +1211,7 @@ export const AdminView: React.FC = () => {
                                             className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 hover:underline"
                                         >
                                             {oneTimeUrlCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                                            {oneTimeUrlCopied ? 'Copied!' : 'Copy Link'}
+                                            {oneTimeUrlCopied ? 'Copied!' : 'Copy URL'}
                                         </button>
                                     </div>
                                     <p className="text-[10px] font-mono break-all text-slate-600 dark:text-slate-300 select-all">
@@ -1208,7 +1227,7 @@ export const AdminView: React.FC = () => {
                         </div>
                     </div>
                     <div className="flex gap-4 pt-4">
-                        <Button variant="secondary" onClick={() => { setEditingUser(null); setEditUserPassword(''); setPasswordSaveStatus(null); setOneTimeSecretUrl(null); }} className="flex-1 rounded-2xl uppercase font-black">{t('btn_cancel')}</Button>
+                        <Button variant="secondary" onClick={() => { setEditingUser(null); setEditUserPassword(''); setPasswordSaveStatus(null); setOneTimeSecretUrl(null); setSmsPhoneNumber(''); }} className="flex-1 rounded-2xl uppercase font-black">{t('btn_cancel')}</Button>
                         <Button variant="primary" onClick={handleUpdateUser} isLoading={isSettingPassword} className="flex-1 rounded-2xl uppercase font-black">{t('btn_save')}</Button>
                     </div>
                     {!(isLeadHand) && editingUser.id !== user?.id && (
@@ -1421,6 +1440,15 @@ export const AdminView: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0 justify-end">
+                                    <Button
+                                        variant="tonal"
+                                        size="sm"
+                                        title="Send SMS Onboarding Invite Link (NIST Password + 2FA + Passkey)"
+                                        onClick={() => void handleCreateSmsInvite(p.id, true)}
+                                    >
+                                        <MessageSquare className="w-3.5 h-3.5" />
+                                        <span>Text Invite</span>
+                                    </Button>
                                     <Button variant="outlined" size="sm" onClick={() => setEditingUser(p)}>
                                         {t('manage')}
                                     </Button>
