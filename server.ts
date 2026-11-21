@@ -1169,6 +1169,63 @@ app.post('/api/system/smtp', checkAuth, async (req, res) => {
   }
 });
 
+app.post('/api/system/smtp/test', checkAuth, async (req, res) => {
+  const role = (req as any).userRole;
+  if (!['OWNER', 'CO_CEO'].includes(role)) {
+    return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+  }
+  try {
+    const callerId = (req as any).userId;
+    const callerRes = await query('SELECT email FROM users WHERE id = ?', [callerId]);
+    const toEmail = req.body?.toEmail || callerRes.rows[0]?.email || process.env.SMTP_FROM;
+
+    const smtpHost = (req.body?.host || process.env.SMTP_HOST || '').trim();
+    const smtpPort = Number(req.body?.port || process.env.SMTP_PORT || 465);
+    const smtpUser = (req.body?.user || process.env.SMTP_USER || '').trim();
+    const rawPass = req.body?.pass;
+    const smtpPass = (rawPass && !String(rawPass).includes('••••') ? String(rawPass) : (process.env.SMTP_PASS || '')).trim();
+    const smtpFrom = (req.body?.from || process.env.SMTP_FROM || smtpUser || 'security@verdant.local').trim();
+
+    if (!smtpHost || !smtpUser || !smtpPass) {
+      return res.status(400).json({ error: 'Missing SMTP Host, Username, or API Key / Password.' });
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+    });
+
+    await transporter.verify();
+
+    if (toEmail) {
+      await transporter.sendMail({
+        from: `"Verdant Security" <${smtpFrom}>`,
+        to: toEmail,
+        subject: 'Verdant Botanical Systems — SMTP Connection Verified ✓',
+        text: `Your Cloudflare / Resend SMTP connection for Verdant is active and ready to deliver one-time self-destructing password links.`,
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 28px 24px; background: #0f172a; color: #f8fafc; border-radius: 24px;">
+            <h2 style="margin: 0 0 8px 0; color: #34d399; font-size: 18px;">✓ Verdant SMTP Verified</h2>
+            <p style="font-size: 14px; line-height: 1.6; color: #cbd5e1; margin: 0;">
+              Your outbound email integration (<strong>${escapeHtml(smtpHost)}:${smtpPort}</strong>) is active and ready to send self-destructing one-time password links.
+            </p>
+          </div>
+        `
+      });
+    }
+
+    res.json({ status: 'ok', sentTo: toEmail });
+  } catch (err: any) {
+    console.error('[SMTP TEST] Failed:', err);
+    res.status(400).json({ error: err?.message || 'SMTP connection test failed' });
+  }
+});
+
 // Create a One-Time Self-Destructing Link & optionally send via Nodemailer
 app.post('/api/users/:id/send-one-time-password', checkAuth, async (req, res) => {
   try {

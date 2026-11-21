@@ -67,6 +67,7 @@ export const HostingSettingsPanel: React.FC = () => {
     hasPass: false,
   });
   const [savingSmtp, setSavingSmtp] = useState(false);
+  const [testingSmtp, setTestingSmtp] = useState(false);
   const [showSmtpPass, setShowSmtpPass] = useState(false);
 
   const loadConfig = useCallback(async () => {
@@ -123,6 +124,27 @@ export const HostingSettingsPanel: React.FC = () => {
       showNotification('Failed to save SMTP settings', 'ERROR');
     } finally {
       setSavingSmtp(false);
+    }
+  };
+
+  const handleTestSmtp = async () => {
+    if (!token) return;
+    setTestingSmtp(true);
+    try {
+      const res = await fetchWithAuth('/api/system/smtp/test', token, {
+        method: 'POST',
+        body: JSON.stringify(smtpConfig),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showNotification(data.error || 'SMTP connection failed', 'ERROR');
+        return;
+      }
+      showNotification(`✓ SMTP verified! Test email sent to ${data.sentTo}`, 'SUCCESS');
+    } catch (err: any) {
+      showNotification(err?.message || 'SMTP test failed', 'ERROR');
+    } finally {
+      setTestingSmtp(false);
     }
   };
 
@@ -607,7 +629,7 @@ export const HostingSettingsPanel: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h4 className="text-base font-bold text-md-on-surface">
-                  Nodemailer SMTP Add-on (One-Time Self-Destructing Emails)
+                  Cloudflare / Resend SMTP Add-on (One-Time Self-Destructing Emails)
                 </h4>
                 <span
                   className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
@@ -624,10 +646,52 @@ export const HostingSettingsPanel: React.FC = () => {
               </p>
             </div>
           </div>
-          <Button variant="primary" size="md" onClick={handleSaveSmtp} isLoading={savingSmtp}>
-            <Save className="w-4 h-4" />
-            Save SMTP
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="tonal" size="md" onClick={handleTestSmtp} isLoading={testingSmtp}>
+              <Activity className="w-4 h-4" />
+              Test Email
+            </Button>
+            <Button variant="primary" size="md" onClick={handleSaveSmtp} isLoading={savingSmtp}>
+              <Save className="w-4 h-4" />
+              Save SMTP
+            </Button>
+          </div>
+        </div>
+
+        {/* 1-CLICK CLOUDFLARE PRESETS */}
+        <div className="p-3.5 rounded-2xl bg-md-surface-container border border-md-outline-variant/30 flex flex-wrap items-center justify-between gap-3">
+          <div className="text-xs text-md-on-surface-variant">
+            <strong className="text-md-on-surface">Cloudflare Domain Quick-Fill:</strong> Click a preset below, then paste your API Key.
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                setSmtpConfig((prev) => ({
+                  ...prev,
+                  host: 'smtp.resend.com',
+                  port: 465,
+                  user: 'resend',
+                }))
+              }
+              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-md-primary text-md-on-primary hover:opacity-90 transition-opacity"
+            >
+              ⚡ Apply Resend Preset (Recommended)
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setSmtpConfig((prev) => ({
+                  ...prev,
+                  host: 'smtp-relay.brevo.com',
+                  port: 587,
+                }))
+              }
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-md-surface-container-high text-md-on-surface border border-md-outline-variant/40 hover:border-md-primary transition-colors"
+            >
+              Apply Brevo Preset
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
@@ -639,7 +703,7 @@ export const HostingSettingsPanel: React.FC = () => {
               type="text"
               value={smtpConfig.host}
               onChange={(e) => setSmtpConfig((prev) => ({ ...prev, host: e.target.value }))}
-              placeholder="smtp.gmail.com or smtp.office365.com"
+              placeholder="smtp.resend.com"
               className="w-full h-11 bg-md-surface-container-high border border-md-outline-variant/50 rounded-2xl px-4 text-xs font-medium text-md-on-surface outline-none focus:ring-2 focus:ring-md-primary/30"
             />
           </div>
@@ -650,14 +714,14 @@ export const HostingSettingsPanel: React.FC = () => {
             <input
               type="number"
               value={smtpConfig.port}
-              onChange={(e) => setSmtpConfig((prev) => ({ ...prev, port: Number(e.target.value) || 587 }))}
-              placeholder="587 (STARTTLS) or 465 (SSL)"
+              onChange={(e) => setSmtpConfig((prev) => ({ ...prev, port: Number(e.target.value) || 465 }))}
+              placeholder="465 (SSL) or 587 (STARTTLS)"
               className="w-full h-11 bg-md-surface-container-high border border-md-outline-variant/50 rounded-2xl px-4 text-xs font-medium text-md-on-surface outline-none focus:ring-2 focus:ring-md-primary/30"
             />
           </div>
           <div>
             <label className="block text-xs font-semibold text-md-on-surface-variant mb-1">
-              Sender "From" Address
+              Sender "From" Address (Your Cloudflare Domain)
             </label>
             <input
               type="email"
@@ -675,20 +739,20 @@ export const HostingSettingsPanel: React.FC = () => {
               type="text"
               value={smtpConfig.user}
               onChange={(e) => setSmtpConfig((prev) => ({ ...prev, user: e.target.value }))}
-              placeholder="your-email@gmail.com"
+              placeholder="resend"
               className="w-full h-11 bg-md-surface-container-high border border-md-outline-variant/50 rounded-2xl px-4 text-xs font-medium text-md-on-surface outline-none focus:ring-2 focus:ring-md-primary/30"
             />
           </div>
           <div className="sm:col-span-2">
             <label className="block text-xs font-semibold text-md-on-surface-variant mb-1">
-              SMTP App Password / API Secret
+              Resend API Key / SMTP Password
             </label>
             <div className="relative">
               <input
                 type={showSmtpPass ? 'text' : 'password'}
                 value={smtpConfig.pass}
                 onChange={(e) => setSmtpConfig((prev) => ({ ...prev, pass: e.target.value }))}
-                placeholder="16-char Gmail App Password or SMTP password"
+                placeholder="re_123456789..."
                 className="w-full h-11 bg-md-surface-container-high border border-md-outline-variant/50 rounded-2xl pl-4 pr-10 text-xs font-mono text-md-on-surface outline-none focus:ring-2 focus:ring-md-primary/30"
               />
               <button
