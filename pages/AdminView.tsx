@@ -22,7 +22,7 @@ import { exportCombinedLogsToExcel } from '../services/exportService';
 import { lookupLocationZone } from '../services/botanicalServices';
 import { SOIL_LABELS } from '../utils/compatibility';
 import { BatchRefreshModal } from '../components/BatchRefreshModal';
-import { ShieldCheck, KeyRound, CheckCircle2, AlertTriangle, Globe, MapPin, Search, RefreshCw } from 'lucide-react';
+import { ShieldCheck, KeyRound, CheckCircle2, AlertTriangle, Globe, MapPin, Search, RefreshCw, Eye, EyeOff, Copy, Check, Wand2, Lock } from 'lucide-react';
 
 export const AdminView: React.FC = () => {
   const { user, token } = useAuth();
@@ -68,6 +68,12 @@ export const AdminView: React.FC = () => {
   const [newHouseSoilType, setNewHouseSoilType] = useState<SoilType>('LOAM');
   const [isLookingUpZone, setIsLookingUpZone] = useState(false);
   const [newUser, setNewUser] = useState<Partial<User>>({ role: 'GARDENER' });
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [editUserPassword, setEditUserPassword] = useState('');
+  const [showUserPassword, setShowUserPassword] = useState(false);
+  const [passwordCopied, setPasswordCopied] = useState(false);
+  const [passwordSaveStatus, setPasswordSaveStatus] = useState<string | null>(null);
+  const [isSettingPassword, setIsSettingPassword] = useState(false);
   const [hasMasterKey, setHasMasterKey] = useState(false);
   const [confirmation, setConfirmation] = useState<{
     isOpen: boolean;
@@ -277,6 +283,50 @@ export const AdminView: React.FC = () => {
     }
   };
 
+  const generateRandomPassphrase = (): string => {
+    const words = [
+      'Cedar', 'Orchid', 'Fern', 'Bonsai', 'Maple', 'Willow', 'Cypress', 'Lotus',
+      'Juniper', 'Sequoia', 'Banyan', 'Acacia', 'Linden', 'Myrtle', 'Spruce', 'Olive',
+      'Ginkgo', 'Laurel', 'Magnolia', 'Camellia', 'Bamboo', 'Redwood', 'Clover', 'Thyme'
+    ];
+    const rand = new Uint32Array(4);
+    window.crypto.getRandomValues(rand);
+    const w1 = words[rand[0] % words.length];
+    const w2 = words[rand[1] % words.length];
+    const w3 = words[rand[2] % words.length];
+    const num = (rand[3] % 900) + 100;
+    return `${w1}-${w2}-${w3}-${num}!`;
+  };
+
+  const handleSetUserPassword = async (targetUserId: string, passwordValue: string): Promise<boolean> => {
+    if (!token || !passwordValue.trim()) return false;
+    setIsSettingPassword(true);
+    setPasswordSaveStatus(null);
+    try {
+      const res = await fetchWithAuth(`/api/users/${targetUserId}/set-password`, token, {
+        method: 'POST',
+        body: JSON.stringify({ newPassword: passwordValue })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data.error || 'Failed to update password';
+        setPasswordSaveStatus(`⚠️ ${msg}`);
+        showNotification(msg, "ERROR");
+        return false;
+      }
+      setPasswordSaveStatus('✓ Password saved & hashed with Argon2id!');
+      showNotification('User password updated successfully', "SUCCESS");
+      return true;
+    } catch (err: any) {
+      const msg = err?.message || 'Password update failed';
+      setPasswordSaveStatus(`⚠️ ${msg}`);
+      showNotification(msg, "ERROR");
+      return false;
+    } finally {
+      setIsSettingPassword(false);
+    }
+  };
+
   const handleAddUser = async () => {
     if (!newUser.email || !newUser.name) return showNotification(t('msg_missing_data'), "ERROR");
     
@@ -286,8 +336,9 @@ export const AdminView: React.FC = () => {
     }
 
     try {
+      const createdId = `u-${generateUUID()}`;
       await addUser({
-        id: `u-${generateUUID()}`,
+        id: createdId,
         email: newUser.email.trim().toLowerCase(),
         name: newUser.name,
         role: newUser.role as any,
@@ -295,8 +346,16 @@ export const AdminView: React.FC = () => {
         caretakerStart: newUser.caretakerStart,
         caretakerEnd: newUser.caretakerEnd
       } as User);
+
+      if (newUserPassword.trim()) {
+        const ok = await handleSetUserPassword(createdId, newUserPassword);
+        if (!ok) return;
+      }
+
       setIsAddingUser(false);
       setNewUser({ role: 'GARDENER' });
+      setNewUserPassword('');
+      setPasswordSaveStatus(null);
       showNotification(t('msg_personnel_added'), "SUCCESS");
     } catch (e) {
       showNotification(t('msg_creation_failed'), "ERROR");
@@ -308,7 +367,13 @@ export const AdminView: React.FC = () => {
     try {
       const userToUpdate = { ...editingUser, email: editingUser.email?.trim().toLowerCase() };
       await updateUser(editingUser.id, userToUpdate);
+      if (editUserPassword.trim()) {
+        const ok = await handleSetUserPassword(editingUser.id, editUserPassword);
+        if (!ok) return;
+      }
       setEditingUser(null);
+      setEditUserPassword('');
+      setPasswordSaveStatus(null);
       showNotification(t('msg_authority_updated'), "SUCCESS");
     } catch (e) {
       showNotification(t('msg_update_failed'), "ERROR");
@@ -759,7 +824,7 @@ export const AdminView: React.FC = () => {
 
         {isAddingUser && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[40px] p-8 space-y-6 border border-slate-200 dark:border-slate-800 shadow-2xl mb-[env(safe-area-inset-bottom)]">
+                <div className="bg-white dark:bg-slate-900 w-full max-w-md max-h-[90vh] overflow-y-auto no-scrollbar rounded-[40px] p-8 space-y-6 border border-slate-200 dark:border-slate-800 shadow-2xl mb-[env(safe-area-inset-bottom)]">
                     <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('lbl_add_personnel')}</h2>
                     <div className="space-y-4">
                         <div className="space-y-1">
@@ -826,10 +891,68 @@ export const AdminView: React.FC = () => {
                                 </div>
                             </div>
                         )}
+
+                        {/* Initial Password Section */}
+                        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300 flex items-center gap-1.5">
+                                    <Lock className="w-3.5 h-3.5 text-emerald-500" />
+                                    Initial Password (Optional)
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const pw = generateRandomPassphrase();
+                                        setNewUserPassword(pw);
+                                        setShowUserPassword(true);
+                                    }}
+                                    className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                                >
+                                    <Wand2 className="w-3 h-3" />
+                                    Generate Secure Passphrase
+                                </button>
+                            </div>
+                            <div className="relative flex items-center gap-2">
+                                <input
+                                    type={showUserPassword ? "text" : "password"}
+                                    value={newUserPassword}
+                                    onChange={(e) => setNewUserPassword(e.target.value)}
+                                    placeholder="Min. 8 characters (Argon2id)"
+                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-3.5 pr-16 py-2.5 text-xs font-mono font-bold text-slate-900 dark:text-white outline-none focus:ring-2 ring-verdant/30"
+                                />
+                                <div className="absolute right-2 flex items-center gap-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowUserPassword(!showUserPassword)}
+                                        className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                        title={showUserPassword ? "Hide" : "Show"}
+                                    >
+                                        {showUserPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                    </button>
+                                    {newUserPassword && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(newUserPassword);
+                                                setPasswordCopied(true);
+                                                setTimeout(() => setPasswordCopied(false), 2000);
+                                            }}
+                                            className="p-1.5 text-emerald-600 dark:text-emerald-400"
+                                            title="Copy Password"
+                                        >
+                                            {passwordCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            {passwordSaveStatus && (
+                                <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">{passwordSaveStatus}</p>
+                            )}
+                        </div>
                     </div>
                     <div className="flex gap-4 pt-4">
-                        <Button variant="secondary" onClick={() => setIsAddingUser(false)} className="flex-1 rounded-2xl uppercase font-black">{t('btn_cancel')}</Button>
-                        <Button variant="primary" onClick={handleAddUser} className="flex-1 rounded-2xl uppercase font-black">{t('btn_save')}</Button>
+                        <Button variant="secondary" onClick={() => { setIsAddingUser(false); setNewUserPassword(''); setPasswordSaveStatus(null); }} className="flex-1 rounded-2xl uppercase font-black">{t('btn_cancel')}</Button>
+                        <Button variant="primary" onClick={handleAddUser} isLoading={isSettingPassword} className="flex-1 rounded-2xl uppercase font-black">{t('btn_save')}</Button>
                     </div>
                 </div>
             </div>
@@ -837,7 +960,7 @@ export const AdminView: React.FC = () => {
 
         {editingUser && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[40px] p-8 space-y-6 border border-slate-200 dark:border-slate-800 shadow-2xl mb-[env(safe-area-inset-bottom)]">
+                <div className="bg-white dark:bg-slate-900 w-full max-w-md max-h-[90vh] overflow-y-auto no-scrollbar rounded-[40px] p-8 space-y-6 border border-slate-200 dark:border-slate-800 shadow-2xl mb-[env(safe-area-inset-bottom)]">
                     <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">{t('lbl_edit_personnel')}</h2>
                     <div className="space-y-4">
                         <div className="space-y-1">
@@ -907,10 +1030,90 @@ export const AdminView: React.FC = () => {
                                 </div>
                             </div>
                         )}
+
+                        {/* Edit / Set User Password Section */}
+                        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300 flex items-center gap-1.5">
+                                    <Lock className="w-3.5 h-3.5 text-emerald-500" />
+                                    Set / Reset User Password
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const pw = generateRandomPassphrase();
+                                        setEditUserPassword(pw);
+                                        setShowUserPassword(true);
+                                    }}
+                                    className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                                >
+                                    <Wand2 className="w-3 h-3" />
+                                    Generate Passphrase
+                                </button>
+                            </div>
+                            <div className="relative flex items-center gap-2">
+                                <input
+                                    type={showUserPassword ? "text" : "password"}
+                                    value={editUserPassword}
+                                    onChange={(e) => {
+                                        setEditUserPassword(e.target.value);
+                                        setPasswordSaveStatus(null);
+                                    }}
+                                    placeholder="Enter new password (min. 8 chars)"
+                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-3.5 pr-16 py-2.5 text-xs font-mono font-bold text-slate-900 dark:text-white outline-none focus:ring-2 ring-verdant/30"
+                                />
+                                <div className="absolute right-2 flex items-center gap-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowUserPassword(!showUserPassword)}
+                                        className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                        title={showUserPassword ? "Hide" : "Show"}
+                                    >
+                                        {showUserPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                    </button>
+                                    {editUserPassword && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(editUserPassword);
+                                                setPasswordCopied(true);
+                                                setTimeout(() => setPasswordCopied(false), 2000);
+                                            }}
+                                            className="p-1.5 text-emerald-600 dark:text-emerald-400"
+                                            title="Copy Password"
+                                        >
+                                            {passwordCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                                <p className="text-[10px] text-slate-400 leading-tight">
+                                    Hashed with Argon2id (NIST SP 800-63B). Leave blank to keep existing password.
+                                </p>
+                                {editUserPassword.trim().length >= 8 && (
+                                    <Button
+                                        type="button"
+                                        variant="tonal"
+                                        size="sm"
+                                        isLoading={isSettingPassword}
+                                        onClick={() => void handleSetUserPassword(editingUser.id, editUserPassword)}
+                                        className="shrink-0 text-[10px] py-1 px-2.5"
+                                    >
+                                        Apply Now
+                                    </Button>
+                                )}
+                            </div>
+                            {passwordSaveStatus && (
+                                <p className={`text-[11px] font-semibold ${passwordSaveStatus.startsWith('✓') ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+                                    {passwordSaveStatus}
+                                </p>
+                            )}
+                        </div>
                     </div>
                     <div className="flex gap-4 pt-4">
-                        <Button variant="secondary" onClick={() => setEditingUser(null)} className="flex-1 rounded-2xl uppercase font-black">{t('btn_cancel')}</Button>
-                        <Button variant="primary" onClick={handleUpdateUser} className="flex-1 rounded-2xl uppercase font-black">{t('btn_save')}</Button>
+                        <Button variant="secondary" onClick={() => { setEditingUser(null); setEditUserPassword(''); setPasswordSaveStatus(null); }} className="flex-1 rounded-2xl uppercase font-black">{t('btn_cancel')}</Button>
+                        <Button variant="primary" onClick={handleUpdateUser} isLoading={isSettingPassword} className="flex-1 rounded-2xl uppercase font-black">{t('btn_save')}</Button>
                     </div>
                     {!(isLeadHand) && editingUser.id !== user?.id && (
                         <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -919,6 +1122,8 @@ export const AdminView: React.FC = () => {
                                 onClick={() => {
                                     const id = editingUser.id;
                                     setEditingUser(null);
+                                    setEditUserPassword('');
+                                    setPasswordSaveStatus(null);
                                     handleDeleteUser(id);
                                 }} 
                                 className="w-full rounded-2xl uppercase font-black"

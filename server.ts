@@ -1023,6 +1023,60 @@ app.post('/api/users/:id/reset-password', checkAuth, async (req, res) => {
   }
 });
 
+// ADMIN PASSWORD SET / UPDATE (Hashes with Argon2id and enforces NIST SP 800-63B)
+app.post('/api/users/:id/set-password', checkAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body || {};
+    const role = (req as any).userRole;
+    const houseId = (req as any).userHouseId;
+
+    if (!['OWNER', 'CO_CEO', 'LEAD_HAND'].includes(role)) {
+      return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    }
+
+    const targetRes = await query('SELECT id, email, name, houseId, role FROM users WHERE id = ? AND deletedAt IS NULL', [id]);
+    const target = targetRes.rows[0];
+    if (!target) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+    if (role === 'CO_CEO' && target.role === 'OWNER') {
+      return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    }
+
+    if (role === 'LEAD_HAND') {
+      if (target.houseId !== houseId || !['GARDENER', 'SEASONAL'].includes(target.role)) {
+        return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+      }
+    }
+
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.trim().length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters long." });
+    }
+
+    const nameStr = typeof target.name === 'string' ? target.name : '';
+    const nist = await validatePasswordNist(String(newPassword), {
+      email: target.email,
+      name: nameStr,
+    });
+
+    if (!nist.isValid) {
+      return res.status(400).json({
+        error: nist.errors[0] || "PASSWORD_POLICY_VIOLATION",
+        details: nist.errors,
+        nist: { errors: nist.errors, warnings: nist.warnings, entropyBits: nist.entropyBits, isPwned: nist.isPwned },
+      });
+    }
+
+    const pwHash = await hashPassword(nist.normalized);
+    await query('UPDATE users SET passwordHash = ? WHERE id = ?', [pwHash, id]);
+    await logSystemEvent('ADMIN_PASSWORD_SET', `Password updated for user ${target.email} by ${(req as any).userId}`, 'WARN');
+    res.json({ status: "ok", hasPassword: true });
+  } catch (e) {
+    console.error('[ARGON2ID] Admin set-password error:', e);
+    res.status(500).json({ error: "PASSWORD_SET_FAULT" });
+  }
+});
+
 // ADMIN: UPDATE GLOBAL 2FA / FIDO2 POLICY
 app.post('/api/auth/policy', checkAuth, async (req, res) => {
   try {
