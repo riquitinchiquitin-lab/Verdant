@@ -14,6 +14,7 @@ import {
   Terminal,
   Sparkles,
   Server,
+  Mail,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSystem } from '../context/SystemContext';
@@ -56,17 +57,44 @@ export const HostingSettingsPanel: React.FC = () => {
   });
   const [tunnelTokenInput, setTunnelTokenInput] = useState('');
 
+  const [smtpConfig, setSmtpConfig] = useState({
+    configured: false,
+    host: '',
+    port: 587,
+    user: '',
+    pass: '',
+    from: '',
+    hasPass: false,
+  });
+  const [savingSmtp, setSavingSmtp] = useState(false);
+  const [showSmtpPass, setShowSmtpPass] = useState(false);
+
   const loadConfig = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     try {
-      const res = await fetchWithAuth('/api/system/hosting', token);
+      const [res, smtpRes] = await Promise.all([
+        fetchWithAuth('/api/system/hosting', token),
+        fetchWithAuth('/api/system/smtp', token),
+      ]);
       if (res.ok) {
         const data = await res.json();
         setConfig(data);
         if (data.cloudflareTokenMasked) {
           setTunnelTokenInput(data.cloudflareTokenMasked);
         }
+      }
+      if (smtpRes.ok) {
+        const sData = await smtpRes.json();
+        setSmtpConfig({
+          configured: Boolean(sData.configured),
+          host: sData.host || '',
+          port: sData.port || 587,
+          user: sData.user || '',
+          pass: sData.hasPass ? '••••••••••••' : '',
+          from: sData.from || '',
+          hasPass: Boolean(sData.hasPass),
+        });
       }
     } catch {
       // Ignore transient errors
@@ -78,6 +106,25 @@ export const HostingSettingsPanel: React.FC = () => {
   useEffect(() => {
     loadConfig();
   }, [loadConfig]);
+
+  const handleSaveSmtp = async () => {
+    if (!token) return;
+    setSavingSmtp(true);
+    try {
+      const res = await fetchWithAuth('/api/system/smtp', token, {
+        method: 'POST',
+        body: JSON.stringify(smtpConfig),
+      });
+      if (!res.ok) throw new Error('SMTP_SAVE_FAILED');
+      const data = await res.json();
+      setSmtpConfig((prev) => ({ ...prev, configured: Boolean(data.configured) }));
+      showNotification('Nodemailer SMTP settings saved!', 'SUCCESS');
+    } catch {
+      showNotification('Failed to save SMTP settings', 'ERROR');
+    } finally {
+      setSavingSmtp(false);
+    }
+  };
 
   const handleSave = async (override?: Partial<HostingConfig>) => {
     if (!token) return;
@@ -548,6 +595,112 @@ export const HostingSettingsPanel: React.FC = () => {
             </p>
           </div>
         )}
+      </div>
+
+      {/* NODEMAILER OPEN-SOURCE SMTP ADDON FOR ONE-TIME EMAILS */}
+      <div className="m3-card-elevated rounded-3xl p-5 md:p-7 border border-md-outline-variant/40 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-md-primary-container text-md-on-primary-container flex items-center justify-center shrink-0">
+              <Mail className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-base font-bold text-md-on-surface">
+                  Nodemailer SMTP Add-on (One-Time Self-Destructing Emails)
+                </h4>
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                    smtpConfig.configured
+                      ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                      : 'bg-md-surface-container-high text-md-on-surface-variant'
+                  }`}
+                >
+                  {smtpConfig.configured ? 'Configured' : 'Optional'}
+                </span>
+              </div>
+              <p className="text-xs text-md-on-surface-variant">
+                Used to automatically send self-destructing one-time password links when creating or editing user passwords.
+              </p>
+            </div>
+          </div>
+          <Button variant="primary" size="md" onClick={handleSaveSmtp} isLoading={savingSmtp}>
+            <Save className="w-4 h-4" />
+            Save SMTP
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          <div>
+            <label className="block text-xs font-semibold text-md-on-surface-variant mb-1">
+              SMTP Host
+            </label>
+            <input
+              type="text"
+              value={smtpConfig.host}
+              onChange={(e) => setSmtpConfig((prev) => ({ ...prev, host: e.target.value }))}
+              placeholder="smtp.gmail.com or smtp.office365.com"
+              className="w-full h-11 bg-md-surface-container-high border border-md-outline-variant/50 rounded-2xl px-4 text-xs font-medium text-md-on-surface outline-none focus:ring-2 focus:ring-md-primary/30"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-md-on-surface-variant mb-1">
+              SMTP Port
+            </label>
+            <input
+              type="number"
+              value={smtpConfig.port}
+              onChange={(e) => setSmtpConfig((prev) => ({ ...prev, port: Number(e.target.value) || 587 }))}
+              placeholder="587 (STARTTLS) or 465 (SSL)"
+              className="w-full h-11 bg-md-surface-container-high border border-md-outline-variant/50 rounded-2xl px-4 text-xs font-medium text-md-on-surface outline-none focus:ring-2 focus:ring-md-primary/30"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-md-on-surface-variant mb-1">
+              Sender "From" Address
+            </label>
+            <input
+              type="email"
+              value={smtpConfig.from}
+              onChange={(e) => setSmtpConfig((prev) => ({ ...prev, from: e.target.value }))}
+              placeholder="security@yourdomain.com"
+              className="w-full h-11 bg-md-surface-container-high border border-md-outline-variant/50 rounded-2xl px-4 text-xs font-medium text-md-on-surface outline-none focus:ring-2 focus:ring-md-primary/30"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-md-on-surface-variant mb-1">
+              SMTP Username
+            </label>
+            <input
+              type="text"
+              value={smtpConfig.user}
+              onChange={(e) => setSmtpConfig((prev) => ({ ...prev, user: e.target.value }))}
+              placeholder="your-email@gmail.com"
+              className="w-full h-11 bg-md-surface-container-high border border-md-outline-variant/50 rounded-2xl px-4 text-xs font-medium text-md-on-surface outline-none focus:ring-2 focus:ring-md-primary/30"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-semibold text-md-on-surface-variant mb-1">
+              SMTP App Password / API Secret
+            </label>
+            <div className="relative">
+              <input
+                type={showSmtpPass ? 'text' : 'password'}
+                value={smtpConfig.pass}
+                onChange={(e) => setSmtpConfig((prev) => ({ ...prev, pass: e.target.value }))}
+                placeholder="16-char Gmail App Password or SMTP password"
+                className="w-full h-11 bg-md-surface-container-high border border-md-outline-variant/50 rounded-2xl pl-4 pr-10 text-xs font-mono text-md-on-surface outline-none focus:ring-2 focus:ring-md-primary/30"
+              />
+              <button
+                type="button"
+                onClick={() => setShowSmtpPass(!showSmtpPass)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-md-on-surface-variant hover:text-md-on-surface"
+              >
+                {showSmtpPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

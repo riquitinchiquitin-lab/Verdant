@@ -22,7 +22,7 @@ import { exportCombinedLogsToExcel } from '../services/exportService';
 import { lookupLocationZone } from '../services/botanicalServices';
 import { SOIL_LABELS } from '../utils/compatibility';
 import { BatchRefreshModal } from '../components/BatchRefreshModal';
-import { ShieldCheck, KeyRound, CheckCircle2, AlertTriangle, Globe, MapPin, Search, RefreshCw, Eye, EyeOff, Copy, Check, Wand2, Lock } from 'lucide-react';
+import { ShieldCheck, KeyRound, CheckCircle2, AlertTriangle, Globe, MapPin, Search, RefreshCw, Eye, EyeOff, Copy, Check, Wand2, Lock, Mail, Link2 } from 'lucide-react';
 
 export const AdminView: React.FC = () => {
   const { user, token } = useAuth();
@@ -74,6 +74,9 @@ export const AdminView: React.FC = () => {
   const [passwordCopied, setPasswordCopied] = useState(false);
   const [passwordSaveStatus, setPasswordSaveStatus] = useState<string | null>(null);
   const [isSettingPassword, setIsSettingPassword] = useState(false);
+  const [oneTimeSecretUrl, setOneTimeSecretUrl] = useState<string | null>(null);
+  const [oneTimeUrlCopied, setOneTimeUrlCopied] = useState(false);
+  const [isSendingOneTime, setIsSendingOneTime] = useState(false);
   const [hasMasterKey, setHasMasterKey] = useState(false);
   const [confirmation, setConfirmation] = useState<{
     isOpen: boolean;
@@ -324,6 +327,49 @@ export const AdminView: React.FC = () => {
       return false;
     } finally {
       setIsSettingPassword(false);
+    }
+  };
+
+  const handleSendOneTimePassword = async (targetUserId: string, passwordValue: string, sendEmail: boolean = true) => {
+    if (!token || !passwordValue.trim()) return;
+    setIsSendingOneTime(true);
+    setPasswordSaveStatus(null);
+    setOneTimeSecretUrl(null);
+    try {
+      const res = await fetchWithAuth(`/api/users/${targetUserId}/send-one-time-password`, token, {
+        method: 'POST',
+        body: JSON.stringify({ password: passwordValue, sendEmail, ttlHours: 24 })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data.error || 'Failed to generate one-time link';
+        setPasswordSaveStatus(`⚠️ ${msg}`);
+        showNotification(msg, "ERROR");
+        return;
+      }
+
+      if (data.oneTimeUrl) {
+        setOneTimeSecretUrl(data.oneTimeUrl);
+      }
+
+      if (data.emailSent) {
+        setPasswordSaveStatus('✓ Password saved & One-Time Self-Destructing Email sent via Nodemailer!');
+        showNotification('One-time email delivered successfully!', "SUCCESS");
+      } else if (sendEmail && !data.smtpConfigured) {
+        setPasswordSaveStatus('✓ Password saved & One-Time Self-Destructing Link generated! (Configure SMTP in Hosting tab to auto-email)');
+        showNotification('One-Time Self-Destructing Link generated!', "SUCCESS");
+      } else if (sendEmail && data.emailError) {
+        setPasswordSaveStatus(`✓ Link ready (SMTP error: ${data.emailError}). Copy link below.`);
+      } else {
+        setPasswordSaveStatus('✓ Password saved & One-Time Self-Destructing Link generated!');
+        showNotification('One-Time Self-Destructing Link generated!', "SUCCESS");
+      }
+    } catch (err: any) {
+      const msg = err?.message || 'One-time link generation failed';
+      setPasswordSaveStatus(`⚠️ ${msg}`);
+      showNotification(msg, "ERROR");
+    } finally {
+      setIsSendingOneTime(false);
     }
   };
 
@@ -1104,6 +1150,56 @@ export const AdminView: React.FC = () => {
                                     </Button>
                                 )}
                             </div>
+                            {editUserPassword.trim().length >= 8 && (
+                                <div className="grid grid-cols-2 gap-2 pt-1">
+                                    <Button
+                                        type="button"
+                                        variant="primary"
+                                        size="sm"
+                                        isLoading={isSendingOneTime}
+                                        onClick={() => void handleSendOneTimePassword(editingUser.id, editUserPassword, true)}
+                                        className="w-full text-[11px] py-2"
+                                    >
+                                        <Mail className="w-3.5 h-3.5" />
+                                        <span>Send 1-Time Email</span>
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outlined"
+                                        size="sm"
+                                        isLoading={isSendingOneTime}
+                                        onClick={() => void handleSendOneTimePassword(editingUser.id, editUserPassword, false)}
+                                        className="w-full text-[11px] py-2"
+                                    >
+                                        <Link2 className="w-3.5 h-3.5" />
+                                        <span>Create 1-Time Link</span>
+                                    </Button>
+                                </div>
+                            )}
+                            {oneTimeSecretUrl && (
+                                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                                            🔥 Self-Destructing Link (Single-Use)
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(oneTimeSecretUrl);
+                                                setOneTimeUrlCopied(true);
+                                                setTimeout(() => setOneTimeUrlCopied(false), 2500);
+                                            }}
+                                            className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 hover:underline"
+                                        >
+                                            {oneTimeUrlCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                                            {oneTimeUrlCopied ? 'Copied!' : 'Copy Link'}
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] font-mono break-all text-slate-600 dark:text-slate-300 select-all">
+                                        {oneTimeSecretUrl}
+                                    </p>
+                                </div>
+                            )}
                             {passwordSaveStatus && (
                                 <p className={`text-[11px] font-semibold ${passwordSaveStatus.startsWith('✓') ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
                                     {passwordSaveStatus}
@@ -1112,7 +1208,7 @@ export const AdminView: React.FC = () => {
                         </div>
                     </div>
                     <div className="flex gap-4 pt-4">
-                        <Button variant="secondary" onClick={() => { setEditingUser(null); setEditUserPassword(''); setPasswordSaveStatus(null); }} className="flex-1 rounded-2xl uppercase font-black">{t('btn_cancel')}</Button>
+                        <Button variant="secondary" onClick={() => { setEditingUser(null); setEditUserPassword(''); setPasswordSaveStatus(null); setOneTimeSecretUrl(null); }} className="flex-1 rounded-2xl uppercase font-black">{t('btn_cancel')}</Button>
                         <Button variant="primary" onClick={handleUpdateUser} isLoading={isSettingPassword} className="flex-1 rounded-2xl uppercase font-black">{t('btn_save')}</Button>
                     </div>
                     {!(isLeadHand) && editingUser.id !== user?.id && (

@@ -20,6 +20,7 @@ import {
 } from '@simplewebauthn/server';
 import { GoogleGenAI } from '@google/genai';
 import argon2 from 'argon2';
+import nodemailer from 'nodemailer';
 import { validatePasswordNist, normalizeUnicode } from './services/nistPasswordValidator';
 import { createAggregatorRouter } from './aggregator/api/router';
 import { nistRateLimiter } from './services/nistRateLimiter';
@@ -1075,6 +1076,375 @@ app.post('/api/users/:id/set-password', checkAuth, async (req, res) => {
     console.error('[ARGON2ID] Admin set-password error:', e);
     res.status(500).json({ error: "PASSWORD_SET_FAULT" });
   }
+});
+
+// ============================================================================
+// ONE-TIME SELF-DESTRUCTING SECRET ENGINE & NODEMAILER SMTP DELIVERY
+// ============================================================================
+interface OneTimeSecretRecord {
+  encryptedPassword: string;
+  userEmail: string;
+  userName: string;
+  createdAt: number;
+  expiresAt: number;
+}
+
+const oneTimeSecrets = new Map<string, OneTimeSecretRecord>();
+
+// Periodic sweep for expired one-time secrets
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, rec] of oneTimeSecrets.entries()) {
+    if (now >= rec.expiresAt) {
+      oneTimeSecrets.delete(token);
+    }
+  }
+}, 5 * 60 * 1000).unref();
+
+function escapeHtml(str: string): string {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+app.get('/api/system/smtp', checkAuth, async (req, res) => {
+  const role = (req as any).userRole;
+  if (!['OWNER', 'CO_CEO'].includes(role)) {
+    return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+  }
+  const host = process.env.SMTP_HOST || '';
+  const portNum = Number(process.env.SMTP_PORT || 587);
+  const user = process.env.SMTP_USER || '';
+  const from = process.env.SMTP_FROM || user || 'noreply@verdant.local';
+  const hasPass = Boolean(process.env.SMTP_PASS);
+  res.json({
+    configured: Boolean(host && user && hasPass),
+    host,
+    port: portNum,
+    user,
+    from,
+    hasPass
+  });
+});
+
+app.post('/api/system/smtp', checkAuth, async (req, res) => {
+  const role = (req as any).userRole;
+  if (!['OWNER', 'CO_CEO'].includes(role)) {
+    return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+  }
+  try {
+    const { host, port: smtpPort, user, pass, from } = req.body || {};
+    const updates: Record<string, string> = {};
+    if (typeof host === 'string') {
+      updates.SMTP_HOST = host.trim();
+      process.env.SMTP_HOST = host.trim();
+    }
+    if (smtpPort !== undefined) {
+      updates.SMTP_PORT = String(Number(smtpPort) || 587);
+      process.env.SMTP_PORT = updates.SMTP_PORT;
+    }
+    if (typeof user === 'string') {
+      updates.SMTP_USER = user.trim();
+      process.env.SMTP_USER = user.trim();
+    }
+    if (typeof pass === 'string' && pass.trim() && !pass.includes('••••')) {
+      updates.SMTP_PASS = pass.trim();
+      process.env.SMTP_PASS = pass.trim();
+    }
+    if (typeof from === 'string') {
+      updates.SMTP_FROM = from.trim();
+      process.env.SMTP_FROM = from.trim();
+    }
+    updateEnvFile(updates);
+    await logSystemEvent('SMTP_CONFIG_UPDATED', `SMTP settings updated by ${(req as any).userId}`, 'INFO');
+    res.json({
+      status: 'ok',
+      configured: Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS)
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'SMTP_SAVE_FAULT' });
+  }
+});
+
+// Create a One-Time Self-Destructing Link & optionally send via Nodemailer
+app.post('/api/users/:id/send-one-time-password', checkAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password, sendEmail = true, ttlHours = 24 } = req.body || {};
+    const role = (req as any).userRole;
+    const houseId = (req as any).userHouseId;
+
+    if (!['OWNER', 'CO_CEO', 'LEAD_HAND'].includes(role)) {
+      return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    }
+
+    const targetRes = await query('SELECT id, email, name, houseId, role FROM users WHERE id = ? AND deletedAt IS NULL', [id]);
+    const target = targetRes.rows[0];
+    if (!target) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+    if (role === 'CO_CEO' && target.role === 'OWNER') {
+      return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+    }
+
+    if (role === 'LEAD_HAND') {
+      if (target.houseId !== houseId || !['GARDENER', 'SEASONAL'].includes(target.role)) {
+        return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+      }
+    }
+
+    if (!password || typeof password !== 'string' || password.trim().length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters long." });
+    }
+
+    // 1. Validate & hash password in database so it's active immediately
+    const nameStr = typeof target.name === 'string' ? target.name : '';
+    const nist = await validatePasswordNist(String(password), {
+      email: target.email,
+      name: nameStr,
+    });
+    if (!nist.isValid) {
+      return res.status(400).json({
+        error: nist.errors[0] || "PASSWORD_POLICY_VIOLATION",
+        details: nist.errors
+      });
+    }
+
+    const pwHash = await hashPassword(nist.normalized);
+    await query('UPDATE users SET passwordHash = ? WHERE id = ?', [pwHash, id]);
+
+    // 2. Generate 256-bit one-time token & encrypt in RAM with AES-256-GCM
+    const secretToken = crypto.randomBytes(24).toString('hex');
+    const safeHours = Math.min(Math.max(Number(ttlHours) || 24, 1), 72);
+    const expiresAt = Date.now() + safeHours * 3600 * 1000;
+
+    oneTimeSecrets.set(secretToken, {
+      encryptedPassword: encrypt(nist.normalized),
+      userEmail: target.email,
+      userName: nameStr || target.email,
+      createdAt: Date.now(),
+      expiresAt,
+    });
+
+    // Build public origin URL
+    const forwardedProto = (req.headers['x-forwarded-proto'] as string)?.split(',')[0]?.trim();
+    const proto = forwardedProto || req.protocol || 'https';
+    const hostHeader = req.get('host') || `localhost:${port}`;
+    const baseUrl = (process.env.APP_URL || `${proto}://${hostHeader}`).replace(/\/+$/, '');
+    const oneTimeUrl = `${baseUrl}/one-time-secret/${secretToken}`;
+
+    let emailSent = false;
+    let emailError: string | null = null;
+
+    // 3. Send email once via Nodemailer if SMTP is configured and sendEmail=true
+    const smtpHost = process.env.SMTP_HOST?.trim();
+    const smtpPort = Number(process.env.SMTP_PORT || 587);
+    const smtpUser = process.env.SMTP_USER?.trim();
+    const smtpPass = process.env.SMTP_PASS?.trim();
+    const smtpFrom = process.env.SMTP_FROM?.trim() || smtpUser || 'noreply@verdant.local';
+
+    if (sendEmail && smtpHost && smtpUser && smtpPass) {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: smtpHost,
+          port: smtpPort,
+          secure: smtpPort === 465,
+          auth: {
+            user: smtpUser,
+            pass: smtpPass,
+          },
+        });
+
+        await transporter.sendMail({
+          from: `"Verdant Security" <${smtpFrom}>`,
+          to: target.email,
+          subject: 'Verdant Botanical Systems — Your One-Time Credential Link',
+          text: [
+            `Hello ${nameStr || target.email},`,
+            ``,
+            `An administrator has provisioned or updated your Verdant account password.`,
+            ``,
+            `Open this self-destructing link ONCE to view your password:`,
+            `${oneTimeUrl}`,
+            ``,
+            `IMPORTANT: This link works only ONE time and will permanently self-destruct as soon as it is opened (or after ${safeHours} hours).`,
+            `Login Portal: ${baseUrl}`
+          ].join('\n'),
+          html: `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px; background: #0f172a; color: #f8fafc; border-radius: 24px;">
+              <h2 style="margin: 0 0 8px 0; color: #34d399; font-size: 20px;">Verdant Botanical Systems</h2>
+              <p style="margin: 0 0 20px 0; color: #94a3b8; font-size: 14px;">One-Time Credential Delivery</p>
+              <p style="font-size: 14px; line-height: 1.6; color: #e2e8f0;">
+                Hello <strong>${escapeHtml(nameStr || target.email)}</strong>,<br/><br/>
+                An administrator has provisioned your account credentials. Click the secure button below to reveal your password:
+              </p>
+              <div style="margin: 28px 0; text-align: center;">
+                <a href="${escapeHtml(oneTimeUrl)}" style="display: inline-block; background: #10b981; color: #022c22; font-weight: 700; text-decoration: none; padding: 14px 28px; border-radius: 999px; font-size: 14px;">
+                  Reveal One-Time Password
+                </a>
+              </div>
+              <p style="font-size: 12px; line-height: 1.5; color: #fbbf24; background: rgba(251, 191, 36, 0.1); padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(251, 191, 36, 0.25);">
+                ⚠️ <strong>Self-Destructing Link:</strong> This link can only be opened <strong>once</strong>. The moment you reveal the password, it is permanently erased from the server.
+              </p>
+              <p style="font-size: 12px; color: #64748b; margin-top: 20px;">
+                Expires automatically in ${safeHours} hours · Login Portal: <a href="${escapeHtml(baseUrl)}" style="color: #34d399;">${escapeHtml(baseUrl)}</a>
+              </p>
+            </div>
+          `,
+        });
+        emailSent = true;
+        await logSystemEvent('ONE_TIME_EMAIL_SENT', `One-time credential email sent to ${target.email} by ${(req as any).userId}`, 'INFO');
+      } catch (mailErr: any) {
+        console.error('[NODEMAILER] Send failed:', mailErr);
+        emailError = mailErr?.message || 'SMTP transmission failed';
+      }
+    }
+
+    await logSystemEvent('ONE_TIME_SECRET_CREATED', `One-time password link generated for ${target.email} by ${(req as any).userId}`, 'INFO');
+
+    res.json({
+      status: 'ok',
+      oneTimeUrl,
+      expiresAt: new Date(expiresAt).toISOString(),
+      emailSent,
+      emailError,
+      smtpConfigured: Boolean(smtpHost && smtpUser && smtpPass),
+    });
+  } catch (e: any) {
+    console.error('[ONE-TIME-SECRET] Fault:', e);
+    res.status(500).json({ error: 'ONE_TIME_SECRET_FAULT' });
+  }
+});
+
+// Two-Step Self-Destructing Secret Viewer (Step 1: Confirmation Gate so chat link previews don't burn it)
+app.get('/one-time-secret/:token', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  const { token } = req.params;
+  const rec = oneTimeSecrets.get(token);
+
+  if (!rec || Date.now() >= rec.expiresAt) {
+    if (rec) oneTimeSecrets.delete(token);
+    return res.status(410).send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Secret Destroyed or Expired — Verdant</title>
+        <style>
+          body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #020617; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 16px; }
+          .card { max-width: 440px; width: 100%; background: #0f172a; border: 1px solid #1e293b; border-radius: 28px; padding: 32px 28px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+          .badge { display: inline-flex; padding: 8px 16px; border-radius: 999px; background: rgba(244,63,94,0.15); color: #fb7185; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px; }
+          h1 { font-size: 22px; margin: 0 0 12px 0; }
+          p { font-size: 14px; color: #94a3b8; line-height: 1.6; margin: 0 0 24px 0; }
+          a { display: inline-block; background: #1e293b; color: #f8fafc; text-decoration: none; padding: 12px 24px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="badge">🔥 Secret Burned / Expired</div>
+          <h1>This Link Has Self-Destructed</h1>
+          <p>This one-time credential link has already been viewed and permanently erased from the server (or has expired). If you did not open it, please notify your Verdant administrator immediately to issue a new link.</p>
+          <a href="/">Go to Verdant Login</a>
+        </div>
+      </body>
+      </html>
+    `);
+  }
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>One-Time Credential — Verdant</title>
+      <style>
+        body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #020617; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 16px; }
+        .card { max-width: 440px; width: 100%; background: #0f172a; border: 1px solid #1e293b; border-radius: 28px; padding: 32px 28px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        .badge { display: inline-flex; padding: 6px 14px; border-radius: 999px; background: rgba(16,185,129,0.15); color: #34d399; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px; }
+        h1 { font-size: 22px; margin: 0 0 8px 0; }
+        p { font-size: 13px; color: #94a3b8; line-height: 1.6; margin: 0 0 24px 0; }
+        .warn { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.25); color: #fcd34d; padding: 12px 14px; border-radius: 16px; font-size: 12px; margin-bottom: 24px; text-align: left; }
+        button { width: 100%; background: #10b981; color: #022c22; border: none; padding: 14px 24px; border-radius: 999px; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; }
+        button:hover { opacity: 0.92; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="badge">🔒 Zero-Knowledge One-Time Secret</div>
+        <h1>Reveal Your Verdant Password</h1>
+        <p>Account: <strong>${escapeHtml(rec.userEmail)}</strong></p>
+        <div class="warn">
+          ⚠️ <strong>Read Carefully:</strong> Clicking the button below will display your password <strong>one single time</strong> and immediately wipe it from the server forever.
+        </div>
+        <form method="POST" action="/one-time-secret/${escapeHtml(token)}/reveal">
+          <button type="submit">Reveal &amp; Destroy Secret Now</button>
+        </form>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+// Step 2: Reveal & Immediately Delete from RAM
+app.post('/one-time-secret/:token/reveal', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  const { token } = req.params;
+  const rec = oneTimeSecrets.get(token);
+
+  // Immediately destroy the record before doing anything else
+  oneTimeSecrets.delete(token);
+
+  if (!rec || Date.now() >= rec.expiresAt) {
+    return res.redirect(`/one-time-secret/${encodeURIComponent(token)}`);
+  }
+
+  let plaintextPassword = '';
+  try {
+    const dec = decrypt(rec.encryptedPassword);
+    plaintextPassword = typeof dec === 'string' ? dec : String(dec ?? '');
+  } catch {
+    plaintextPassword = '';
+  }
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>Your One-Time Password — Verdant</title>
+      <style>
+        body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #020617; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 16px; }
+        .card { max-width: 460px; width: 100%; background: #0f172a; border: 1px solid #1e293b; border-radius: 28px; padding: 32px 28px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        .badge { display: inline-flex; padding: 6px 14px; border-radius: 999px; background: rgba(244,63,94,0.15); color: #fb7185; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px; }
+        h1 { font-size: 22px; margin: 0 0 8px 0; }
+        p { font-size: 13px; color: #94a3b8; line-height: 1.5; margin: 0 0 18px 0; }
+        .secret-box { background: #020617; border: 1px solid #334155; border-radius: 16px; padding: 16px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 18px; font-weight: 700; color: #34d399; word-break: break-all; margin-bottom: 16px; user-select: all; }
+        .btn-row { display: flex; gap: 10px; margin-top: 16px; }
+        button, a.btn { flex: 1; background: #10b981; color: #022c22; border: none; padding: 13px 18px; border-radius: 999px; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+        a.btn-secondary { background: #1e293b; color: #f8fafc; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="badge">🔥 Erased From Server</div>
+        <h1>Save Your Password Now</h1>
+        <p>Account: <strong>${escapeHtml(rec.userEmail)}</strong><br/>This secret has now been permanently destroyed from the server. Copy it before closing this tab:</p>
+        <div class="secret-box" id="pw">${escapeHtml(plaintextPassword)}</div>
+        <div class="btn-row">
+          <button type="button" id="copyBtn" onclick="navigator.clipboard.writeText(document.getElementById('pw').innerText); this.innerText='✓ Copied!';">Copy Password</button>
+          <a href="/" class="btn btn-secondary">Go to Login</a>
+        </div>
+      </div>
+    </body>
+    </html>
+  `);
 });
 
 // ADMIN: UPDATE GLOBAL 2FA / FIDO2 POLICY
