@@ -182,11 +182,12 @@ function drawQrCodeToCanvas(
 }
 
 /**
- * Renders an Option B (15 × 50 mm @ 203 DPI) sticker onto a 400 × 96 px canvas.
- * Supports both modern 2-column 'qr' layout (recommended for 15x50mm) and optimized 'barcode' layout.
+ * Renders a crisp 15 × 50 mm label containing strictly the 3 required elements:
+ * 1. Name of the plant (Bold, large, readable)
+ * 2. Botanical species (Scientific name)
+ * 3. QR Code or Linear Barcode
  *
- * Automatically binarizes the canvas to eliminate all anti-aliasing gray halos that
- * cause smudged, illegible printing on Niimbot thermal printers.
+ * Designed with large fonts and integer dot alignment for crystal-clear thermal printing.
  */
 export function renderD110LabelCanvas(
   plant: Plant,
@@ -206,15 +207,17 @@ export function renderD110LabelCanvas(
   ctx.fillRect(0, 0, D110_LABEL_W_PX, D110_LABEL_H_PX);
 
   const barcodeValue = getShortBarcodeId(plant.id);
+  const plantDisplayName = (nickname || plant.species || 'Specimen').trim();
+  const speciesDisplayName = (plant.species || 'Verdant Specimen').trim();
 
   if (layout === 'qr') {
     // -------------------------------------------------------------
-    // LAYOUT 1: SPLIT 2-COLUMN QR + SPECS (OPTIMAL FOR 15 × 50 mm)
-    // Left: 84×84 px QR code with full quiet zone
-    // Right: Spacious 3 lines of high-contrast botanical typography
+    // OPTIMAL 15 × 50 mm 2-COLUMN LAYOUT:
+    // Left: High-contrast 84×84 px QR code
+    // Right: Large bold plant name (26px) + Species name (17px)
     // -------------------------------------------------------------
     const qrSize = 82;
-    const qrX = 8;
+    const qrX = 10;
     const qrY = 7;
     drawQrCodeToCanvas(ctx, barcodeValue, qrX, qrY, qrSize);
 
@@ -225,68 +228,131 @@ export function renderD110LabelCanvas(
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
 
-    // Line 1: Plant Nickname (Bold 21px, crisp)
-    ctx.font = 'bold 21px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    const displayName = nickname || plant.species || 'Plant';
-    ctx.fillText(fitText(ctx, displayName, textW), textX, 7);
+    // 1. Name of the plant (Bold 26px, prominent and readable)
+    ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
+    ctx.fillText(fitText(ctx, plantDisplayName, textW), textX, 12);
 
-    // Line 2: Botanical Species (14px semibold with room to breathe)
-    ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    const speciesText = plant.species || 'Verdant Specimen';
-    ctx.fillText(fitText(ctx, speciesText, textW), textX, 35);
-
-    // Line 3: Family + ID Badge (11px monospace)
-    ctx.font = '700 11px ui-monospace, SFMono-Regular, Menlo, monospace';
-    const familyAndId = [plant.family, barcodeValue].filter(Boolean).join(' · ');
-    ctx.fillText(fitText(ctx, familyAndId, textW), textX, 58);
-
-    // Line 4: Compact timestamp or brand signature
-    ctx.font = '500 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillText('VERDANT BOTANICAL ARCHIVE', textX, 76);
+    // 2. Species (Semibold 17px, clean contrast)
+    ctx.font = '600 17px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
+    ctx.fillText(fitText(ctx, speciesDisplayName, textW), textX, 54);
   } else {
     // -------------------------------------------------------------
-    // LAYOUT 2: LINEAR CODE 128B BARCODE (SPACIOUS & DE-CLUTTERED)
-    // Optimized vertical balance: reduced barcode height & integer 2px bars
+    // BARCODE LAYOUT:
+    // Top: Bold plant name (24px) + Species (16px)
+    // Bottom: Code 128B Barcode (34px height)
     // -------------------------------------------------------------
-    const padX = 14;
+    const padX = 12;
     const maxTextWidth = D110_LABEL_W_PX - padX * 2;
 
     ctx.fillStyle = '#000000';
     ctx.textBaseline = 'top';
 
-    // Line 1: Bold Nickname (19px)
-    ctx.textAlign = 'left';
-    ctx.font = 'bold 19px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillText(fitText(ctx, nickname || plant.species || 'Plant', maxTextWidth), padX, 3);
+    // 1. Name of the plant (Bold 24px)
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
+    ctx.fillText(fitText(ctx, plantDisplayName, maxTextWidth), D110_LABEL_W_PX / 2, 6);
 
-    // Line 2: Species · Family (12px, clean spacing)
-    const subline = [plant.species, plant.family].filter(Boolean).join(' · ');
-    ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillText(fitText(ctx, subline || 'Verdant Specimen', maxTextWidth), padX, 24);
+    // 2. Species (16px semibold)
+    ctx.font = '600 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
+    ctx.fillText(fitText(ctx, speciesDisplayName, maxTextWidth), D110_LABEL_W_PX / 2, 33);
 
-    // Line 3: Code 128B Barcode (26px height with 2px integer bars)
+    // 3. Code 128B Barcode
     const modules = encodeCode128B(barcodeValue);
-    const maxBarcodeWidth = D110_LABEL_W_PX - 28;
+    const maxBarcodeWidth = D110_LABEL_W_PX - 24;
     const barWidth = modules.length * 2 <= maxBarcodeWidth ? 2 : 1;
     const totalBarcodeWidth = modules.length * barWidth;
     const startX = Math.floor((D110_LABEL_W_PX - totalBarcodeWidth) / 2);
-    const barcodeY = 41;
-    const barcodeH = 26;
+    const barcodeY = 56;
+    const barcodeH = 34;
 
     for (let i = 0; i < modules.length; i++) {
       if (modules[i] === 1) {
         ctx.fillRect(startX + i * barWidth, barcodeY, barWidth, barcodeH);
       }
     }
-
-    // Line 4: Human-readable ID (12px monospace, well separated from barcode bottom)
-    ctx.font = 'bold 12px ui-monospace, SFMono-Regular, Menlo, monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(barcodeValue, D110_LABEL_W_PX / 2, 73);
   }
 
-  // Hard binarize to eliminate thermal edge bleeding / anti-alias bloom
-  return binarizeCanvas(canvas, 160);
+  // Hard binarize to eliminate thermal bleeding
+  return binarizeCanvas(canvas, 170);
+}
+
+/**
+ * Renders a high-resolution 1200 × 288 px (3× supersampled, 600 DPI) label
+ * for razor-sharp browser printing, desktop printers, AirPrint, and high-DPI image exports.
+ */
+export function renderHighResLabelCanvas(
+  plant: Plant,
+  nickname: string,
+  layout: LabelLayoutType = 'qr'
+): HTMLCanvasElement {
+  const scale = 3;
+  const canvas = document.createElement('canvas');
+  canvas.width = D110_LABEL_W_PX * scale;  // 1200 px
+  canvas.height = D110_LABEL_H_PX * scale; // 288 px
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const barcodeValue = getShortBarcodeId(plant.id);
+  const plantDisplayName = (nickname || plant.species || 'Specimen').trim();
+  const speciesDisplayName = (plant.species || 'Verdant Specimen').trim();
+
+  if (layout === 'qr') {
+    const qrSize = 82 * scale; // 246 px
+    const qrX = 10 * scale;   // 30 px
+    const qrY = 7 * scale;    // 21 px
+    drawQrCodeToCanvas(ctx, barcodeValue, qrX, qrY, qrSize);
+
+    const textX = qrX + qrSize + 14 * scale;
+    const textW = canvas.width - textX - 8 * scale;
+
+    ctx.fillStyle = '#000000';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+
+    // 1. Name of the plant (78px bold)
+    ctx.font = 'bold 78px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
+    ctx.fillText(fitText(ctx, plantDisplayName, textW), textX, 36);
+
+    // 2. Species (51px semibold)
+    ctx.font = '600 51px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
+    ctx.fillText(fitText(ctx, speciesDisplayName, textW), textX, 162);
+  } else {
+    const padX = 12 * scale;
+    const maxTextWidth = canvas.width - padX * 2;
+
+    ctx.fillStyle = '#000000';
+    ctx.textBaseline = 'top';
+
+    // 1. Name of the plant (72px bold)
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 72px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
+    ctx.fillText(fitText(ctx, plantDisplayName, maxTextWidth), canvas.width / 2, 18);
+
+    // 2. Species (48px semibold)
+    ctx.font = '600 48px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
+    ctx.fillText(fitText(ctx, speciesDisplayName, maxTextWidth), canvas.width / 2, 99);
+
+    // 3. Code 128B Barcode
+    const modules = encodeCode128B(barcodeValue);
+    const maxBarcodeWidth = canvas.width - 24 * scale;
+    const barWidth = modules.length * 6 <= maxBarcodeWidth ? 6 : 3;
+    const totalBarcodeWidth = modules.length * barWidth;
+    const startX = Math.floor((canvas.width - totalBarcodeWidth) / 2);
+    const barcodeY = 168;
+    const barcodeH = 102;
+
+    for (let i = 0; i < modules.length; i++) {
+      if (modules[i] === 1) {
+        ctx.fillRect(startX + i * barWidth, barcodeY, barWidth, barcodeH);
+      }
+    }
+  }
+
+  return canvas;
 }
 
 /**

@@ -5,10 +5,11 @@ import { useLanguage } from '../context/LanguageContext';
 import { usePlants } from '../context/PlantContext';
 import { compressImage } from '../services/imageUtils';
 import { generateUUID } from '../services/crypto';
-import { Droplets, Star, Check, RefreshCw, Sun, Thermometer, Wind, Globe, Tag, Printer } from 'lucide-react';
+import { Droplets, Star, Check, RefreshCw, Sun, Thermometer, Wind, Globe, Tag, Printer, Sprout, TreePine } from 'lucide-react';
 import { refreshPlantRecord } from '../services/plantAi';
 import { isPlantTree } from '../utils/botanicalCategory';
 import { PrintLabelModal } from './PrintLabelModal';
+import { useAuth } from '../context/AuthContext';
 
 interface PlantCardProps {
   plant: Partial<Plant>;
@@ -20,6 +21,8 @@ interface PlantCardProps {
 export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', showActions = true, onClick }) => {
   const { t, language, lv } = useLanguage();
   const { addLog, updatePlant, deletePlant, setAlertMessage, getEffectiveApiKey } = usePlants();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'OWNER' || user?.role === 'CO_CEO';
 
   const MiniPill = ({ 
       label, 
@@ -232,14 +235,46 @@ export const PlantCard: React.FC<PlantCardProps> = ({ plant, className = '', sho
                         <span className="italic font-serif">{plant.species}</span>
                         {plant.scientificAuthor ? <span className="text-md-on-surface-variant font-normal ml-1">{plant.scientificAuthor}</span> : null}
                     </p>
-                    {(plant.family || lv(plant.growthHabit as any) || plant.specimenType || isPlantTree(plant)) && (
-                        <p className="text-[11px] text-md-on-surface-variant truncate mt-0.5">
-                            {[
-                                plant.family,
-                                lv(plant.growthHabit as any) || (isPlantTree(plant) ? 'Tree' : null)
-                            ].filter(Boolean).join(' · ')}
-                        </p>
-                    )}
+                    <div className="flex items-center justify-between gap-1.5 mt-0.5">
+                      {(plant.family || lv(plant.growthHabit as any) || plant.specimenType || isPlantTree(plant)) && (
+                          <p className="text-[11px] text-md-on-surface-variant truncate">
+                              {[
+                                  plant.family,
+                                  lv(plant.growthHabit as any) || (isPlantTree(plant) ? 'Tree' : null)
+                              ].filter(Boolean).join(' · ')}
+                          </p>
+                      )}
+                      {isAdmin && plant.id && (
+                        <button
+                          type="button"
+                          title={`Move to ${isPlantTree(plant) ? 'Plants' : 'Trees'} tab (Admin)`}
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const nextType = isPlantTree(plant) ? 'PLANT' : 'TREE';
+                            await updatePlant(plant.id!, { specimenType: nextType });
+                            setAlertMessage(`Moved ${lv(plant.nickname) || plant.species} to ${nextType === 'TREE' ? 'Trees' : 'Plants'} tab.`);
+                            setTimeout(() => setAlertMessage(null), 3000);
+                          }}
+                          className={`shrink-0 ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
+                            isPlantTree(plant)
+                              ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-800 hover:bg-amber-100'
+                              : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100'
+                          }`}
+                        >
+                          {isPlantTree(plant) ? (
+                            <>
+                              <Sprout className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                              <span>To Plants</span>
+                            </>
+                          ) : (
+                            <>
+                              <TreePine className="w-3 h-3 text-amber-700 dark:text-amber-400" />
+                              <span>To Trees</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
                 </div>
 
                 {/* QUICK BOTANICAL SPECS */}

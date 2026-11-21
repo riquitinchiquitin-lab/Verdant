@@ -21,8 +21,9 @@ export type SupportedLang = typeof TARGET_LANGS[number];
 export function isPlantTree(plant?: Partial<Plant> | null): boolean {
   if (!plant) return false;
 
-  // 1. Explicit user or database designation
+  // 1. Explicit user or database designation (Admin manual override)
   if (plant.specimenType === 'TREE') return true;
+  if (plant.specimenType === 'PLANT') return false;
 
   // Check category across all languages
   const categoryStr = typeof (plant.category as unknown) === 'string'

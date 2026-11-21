@@ -7,11 +7,11 @@ import { usePlants } from '../context/PlantContext';
 import { useAuth } from '../context/AuthContext';
 import { translateInput, translateArrayInput, translateObjectInput } from '../services/translationService';
 import { refreshPlantRecord } from '../services/plantAi';
-import { RefreshCw, Trash2 } from 'lucide-react';
+import { RefreshCw, Trash2, Sprout, TreePine } from 'lucide-react';
 import { CameraCapture } from './ui/CameraCapture';
 import { compressImage } from '../services/imageUtils';
 import { ROOM_TYPES, CURRENCIES, getCurrencyForLanguage } from '../constants';
-import { inferPlantCategory } from '../utils/botanicalCategory';
+import { inferPlantCategory, isPlantTree } from '../utils/botanicalCategory';
 
 interface EditPlantModalProps {
   isOpen: boolean;
@@ -58,6 +58,7 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
   const [refreshedData, setRefreshedData] = useState<Partial<Plant> | null>(null);
   const [isAddingImage, setIsAddingImage] = useState(false);
   const [isTransferring, setIsTransferring] = useState(false);
+  const [specimenType, setSpecimenType] = useState<'PLANT' | 'TREE'>('PLANT');
 
   // LOGIC: If a plant has no house, only Owner or CEO can assign it to one.
   const isUnattributed = !plant.houseId;
@@ -79,6 +80,7 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
     const currentRoom = lv(plant.room as any);
     setNickname(currentNickname);
     setRoom(currentRoom);
+    setSpecimenType(plant.specimenType || (isPlantTree(plant) ? 'TREE' : 'PLANT'));
     const initialCategory = lv(plant.category as any);
     if (initialCategory && initialCategory.trim()) {
       setCategory(initialCategory);
@@ -189,6 +191,7 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
           const finalUpdates: Partial<Plant> = { 
               ...safeRefreshed,
               species: plant.species,
+              specimenType: isAdmin ? specimenType : plant.specimenType,
               nickname: batchResults.nickname || safeRefreshed.nickname || plant.nickname, 
               room: batchResults.room ? batchResults.room : (room.trim() ? room.trim() : null),
               category: category.trim()
@@ -265,6 +268,48 @@ export const EditPlantModal: React.FC<EditPlantModalProps> = ({ isOpen, onClose,
                   onChange={(e) => setNickname(e.target.value)}
               />
           </div>
+
+          {isAdmin && (
+            <div className="p-4 rounded-2xl bg-md-surface-container-high border border-md-outline-variant/50 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-md-on-surface uppercase tracking-wider">
+                  Specimen Classification (Admin Only)
+                </label>
+                <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-md-primary/10 text-md-primary">
+                  {specimenType === 'TREE' ? '🌳 Currently Trees Tab' : '🌿 Currently Plants Tab'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setSpecimenType('PLANT')}
+                  className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-bold transition-all ${
+                    specimenType === 'PLANT'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'bg-md-surface-container text-md-on-surface-variant hover:text-md-on-surface border border-md-outline-variant/30'
+                  }`}
+                >
+                  <Sprout className="w-4 h-4" />
+                  <span>Herbaceous Plant</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSpecimenType('TREE')}
+                  className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-bold transition-all ${
+                    specimenType === 'TREE'
+                      ? 'bg-amber-800 text-white shadow-md'
+                      : 'bg-md-surface-container text-md-on-surface-variant hover:text-md-on-surface border border-md-outline-variant/30'
+                  }`}
+                >
+                  <TreePine className="w-4 h-4" />
+                  <span>Arborescent Tree</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-md-on-surface-variant leading-relaxed">
+                Move between the <strong>Plants</strong> and <strong>Trees</strong> dashboard tabs.
+              </p>
+            </div>
+          )}
 
           <div>
               <label className="block text-xs font-semibold text-md-on-surface-variant uppercase tracking-wider mb-1.5 px-1">{t('primary_command_site')}</label>

@@ -6,6 +6,7 @@ import { Plant } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import {
   renderD110LabelCanvas,
+  renderHighResLabelCanvas,
   getShortBarcodeId,
   isNiimbotWebBluetoothSupported,
   isNiimbotWebSerialSupported,
@@ -81,9 +82,9 @@ export const PrintLabelModal: React.FC<PrintLabelModalProps> = ({
   };
 
   const handleBrowserPrint = () => {
-    if (!canvasRef.current) return;
-    const dataUrl = canvasRef.current.toDataURL('image/png');
-    const printWindow = window.open('', '_blank', 'width=700,height=500');
+    const highResCanvas = renderHighResLabelCanvas(fullPlant, lv(fullPlant.nickname), layout);
+    const dataUrl = highResCanvas.toDataURL('image/png');
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) {
       setPrintError('Popup blocked by browser. Please allow popups to use browser print.');
       return;
@@ -111,9 +112,7 @@ export const PrintLabelModal: React.FC<PrintLabelModalProps> = ({
               width: 50mm;
               height: 15mm;
               object-fit: contain;
-              image-rendering: -webkit-optimize-contrast;
-              image-rendering: crisp-edges;
-              image-rendering: pixelated;
+              image-rendering: auto;
             }
           </style>
         </head>
@@ -126,10 +125,10 @@ export const PrintLabelModal: React.FC<PrintLabelModalProps> = ({
   };
 
   const handleDownloadPng = () => {
-    if (!canvasRef.current) return;
-    const url = canvasRef.current.toDataURL('image/png');
+    const highResCanvas = renderHighResLabelCanvas(fullPlant, lv(fullPlant.nickname), layout);
+    const url = highResCanvas.toDataURL('image/png');
     const link = document.createElement('a');
-    link.download = `label_${fullPlant.id || 'plant'}_15x50mm_${layout}.png`;
+    link.download = `label_${fullPlant.id || 'plant'}_15x50mm_600dpi_${layout}.png`;
     link.href = url;
     link.click();
   };

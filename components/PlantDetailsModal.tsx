@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Leaf, Camera, Edit3, Activity, ScanBarcode, Droplets, FileText, Star, FlaskConical, Scissors, Sprout, Flower2, ArrowLeftRight, Globe, Ruler, Tag, Home, Sun, X, RefreshCw, Calendar, Dna, Wheat, Snowflake, Trash2, ShieldCheck, ShieldAlert, Sparkles, Bug, Plus, SlidersHorizontal, AlertTriangle, MapPin } from 'lucide-react';
+import { Leaf, Camera, Edit3, Activity, ScanBarcode, Droplets, FileText, Star, FlaskConical, Scissors, Sprout, TreePine, Flower2, ArrowLeftRight, Globe, Ruler, Tag, Home, Sun, X, RefreshCw, Calendar, Dna, Wheat, Snowflake, Trash2, ShieldCheck, ShieldAlert, Sparkles, Bug, Plus, SlidersHorizontal, AlertTriangle, MapPin } from 'lucide-react';
 import { Plant, Log, LogType, LocalizedString, PhenophaseType } from '../types';
 import { Button } from './ui/Button';
 import { usePlants } from '../context/PlantContext';
@@ -61,7 +61,18 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
   const { consumeItem } = useInventory();
   const { t, lv, lva, language } = useLanguage();
   const { user } = useAuth();
+  const isAdmin = user?.role === 'OWNER' || user?.role === 'CO_CEO';
   const [compatHouseId, setCompatHouseId] = useState<string>('');
+
+  const handleToggleSpecimenType = async () => {
+    if (!isAdmin || !plant) return;
+    const isTree = isPlantTree(plant);
+    const nextType: 'PLANT' | 'TREE' = isTree ? 'PLANT' : 'TREE';
+    await updatePlant(plant.id, { specimenType: nextType });
+    const msg = `Moved ${lv(plant.nickname) || plant.species} to ${nextType === 'TREE' ? 'Trees' : 'Plants'} tab.`;
+    setAlertMessage(msg);
+    setTimeout(() => setAlertMessage(null), 4000);
+  };
 
   const PassportItem = ({ icon, label, value, subValue }: { icon: React.ReactNode, label: string, value: string, subValue?: string }) => (
     <div className="space-y-2">
@@ -629,6 +640,30 @@ export const PlantDetailsModal: React.FC<PlantDetailsModalProps> = ({ isOpen, on
                       >
                         <Tag className="w-4 h-4" />
                       </motion.button>
+                      {isAdmin && (
+                        <motion.button
+                          whileTap={{ scale: 0.94 }}
+                          onClick={handleToggleSpecimenType}
+                          title={isPlantTree(plant) ? "Move to Plants Tab (Admin)" : "Move to Trees Tab (Admin)"}
+                          className={`m3-state-layer h-11 px-3.5 rounded-full flex items-center gap-1.5 text-xs font-bold transition-all border ${
+                            isPlantTree(plant)
+                              ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-800 hover:border-amber-500'
+                              : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800 hover:border-emerald-500'
+                          }`}
+                        >
+                          {isPlantTree(plant) ? (
+                            <>
+                              <Sprout className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                              <span className="hidden sm:inline">Move to Plants</span>
+                            </>
+                          ) : (
+                            <>
+                              <TreePine className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+                              <span className="hidden sm:inline">Move to Trees</span>
+                            </>
+                          )}
+                        </motion.button>
+                      )}
                       <motion.button
                         whileTap={{ scale: 0.94 }}
                         onClick={handleTogglePriority}

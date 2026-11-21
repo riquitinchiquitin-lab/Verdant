@@ -45,6 +45,8 @@ test('isPlantTree strictly rejects false-positive non-tree flora', () => {
     { species: 'Begonia maculata', nickname: { en: 'Polka Dot Begonia' }, family: 'Begoniaceae', maxHeight: 80 },
     // Height under 150cm without tree traits
     { species: 'Ocimum basilicum', nickname: { en: 'Sweet Basil' }, family: 'Lamiaceae', maxHeight: 50 },
+    // Explicit admin override: even if species is naturally a tree, specimenType: 'PLANT' overrides it
+    { species: 'Acer rubrum', nickname: { en: 'Bonsai Seedling' }, specimenType: 'PLANT' }
   ];
 
   for (const tc of nonTrees) {
