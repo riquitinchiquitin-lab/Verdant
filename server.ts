@@ -1193,10 +1193,11 @@ app.post('/api/system/smtp', checkAuth, async (req, res) => {
 
     const now = new Date().toISOString();
     for (const [k, v] of Object.entries(updates)) {
+      const dbValue = (k === 'SMTP_PASS' && currentVaultKey) ? `enc:${encrypt(v)}` : v;
       await query(
         `INSERT INTO system_settings (key, value, updatedAt) VALUES (?, ?, ?)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value, updatedAt = excluded.updatedAt`,
-        [k, v, now]
+        [k, dbValue, now]
       );
     }
 
@@ -3162,14 +3163,22 @@ async function initializeDatabase() {
     }
   }
 
-  // Hydrate persisted hosting & workspace settings
+  // Hydrate persisted hosting, SMTP & workspace settings (decrypting enc: values with AES-256-GCM)
   try {
     const savedSettings = await query('SELECT key, value FROM system_settings');
     for (const row of savedSettings.rows) {
-      if (row.key && typeof row.value === 'string' && !process.env[row.key]) {
-        process.env[row.key] = row.value;
-      } else if (row.key && typeof row.value === 'string' && ['WORKSPACE_NAME', 'HOSTING_MODE', 'APP_URL', 'TAILSCALE_DOMAIN', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'].includes(row.key)) {
-        process.env[row.key] = row.value;
+      if (!row.key || typeof row.value !== 'string') continue;
+      let resolved = row.value;
+      if (resolved.startsWith('enc:')) {
+        try {
+          const dec = decrypt(resolved.slice(4));
+          resolved = typeof dec === 'string' ? dec : String(dec ?? '');
+        } catch {
+          continue;
+        }
+      }
+      if (!process.env[row.key] || ['WORKSPACE_NAME', 'HOSTING_MODE', 'APP_URL', 'TAILSCALE_DOMAIN', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'].includes(row.key)) {
+        process.env[row.key] = resolved;
       }
     }
   } catch (e) {}
