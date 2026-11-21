@@ -1143,7 +1143,7 @@ app.post('/api/system/smtp', checkAuth, async (req, res) => {
       process.env.SMTP_HOST = host.trim();
     }
     if (smtpPort !== undefined) {
-      updates.SMTP_PORT = String(Number(smtpPort) || 587);
+      updates.SMTP_PORT = String(Number(smtpPort) || 465);
       process.env.SMTP_PORT = updates.SMTP_PORT;
     }
     if (typeof user === 'string') {
@@ -1158,14 +1158,30 @@ app.post('/api/system/smtp', checkAuth, async (req, res) => {
       updates.SMTP_FROM = from.trim();
       process.env.SMTP_FROM = from.trim();
     }
-    updateEnvFile(updates);
+
+    const now = new Date().toISOString();
+    for (const [k, v] of Object.entries(updates)) {
+      await query(
+        `INSERT INTO system_settings (key, value, updatedAt) VALUES (?, ?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updatedAt = excluded.updatedAt`,
+        [k, v, now]
+      );
+    }
+
+    try {
+      if (Object.keys(updates).length > 0) upsertEnvFile(updates);
+    } catch (envErr) {
+      console.warn('[SMTP] Could not write .env file (non-fatal, saved in SQLite):', envErr);
+    }
+
     await logSystemEvent('SMTP_CONFIG_UPDATED', `SMTP settings updated by ${(req as any).userId}`, 'INFO');
     res.json({
       status: 'ok',
       configured: Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS)
     });
-  } catch (e) {
-    res.status(500).json({ error: 'SMTP_SAVE_FAULT' });
+  } catch (e: any) {
+    console.error('[SMTP] Save error:', e);
+    res.status(500).json({ error: e?.message || 'SMTP_SAVE_FAULT' });
   }
 });
 
@@ -3152,7 +3168,7 @@ async function initializeDatabase() {
     for (const row of savedSettings.rows) {
       if (row.key && typeof row.value === 'string' && !process.env[row.key]) {
         process.env[row.key] = row.value;
-      } else if (row.key && typeof row.value === 'string' && ['WORKSPACE_NAME', 'HOSTING_MODE', 'APP_URL', 'TAILSCALE_DOMAIN'].includes(row.key)) {
+      } else if (row.key && typeof row.value === 'string' && ['WORKSPACE_NAME', 'HOSTING_MODE', 'APP_URL', 'TAILSCALE_DOMAIN', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'].includes(row.key)) {
         process.env[row.key] = row.value;
       }
     }
