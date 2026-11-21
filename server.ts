@@ -246,6 +246,38 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '100mb' }));
 
+// Global AES-256-GCM Payload Decryption / Encryption Middleware (Must run immediately after express.json)
+app.use(async (req, res, next) => {
+  const isEncrypted = req.headers['x-payload-encryption'] === 'AES-256-GCM';
+  if (isEncrypted && req.body?.vault) {
+    try {
+      req.body = decrypt(req.body.vault);
+      (req as any).wasEncrypted = true;
+    } catch (e) {
+      console.error('[SECURITY] Decryption Protocol Fault:', e);
+      return res.status(400).json({ error: "DECRYPTION_PROTOCOL_FAULT" });
+    }
+  }
+  const originalJson = res.json;
+  res.json = function (data) {
+    const isVaultKeyPost = (req.path === '/api/system/vault-key' || req.url.startsWith('/api/system/vault-key')) && req.method === 'POST';
+    if (isVaultKeyPost) return originalJson.call(this, data);
+    if ((req as any).wasEncrypted && currentVaultKey) {
+      try {
+        const encrypted = encrypt(data);
+        res.setHeader('X-Payload-Encryption', 'AES-256-GCM');
+        return originalJson.call(this, { vault: encrypted, secure: true });
+      } catch (e) {
+        console.error('[SECURITY] Encryption failed (failing closed):', e);
+        res.status(500);
+        return originalJson.call(this, { error: 'ENCRYPTION_PROTOCOL_FAULT' });
+      }
+    }
+    return originalJson.call(this, data);
+  };
+  next();
+});
+
 // --- SESSION TOKEN, ARGON2ID & FIDO2 / WEBAUTHN HELPERS ---
 const hashPassword = async (password: string): Promise<string> => {
   return argon2.hash(normalizeUnicode(password), {
@@ -1619,38 +1651,6 @@ const checkHouseAccess = (req: express.Request, res: express.Response, next: exp
   }
   next();
 };
-
-app.use(async (req, res, next) => {
-  const isEncrypted = req.headers['x-payload-encryption'] === 'AES-256-GCM';
-  if (isEncrypted && req.body?.vault) {
-    try {
-      req.body = decrypt(req.body.vault);
-      (req as any).wasEncrypted = true;
-    }
-    catch (e) { 
-      console.error('[SECURITY] Decryption Protocol Fault:', e);
-      return res.status(400).json({ error: "DECRYPTION_PROTOCOL_FAULT" }); 
-    }
-  }
-  const originalJson = res.json;
-  res.json = function (data) {
-    const isVaultKeyPost = (req.path === '/api/system/vault-key' || req.url.startsWith('/api/system/vault-key')) && req.method === 'POST';
-    if (isVaultKeyPost) return originalJson.call(this, data);
-    if ((req as any).wasEncrypted && currentVaultKey) {
-      try {
-        const encrypted = encrypt(data);
-        res.setHeader('X-Payload-Encryption', 'AES-256-GCM');
-        return originalJson.call(this, { vault: encrypted, secure: true });
-      } catch (e) { 
-        console.error('[SECURITY] Encryption failed (failing closed):', e);
-        res.status(500);
-        return originalJson.call(this, { error: 'ENCRYPTION_PROTOCOL_FAULT' });
-      }
-    }
-    return originalJson.call(this, data);
-  };
-  next();
-});
 
 // 2. CORE API ROUTES
 app.get('/api/system/config', checkAuth, (req, res) => {
