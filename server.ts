@@ -1733,6 +1733,76 @@ app.post('/api/system/vault-key', checkAuth, async (req, res) => {
   }
 });
 
+const backupsDir = path.join(dataDir, 'backups');
+if (!fs.existsSync(backupsDir)) {
+  try {
+    fs.mkdirSync(backupsDir, { recursive: true, mode: 0o700 });
+  } catch {}
+}
+
+async function generateFullBackupObject() {
+  const plants = await query('SELECT * FROM plants');
+  const houses = await query('SELECT * FROM houses');
+  const tasks = await query('SELECT * FROM tasks');
+  const inventory = await query('SELECT * FROM inventory');
+  const users = await query('SELECT * FROM users');
+  const webauthnCredentials = await query('SELECT * FROM webauthn_credentials');
+  const securityPolicy = await query('SELECT * FROM security_policy');
+  const logs = await query('SELECT * FROM system_logs');
+
+  const safeParse = (data: any) => {
+    if (!data) return {};
+    try { return JSON.parse(data); }
+    catch { return {}; }
+  };
+
+  return {
+    plants: plants.rows.map((r: any) => ({ ...safeParse(r.data), id: r.id, houseId: r.houseId })),
+    houses: houses.rows.map((r: any) => ({ ...safeParse(r.data), id: r.id })),
+    tasks: tasks.rows.map((r: any) => ({ ...safeParse(r.data), id: r.id })),
+    inventory: inventory.rows.map((r: any) => ({ ...safeParse(r.data), id: r.id })),
+    users: users.rows.map((u: any) => ({
+      ...u,
+      name: safeParse(u.name),
+    })),
+    webauthn_credentials: webauthnCredentials.rows,
+    security_policy: securityPolicy.rows,
+    system_logs: logs.rows,
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  };
+}
+
+function saveEncryptedSnapshotToDisk(backupObj: any): { filename: string; sizeBytes: number; createdAt: string } | null {
+  if (!currentVaultKey) return null;
+  try {
+    if (!fs.existsSync(backupsDir)) {
+      fs.mkdirSync(backupsDir, { recursive: true, mode: 0o700 });
+    }
+    const encryptedContent = encrypt(backupObj);
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `verdant_backup_${stamp}.enc`;
+    const fullPath = path.join(backupsDir, filename);
+    fs.writeFileSync(fullPath, encryptedContent, { encoding: 'utf8', mode: 0o600 });
+
+    // Retain top 15 latest snapshots
+    const allFiles = fs.readdirSync(backupsDir)
+      .filter(f => f.endsWith('.enc') || f.endsWith('.json'))
+      .map(f => ({ name: f, mtime: fs.statSync(path.join(backupsDir, f)).mtimeMs }))
+      .sort((a, b) => b.mtime - a.mtime);
+
+    for (const old of allFiles.slice(15)) {
+      try { fs.unlinkSync(path.join(backupsDir, old.name)); } catch {}
+    }
+
+    const stat = fs.statSync(fullPath);
+    return { filename, sizeBytes: stat.size, createdAt: new Date(stat.mtimeMs).toISOString() };
+  } catch (err) {
+    console.warn('[BACKUP] Disk snapshot save skipped:', err);
+    return null;
+  }
+}
+
 app.get('/api/system/backup', checkAuth, async (req, res) => {
   const role = (req as any).userRole;
   if (!['OWNER', 'CO_CEO'].includes(role)) {
@@ -1742,36 +1812,8 @@ app.get('/api/system/backup', checkAuth, async (req, res) => {
     return res.status(500).json({ error: "VAULT_KEY_MISSING" });
   }
   try {
-    const plants = await query('SELECT * FROM plants');
-    const houses = await query('SELECT * FROM houses');
-    const tasks = await query('SELECT * FROM tasks');
-    const inventory = await query('SELECT * FROM inventory');
-    const users = await query('SELECT * FROM users');
-    const webauthnCredentials = await query('SELECT * FROM webauthn_credentials');
-    const securityPolicy = await query('SELECT * FROM security_policy');
-    const logs = await query('SELECT * FROM system_logs');
-
-    const safeParse = (data: any) => {
-      if (!data) return {};
-      try { return JSON.parse(data); }
-      catch(e) { return {}; }
-    };
-
-    const backup = {
-      plants: plants.rows.map((r: any) => ({ ...safeParse(r.data), id: r.id, houseId: r.houseId })),
-      houses: houses.rows.map((r: any) => ({ ...safeParse(r.data), id: r.id })),
-      tasks: tasks.rows.map((r: any) => ({ ...safeParse(r.data), id: r.id })),
-      inventory: inventory.rows.map((r: any) => ({ ...safeParse(r.data), id: r.id })),
-      users: users.rows.map((u: any) => ({
-        ...u,
-        name: safeParse(u.name),
-      })),
-      webauthn_credentials: webauthnCredentials.rows,
-      security_policy: securityPolicy.rows,
-      system_logs: logs.rows,
-      timestamp: new Date().toISOString(),
-      version: '1.0.0'
-    };
+    const backup = await generateFullBackupObject();
+    saveEncryptedSnapshotToDisk(backup);
 
     // Force encryption for backup
     (req as any).wasEncrypted = true;
@@ -1781,6 +1823,89 @@ app.get('/api/system/backup', checkAuth, async (req, res) => {
   } catch (e) {
     console.error("[ADMIN] Backup Fault:", e);
     res.status(500).json({ error: "BACKUP_FAULT" });
+  }
+});
+
+// List all on-server backup files in data/backups
+app.get('/api/system/backups', checkAuth, async (req, res) => {
+  const role = (req as any).userRole;
+  if (!['OWNER', 'CO_CEO'].includes(role)) {
+    return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+  }
+  try {
+    if (!fs.existsSync(backupsDir)) {
+      return res.json([]);
+    }
+    const files = fs.readdirSync(backupsDir)
+      .filter(f => (f.endsWith('.enc') || f.endsWith('.json')) && !f.includes('..') && !f.includes('/'))
+      .map(f => {
+        const st = fs.statSync(path.join(backupsDir, f));
+        return {
+          filename: f,
+          sizeBytes: st.size,
+          createdAt: new Date(st.mtimeMs).toISOString(),
+          encrypted: f.endsWith('.enc')
+        };
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    res.json(files);
+  } catch (e) {
+    res.status(500).json({ error: "BACKUPS_LIST_FAULT" });
+  }
+});
+
+// Create an on-server encrypted backup snapshot immediately
+app.post('/api/system/backups/create', checkAuth, async (req, res) => {
+  const role = (req as any).userRole;
+  if (!['OWNER', 'CO_CEO'].includes(role)) {
+    return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+  }
+  if (!currentVaultKey) {
+    return res.status(500).json({ error: "VAULT_KEY_MISSING" });
+  }
+  try {
+    const backup = await generateFullBackupObject();
+    const meta = saveEncryptedSnapshotToDisk(backup);
+    if (!meta) return res.status(500).json({ error: "SNAPSHOT_WRITE_FAULT" });
+    await logSystemEvent('SERVER_BACKUP_SNAPSHOT_CREATED', `Snapshot ${meta.filename} created by ${(req as any).userId}`, 'INFO');
+    res.json({ status: 'ok', snapshot: meta });
+  } catch (e) {
+    res.status(500).json({ error: "SNAPSHOT_CREATE_FAULT" });
+  }
+});
+
+// Download a specific on-server backup file
+app.get('/api/system/backups/:filename', checkAuth, async (req, res) => {
+  const role = (req as any).userRole;
+  if (!['OWNER', 'CO_CEO'].includes(role)) {
+    return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+  }
+  const safeName = path.basename(req.params.filename || '');
+  const fullPath = path.join(backupsDir, safeName);
+  if (!safeName || !fs.existsSync(fullPath)) {
+    return res.status(404).json({ error: "BACKUP_FILE_NOT_FOUND" });
+  }
+  const content = fs.readFileSync(fullPath, 'utf8');
+  res.json({ filename: safeName, content });
+});
+
+// Delete a specific on-server backup file
+app.delete('/api/system/backups/:filename', checkAuth, async (req, res) => {
+  const role = (req as any).userRole;
+  if (!['OWNER', 'CO_CEO'].includes(role)) {
+    return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+  }
+  const safeName = path.basename(req.params.filename || '');
+  const fullPath = path.join(backupsDir, safeName);
+  if (!safeName || !fs.existsSync(fullPath)) {
+    return res.status(404).json({ error: "BACKUP_FILE_NOT_FOUND" });
+  }
+  try {
+    fs.unlinkSync(fullPath);
+    await logSystemEvent('SERVER_BACKUP_DELETED', `Snapshot ${safeName} deleted by ${(req as any).userId}`, 'WARN');
+    res.json({ status: 'ok' });
+  } catch {
+    res.status(500).json({ error: "BACKUP_DELETE_FAULT" });
   }
 });
 

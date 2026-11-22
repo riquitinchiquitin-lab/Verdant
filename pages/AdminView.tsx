@@ -22,6 +22,7 @@ import { exportCombinedLogsToExcel } from '../services/exportService';
 import { lookupLocationZone } from '../services/botanicalServices';
 import { SOIL_LABELS } from '../utils/compatibility';
 import { BatchRefreshModal } from '../components/BatchRefreshModal';
+import { BackupVaultManager } from '../components/BackupVaultManager';
 import { ShieldCheck, KeyRound, CheckCircle2, AlertTriangle, Globe, MapPin, Search, RefreshCw, Eye, EyeOff, Copy, Check, Wand2, Lock, MessageSquare, Link2 } from 'lucide-react';
 
 export const AdminView: React.FC = () => {
@@ -155,11 +156,18 @@ export const AdminView: React.FC = () => {
 
     if (file.name.endsWith('.enc')) {
       setPendingBackupFile(file);
-      setBackupKeyInput('');
+      setBackupKeyInput(localStorage.getItem('verdant_master_key') || '');
       setIsBackupKeyModalOpen(true);
     } else {
       processRestore(file, null);
     }
+  };
+
+  const handleRestoreFromRawContent = (rawContent: string, filename: string, key: string) => {
+    const file = new File([rawContent], filename, { type: 'application/octet-stream' });
+    setPendingBackupFile(file);
+    setBackupKeyInput(key);
+    setIsBackupKeyModalOpen(true);
   };
 
   const handleBackupKeySubmit = () => {
@@ -1532,6 +1540,14 @@ export const AdminView: React.FC = () => {
                         {t('btn_download_backup')}
                     </Button>
                 </div>
+
+                <BackupVaultManager
+                    onTriggerRestoreWithContent={handleRestoreFromRawContent}
+                    onRotateKey={handleRotateKey}
+                    onExportKeyFile={handleExportPublicKey}
+                    hasMasterKey={hasMasterKey}
+                />
+
                 <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-200 dark:border-slate-800 shadow-sm space-y-6 text-slate-900 dark:text-white md:col-span-2">
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                         <div className="space-y-1">
