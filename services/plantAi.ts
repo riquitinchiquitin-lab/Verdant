@@ -623,15 +623,27 @@ export const createPlant = (data: Partial<Plant>): Plant => {
   } as Plant;
 };
 
+export type HealthSeverity = 'HEALTHY' | 'MILD' | 'MODERATE' | 'CRITICAL';
+export type HealthCauseCategory = 'HYDRATION' | 'NUTRIENT' | 'PEST' | 'FUNGAL_DISEASE' | 'ENVIRONMENT' | 'ROOT_BOUND' | 'NONE';
+
+export interface PlantHealthDiagnosisResult {
+  diagnosis: LocalizedString;
+  recoveryPlan: LocalizedArray;
+  severity?: HealthSeverity;
+  causeCategory?: HealthCauseCategory;
+  recommendedInventoryIds?: string[];
+}
+
 /**
- * 4. Health Diagnosis via Gemini
+ * 4. Health Diagnosis via Gemini (Enriched with Care History Telemetry & Available Inventory)
  */
 export const analyzePlantHealth = async (
   plant: Plant,
   base64?: string | null,
   userObservations?: string,
-  apiKey?: string
-): Promise<{ diagnosis: LocalizedString; recoveryPlan: LocalizedArray } | null> => {
+  apiKey?: string,
+  availableInventory?: { id: string; name: string; category: string }[]
+): Promise<PlantHealthDiagnosisResult | null> => {
   const model = 'gemini-3-flash-preview';
 
   const translationSchema = {
@@ -640,15 +652,48 @@ export const analyzePlantHealth = async (
     required: TARGET_LANGS
   };
 
+  // Extract recent care telemetry so the AI understands real environmental conditions
+  const logs = [...(plant.logs || [])].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const lastWaterLog = logs.find(l => l.type === 'WATER');
+  const lastWaterDate = plant.lastWatered || lastWaterLog?.date;
+  const daysSinceWatered = lastWaterDate
+    ? Math.floor((Date.now() - new Date(lastWaterDate).getTime()) / 86400000)
+    : null;
+  const lastMoistureLog = logs.find(l => l.type === 'MOISTURE');
+  const lastFertilizerLog = logs.find(l => l.type === 'FERTILIZED');
+  const lastRepotLog = logs.find(l => l.type === 'REPOTTED');
+
+  const careTelemetrySummary = [
+    daysSinceWatered !== null ? `Last watered: ${daysSinceWatered} day(s) ago` : 'Last watered: Unknown',
+    plant.wateringInterval ? `Target watering interval: every ${plant.wateringInterval} days` : null,
+    lastMoistureLog?.metadata?.moistureLevel !== undefined ? `Latest soil moisture probe reading: ${lastMoistureLog.metadata.moistureLevel}/10` : null,
+    lastFertilizerLog ? `Last fertilized: ${new Date(lastFertilizerLog.date).toISOString().split('T')[0]} (${lastFertilizerLog.metadata?.productName || 'Standard'})` : 'No recent fertilizer log',
+    lastRepotLog ? `Last repotted: ${new Date(lastRepotLog.date).toISOString().split('T')[0]}` : null,
+    typeof plant.room === 'string' ? `Location/Room: ${plant.room}` : (plant.room?.en ? `Location/Room: ${plant.room.en}` : null),
+    typeof plant.windowExposure === 'string' ? `Window Exposure: ${plant.windowExposure}` : (plant.windowExposure?.en ? `Window Exposure: ${plant.windowExposure.en}` : null),
+    plant.lastPotSizeCm ? `Pot Size: ${plant.lastPotSizeCm} cm` : (plant.lastPotSize ? `Pot Size: ${plant.lastPotSize}` : null),
+  ].filter(Boolean).join(' | ');
+
+  const inventorySummary = availableInventory && availableInventory.length > 0
+    ? availableInventory.map(item => `[ID: "${item.id}"] ${item.name} (${item.category})`).join('; ')
+    : 'None registered';
+
   const hasImage = Boolean(base64 && base64.trim().length > 0);
   const prompt = `
     Act as a Master Botanical Pathologist and Plant Health Specialist. 
     ${hasImage ? 'Analyze the specimen photo and observations' : 'Analyze the described observations and botanical symptoms'} for health issues affecting this "${plant.species}". 
     SPECIMEN IDENTIFIERS: Nickname "${plant.nickname?.en || Object.values(plant.nickname || {})[0] || 'Specimen'}", Family "${plant.family || 'Unknown'}", Growth Habit "${plant.growthHabit?.en || 'Standard'}".
+    CARE TELEMETRY & HISTORY: ${careTelemetrySummary}.
+    AVAILABLE TREATMENT INVENTORY ON SITE: ${inventorySummary}.
     USER OBSERVATIONS & SYMPTOMS: "${userObservations || (hasImage ? 'Visual inspection from photo' : 'General wellness check')}".
-    Examine for: chlorosis, leaf curl, nutrient deficiencies, pest damage, root issues, fungal spots, overwatering/underwatering signs, or environmental stress.
-    Provide an accurate technical diagnosis and a concrete, actionable step-by-step recovery plan.
-    Localize all text into these 11 language codes: ${TARGET_LANGS.join(',')}.
+    
+    INSTRUCTIONS:
+    1. Cross-reference symptoms with the CARE TELEMETRY (e.g., if watered 1 day ago and yellowing, suspect overwatering/root hypoxia; if 18 days ago on a 7-day schedule, suspect drought stress).
+    2. Examine for: chlorosis, leaf curl, nutrient deficiencies, pest damage, root issues, fungal spots, overwatering/underwatering signs, or environmental stress.
+    3. Classify severity into one of: "HEALTHY", "MILD", "MODERATE", "CRITICAL".
+    4. Classify primary cause into one of: "HYDRATION", "NUTRIENT", "PEST", "FUNGAL_DISEASE", "ENVIRONMENT", "ROOT_BOUND", "NONE".
+    5. If any items in AVAILABLE TREATMENT INVENTORY ON SITE are suitable for treatment (e.g. fungicide, insecticide, fertilizer, soil), reference them by name in the recoveryPlan steps AND return their exact IDs in recommendedInventoryIds.
+    6. Provide an accurate technical diagnosis and a concrete, actionable step-by-step recovery plan localized into these 11 language codes: ${TARGET_LANGS.join(',')}.
   `;
 
   try {
@@ -671,6 +716,18 @@ export const analyzePlantHealth = async (
         responseSchema: {
           type: Type.OBJECT,
           properties: {
+            severity: {
+              type: Type.STRING,
+              enum: ["HEALTHY", "MILD", "MODERATE", "CRITICAL"]
+            },
+            causeCategory: {
+              type: Type.STRING,
+              enum: ["HYDRATION", "NUTRIENT", "PEST", "FUNGAL_DISEASE", "ENVIRONMENT", "ROOT_BOUND", "NONE"]
+            },
+            recommendedInventoryIds: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            },
             diagnosis: translationSchema,
             recoveryPlan: {
               type: Type.OBJECT,
@@ -684,7 +741,7 @@ export const analyzePlantHealth = async (
               required: TARGET_LANGS
             }
           },
-          required: ["diagnosis", "recoveryPlan"]
+          required: ["severity", "causeCategory", "diagnosis", "recoveryPlan"]
         }
       }
     }));
