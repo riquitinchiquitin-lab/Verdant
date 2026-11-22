@@ -55,6 +55,27 @@ export const BackupVaultManager: React.FC<BackupVaultManagerProps> = ({
   const [copiedTemplate, setCopiedTemplate] = useState(false);
 
   const currentMasterKey = localStorage.getItem('verdant_master_key') || '';
+  const isOwner = user?.role === 'OWNER';
+
+  // Auto-hide revealed Master Vault Key after 60 seconds to prevent shoulder-surfing
+  useEffect(() => {
+    if (!showVaultKey) return;
+    const timer = setTimeout(() => setShowVaultKey(false), 60_000);
+    return () => clearTimeout(timer);
+  }, [showVaultKey]);
+
+  const copySensitiveToClipboard = async (secretText: string, onCopied: () => void) => {
+    try {
+      await navigator.clipboard.writeText(secretText);
+      onCopied();
+      // Auto-clear clipboard after 60 seconds if still focused/available
+      setTimeout(() => {
+        navigator.clipboard.writeText('').catch(() => {});
+      }, 60_000);
+    } catch {
+      showNotification('Clipboard access denied by browser', 'ERROR');
+    }
+  };
 
   const loadServerBackups = useCallback(async () => {
     if (!token) return;
@@ -143,7 +164,7 @@ export const BackupVaultManager: React.FC<BackupVaultManagerProps> = ({
   };
 
   const handleDeleteServerBackup = async (filename: string) => {
-    if (!token) return;
+    if (!token || !isOwner) return;
     try {
       const res = await fetchWithAuth(`/api/system/backups/${encodeURIComponent(filename)}`, token, {
         method: 'DELETE',
@@ -151,6 +172,8 @@ export const BackupVaultManager: React.FC<BackupVaultManagerProps> = ({
       if (res.ok) {
         setServerBackups((prev) => prev.filter((b) => b.filename !== filename));
         showNotification('Backup snapshot deleted', 'SUCCESS');
+      } else {
+        showNotification('Only OWNER can delete server snapshots', 'ERROR');
       }
     } catch {
       showNotification('Failed to delete snapshot', 'ERROR');
@@ -159,24 +182,28 @@ export const BackupVaultManager: React.FC<BackupVaultManagerProps> = ({
 
   const handleApplyCustomVaultKey = async () => {
     const cleanKey = importKeyInput.trim();
-    if (cleanKey.length < 32) {
-      showNotification('Vault Security Key must be at least 32–50 characters long.', 'ERROR');
+    if (cleanKey.length < 32 || cleanKey.length > 128 || !/^[A-Za-z0-9_\-!@#$%^&*()+=]+$/.test(cleanKey)) {
+      showNotification('Vault Security Key must be 32–128 valid characters (no spaces or control characters).', 'ERROR');
       return;
     }
     if (!token) return;
     setSavingImportedKey(true);
     try {
-      const res = await fetchWithAuth('/api/system/vault-key', token, {
-        method: 'POST',
-        body: JSON.stringify({ key: cleanKey }),
-      });
-      if (!res.ok) throw new Error('VAULT_SYNC_FAILED');
-      localStorage.setItem('verdant_master_key', cleanKey);
-      setImportKeyInput('');
-      showNotification('Vault Security Key synchronized!', 'SUCCESS');
-      setTimeout(() => window.location.reload(), 1200);
+      if (isOwner) {
+        const res = await fetchWithAuth('/api/system/vault-key', token, {
+          method: 'POST',
+          body: JSON.stringify({ key: cleanKey }),
+        });
+        if (!res.ok) throw new Error('VAULT_SYNC_FAILED');
+        localStorage.setItem('verdant_master_key', cleanKey);
+        setImportKeyInput('');
+        showNotification('Vault Security Key synchronized & re-encrypted!', 'SUCCESS');
+        setTimeout(() => window.location.reload(), 1200);
+      } else {
+        localStorage.setItem('verdant_master_key', cleanKey);
+        showNotification('Vault Key loaded into browser session for backup decryption.', 'SUCCESS');
+      }
     } catch {
-      // Also allow setting it locally if decrypting an older backup
       localStorage.setItem('verdant_master_key', cleanKey);
       showNotification('Vault Key loaded into browser session for backup decryption.', 'SUCCESS');
     } finally {
@@ -187,36 +214,53 @@ export const BackupVaultManager: React.FC<BackupVaultManagerProps> = ({
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://verdant.yknet.org';
   const adminEmail = user?.email || 'admin@verdant.local';
 
-  // Universal Password Manager Template Text
-  const vaultNoteTemplate = [
-    `=== VERDANT BOTANICAL SYSTEMS — MASTER SECURITY VAULT ===`,
-    `Portal URL          : ${appOrigin}`,
-    `Admin Login Email   : ${adminEmail}`,
-    `Master Vault Key    : ${currentMasterKey || '[NOT_GENERATED_YET]'}`,
-    `Encryption Cipher   : AES-256-GCM (128-bit Auth Tag, SHA-256 KDF)`,
-    `Password KDF        : Argon2id (64 MiB Memory, NIST SP 800-63B)`,
-    `2FA / Passkey       : FIDO2 WebAuthn + RFC 6238 TOTP`,
-    `Database Path       : /app/data/verdant.db (Docker) or /root/verdant/data/verdant.db`,
-    `Backup Archive Path : /app/data/backups/*.enc`,
-    `Generated Timestamp : ${new Date().toISOString()}`,
-    `=========================================================`,
-    `IMPORTANT: You MUST keep the 50-character Master Vault Key above to decrypt any .enc backup file during disaster recovery.`,
-  ].join('\n');
+  // Universal Password Manager Template Builder (supports masked on-screen view & unmasked export)
+  const buildVaultNoteTemplate = (revealSecret: boolean) => {
+    const displayedKey = currentMasterKey
+      ? revealSecret
+        ? currentMasterKey
+        : '•••••••••••••••••••••••••••••••••••••••••••••••••• [CLICK REVEAL OR COPY]'
+      : '[NOT_GENERATED_YET]';
+    return [
+      `=== VERDANT BOTANICAL SYSTEMS — MASTER SECURITY VAULT ===`,
+      `Portal URL          : ${appOrigin}`,
+      `Admin Login Email   : ${adminEmail}`,
+      `Master Vault Key    : ${displayedKey}`,
+      `Encryption Cipher   : AES-256-GCM (128-bit Auth Tag, PBKDF2-SHA256 100k iter)`,
+      `Password KDF        : Argon2id (64 MiB Memory, NIST SP 800-63B)`,
+      `2FA / Passkey       : FIDO2 WebAuthn + RFC 6238 TOTP`,
+      `Database Path       : /app/data/verdant.db (Docker) or /root/verdant/data/verdant.db`,
+      `Backup Archive Path : /app/data/backups/*.enc`,
+      `Generated Timestamp : ${new Date().toISOString()}`,
+      `=========================================================`,
+      `IMPORTANT: You MUST keep the 50-character Master Vault Key above to decrypt any .enc backup file during disaster recovery.`,
+    ].join('\n');
+  };
 
   // 1. Universal CSV Export (Proton Pass, Bitwarden, 1Password, KeePassXC, Dashlane, NordPass)
   const handleExportPasswordManagerCsv = () => {
-    const escapeCsv = (val: string) => `"${String(val).replace(/"/g, '""')}"`;
+    if (!currentMasterKey) {
+      showNotification('Generate or load your Master Vault Key before exporting.', 'ERROR');
+      return;
+    }
+    // Prevent CSV Formula Injection (=, +, -, @, Tab, CR)
+    const sanitizeCsvCell = (val: string) => {
+      const str = String(val ?? '');
+      const safe = /^[=+\-@\t\r]/.test(str) ? `'${str}` : str;
+      return `"${safe.replace(/"/g, '""')}"`;
+    };
+    const fullPlainTemplate = buildVaultNoteTemplate(true);
     const headers = ['title', 'website', 'username', 'password', 'notes', 'totp', 'custom_field_vault_key'];
     const row = [
       'Verdant Botanical Systems — Admin & Master Vault Key',
       appOrigin,
       adminEmail,
       currentMasterKey,
-      vaultNoteTemplate,
+      fullPlainTemplate,
       '',
       currentMasterKey,
     ];
-    const csvContent = `${headers.join(',')}\n${row.map(escapeCsv).join(',')}\n`;
+    const csvContent = `${headers.join(',')}\n${row.map(sanitizeCsvCell).join(',')}\n`;
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -231,6 +275,11 @@ export const BackupVaultManager: React.FC<BackupVaultManagerProps> = ({
 
   // 2. Native Bitwarden / Proton Pass JSON Vault Export
   const handleExportBitwardenProtonJson = () => {
+    if (!currentMasterKey) {
+      showNotification('Generate or load your Master Vault Key before exporting.', 'ERROR');
+      return;
+    }
+    const fullPlainTemplate = buildVaultNoteTemplate(true);
     const bitwardenExport = {
       encrypted: false,
       folders: [],
@@ -242,7 +291,7 @@ export const BackupVaultManager: React.FC<BackupVaultManagerProps> = ({
           type: 1,
           reprompt: 0,
           name: 'Verdant Botanical Systems — Master Security Vault',
-          notes: vaultNoteTemplate,
+          notes: fullPlainTemplate,
           favorite: true,
           fields: [
             {
@@ -324,10 +373,12 @@ export const BackupVaultManager: React.FC<BackupVaultManagerProps> = ({
               <Download className="w-3.5 h-3.5" />
               <span>Download Key (.txt)</span>
             </Button>
-            <Button variant="outlined" size="sm" onClick={onRotateKey}>
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>{hasMasterKey ? 'Rotate Key' : 'Generate Key'}</span>
-            </Button>
+            {isOwner && (
+              <Button variant="outlined" size="sm" onClick={onRotateKey}>
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>{hasMasterKey ? 'Rotate Key' : 'Generate Key'}</span>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -345,20 +396,21 @@ export const BackupVaultManager: React.FC<BackupVaultManagerProps> = ({
                   className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white"
                 >
                   {showVaultKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  <span>{showVaultKey ? 'Hide' : 'Reveal'}</span>
+                  <span>{showVaultKey ? 'Hide (Auto 60s)' : 'Reveal'}</span>
                 </button>
                 {currentMasterKey && (
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard.writeText(currentMasterKey);
-                      setCopiedVaultKey(true);
-                      setTimeout(() => setCopiedVaultKey(false), 2500);
+                      copySensitiveToClipboard(currentMasterKey, () => {
+                        setCopiedVaultKey(true);
+                        setTimeout(() => setCopiedVaultKey(false), 2500);
+                      });
                     }}
                     className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400"
                   >
                     {copiedVaultKey ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedVaultKey ? 'Copied!' : 'Copy Key'}</span>
+                    <span>{copiedVaultKey ? 'Copied (Clears in 60s)!' : 'Copy Key'}</span>
                   </button>
                 )}
               </div>
@@ -382,6 +434,8 @@ export const BackupVaultManager: React.FC<BackupVaultManagerProps> = ({
                   type={showImportKey ? 'text' : 'password'}
                   value={importKeyInput}
                   onChange={(e) => setImportKeyInput(e.target.value)}
+                  autoComplete="off"
+                  spellCheck={false}
                   placeholder="Paste 50-char Vault Key from Proton Pass / Bitwarden / 1Password..."
                   className="w-full h-11 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-3.5 pr-9 text-xs font-mono font-bold outline-none focus:ring-2 ring-emerald-500/30"
                 />
@@ -398,7 +452,7 @@ export const BackupVaultManager: React.FC<BackupVaultManagerProps> = ({
                 size="sm"
                 onClick={handleApplyCustomVaultKey}
                 isLoading={savingImportedKey}
-                disabled={importKeyInput.trim().length < 8}
+                disabled={importKeyInput.trim().length < 32}
               >
                 <Lock className="w-3.5 h-3.5" />
                 <span>Apply Key</span>
@@ -474,22 +528,26 @@ export const BackupVaultManager: React.FC<BackupVaultManagerProps> = ({
                       <Download className="w-3.5 h-3.5" />
                       <span>Download</span>
                     </Button>
-                    <Button
-                      variant="tonal"
-                      size="sm"
-                      onClick={() => handleRestoreFromServerBackup(b.filename)}
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Restore</span>
-                    </Button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteServerBackup(b.filename)}
-                      className="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
-                      title="Delete snapshot"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {isOwner && (
+                      <Button
+                        variant="tonal"
+                        size="sm"
+                        onClick={() => handleRestoreFromServerBackup(b.filename)}
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Restore</span>
+                      </Button>
+                    )}
+                    {isOwner && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteServerBackup(b.filename)}
+                        className="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                        title="Delete snapshot"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -536,18 +594,19 @@ export const BackupVaultManager: React.FC<BackupVaultManagerProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  navigator.clipboard.writeText(vaultNoteTemplate);
-                  setCopiedTemplate(true);
-                  setTimeout(() => setCopiedTemplate(false), 2500);
+                  copySensitiveToClipboard(buildVaultNoteTemplate(true), () => {
+                    setCopiedTemplate(true);
+                    setTimeout(() => setCopiedTemplate(false), 2500);
+                  });
                 }}
                 className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 hover:underline"
               >
                 {copiedTemplate ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedTemplate ? 'Copied Template!' : 'Copy Full Template'}</span>
+                <span>{copiedTemplate ? 'Copied (Clears in 60s)!' : 'Copy Full Template'}</span>
               </button>
             </div>
             <pre className="font-mono text-[11px] leading-relaxed text-slate-300 overflow-x-auto whitespace-pre-wrap select-all">
-              {vaultNoteTemplate}
+              {buildVaultNoteTemplate(showVaultKey)}
             </pre>
           </div>
 

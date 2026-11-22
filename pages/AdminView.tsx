@@ -154,13 +154,9 @@ export const AdminView: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.name.endsWith('.enc')) {
-      setPendingBackupFile(file);
-      setBackupKeyInput(localStorage.getItem('verdant_master_key') || '');
-      setIsBackupKeyModalOpen(true);
-    } else {
-      processRestore(file, null);
-    }
+    setPendingBackupFile(file);
+    setBackupKeyInput(localStorage.getItem('verdant_master_key') || '');
+    setIsBackupKeyModalOpen(true);
   };
 
   const handleRestoreFromRawContent = (rawContent: string, filename: string, key: string) => {
@@ -172,31 +168,35 @@ export const AdminView: React.FC = () => {
 
   const handleBackupKeySubmit = () => {
     if (!pendingBackupFile) return;
-    if (!backupKeyInput) return showNotification(t('msg_enter_backup_key'), "ERROR");
-    processRestore(pendingBackupFile, backupKeyInput);
+    if (!backupKeyInput.trim()) return showNotification(t('msg_enter_backup_key'), "ERROR");
+    processRestore(pendingBackupFile, backupKeyInput.trim());
     setIsBackupKeyModalOpen(false);
     setPendingBackupFile(null);
   };
 
   const processRestore = async (file: File, backupKey: string | null) => {
+    if (!backupKey || !backupKey.trim()) {
+      showNotification(t('msg_enter_backup_key'), "ERROR");
+      return;
+    }
     setIsRestoring(true);
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
-        const rawContent = event.target?.result as string;
+        const rawContent = (event.target?.result as string) || '';
+        const trimmed = rawContent.trim();
         let payload: any;
-        if (backupKey) {
-            payload = { data: rawContent, backupKey };
-        } else {
+        if (trimmed.startsWith('{')) {
           try {
-            const content = JSON.parse(rawContent);
-            // Handle both {data: ...} and direct data
-            payload = { data: content.data || content };
+            const content = JSON.parse(trimmed);
+            payload = { data: content.data || content, backupKey: backupKey.trim() };
           } catch (e) {
             console.error("[ADMIN] Invalid JSON file:", e);
             setIsRestoring(false);
             return showNotification(t('msg_invalid_json_format'), "ERROR");
           }
+        } else {
+          payload = { data: trimmed, backupKey: backupKey.trim() };
         }
 
         console.log("[ADMIN] Restore Payload Prepared. Size:", rawContent.length);

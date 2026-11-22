@@ -1716,15 +1716,77 @@ app.post('/api/system/test-endpoint', checkAuth, async (req, res) => {
   }
 });
 
+const decryptWithKey = (base64Data: string, passphrase: string) => {
+  const key = deriveKey(passphrase);
+  const combined = Buffer.from(base64Data, 'base64');
+  if (combined.length < 28) throw new Error("INVALID_PAYLOAD_SIZE");
+  const iv = combined.slice(0, 12);
+  const authTag = combined.slice(combined.length - 16);
+  const ciphertext = combined.slice(12, combined.length - 16);
+  const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, key, iv);
+  decipher.setAuthTag(authTag);
+  let decrypted = decipher.update(ciphertext);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return JSON.parse(decrypted.toString('utf8'));
+};
+
+const encryptWithKey = (data: any, passphrase: string) => {
+  const key = deriveKey(passphrase);
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, key, iv);
+  const jsonStr = JSON.stringify(data);
+  let ciphertext = cipher.update(jsonStr, 'utf8');
+  ciphertext = Buffer.concat([ciphertext, cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return Buffer.concat([iv, ciphertext, authTag]).toString('base64');
+};
+
 app.post('/api/system/vault-key', checkAuth, async (req, res) => {
   const role = (req as any).userRole;
   if (role !== 'OWNER') {
     return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
   }
   try {
-    const { key } = req.body;
-    if (!key || typeof key !== 'string' || key.length < 32) return res.status(400).json({ error: "INVALID_KEY_LENGTH" });
-    await query('UPDATE vault_key SET encrypted_key = ? WHERE id = 1', [key]);
+    const { key } = req.body || {};
+    if (
+      !key ||
+      typeof key !== 'string' ||
+      key.length < 32 ||
+      key.length > 128 ||
+      !/^[A-Za-z0-9_\-!@#$%^&*()+=]+$/.test(key)
+    ) {
+      return res.status(400).json({ error: "INVALID_KEY_FORMAT" });
+    }
+
+    const previousKey = currentVaultKey;
+    await query('BEGIN TRANSACTION');
+    try {
+      // Re-encrypt any vault-encrypted settings in system_settings so key rotation never orphans secrets
+      if (previousKey && previousKey !== key) {
+        const settingsRes = await query("SELECT key, value FROM system_settings WHERE value LIKE 'enc:%'");
+        for (const row of settingsRes.rows) {
+          if (!row?.key || typeof row?.value !== 'string') continue;
+          try {
+            const plainVal = decryptWithKey(row.value.slice(4), previousKey);
+            const reEncrypted = `enc:${encryptWithKey(plainVal, key)}`;
+            await query('UPDATE system_settings SET value = ?, updatedAt = ? WHERE key = ?', [
+              reEncrypted,
+              new Date().toISOString(),
+              row.key,
+            ]);
+          } catch (reEncErr) {
+            console.warn(`[SECURITY] Could not re-encrypt setting ${row.key} during key rotation:`, reEncErr);
+          }
+        }
+      }
+
+      await query('UPDATE vault_key SET encrypted_key = ? WHERE id = 1', [key]);
+      await query('COMMIT');
+    } catch (txErr) {
+      await query('ROLLBACK');
+      throw txErr;
+    }
+
     currentVaultKey = key;
     await logSystemEvent('SECURITY_KEY_ROTATED', `Master key rotated by ${(req as any).userId || 'ADMIN'}`, 'WARN');
     res.json({ status: "ok" });
@@ -1738,6 +1800,24 @@ if (!fs.existsSync(backupsDir)) {
   try {
     fs.mkdirSync(backupsDir, { recursive: true, mode: 0o700 });
   } catch {}
+}
+
+const SAFE_BACKUP_FILENAME_REGEX = /^verdant_backup_[0-9A-Za-zT_-]{10,60}\.(enc|json)$/;
+
+function resolveSafeBackupPath(rawFilename: string): { safeName: string; fullPath: string } | null {
+  const trimmed = String(rawFilename || '').trim();
+  if (!SAFE_BACKUP_FILENAME_REGEX.test(trimmed)) return null;
+  const resolvedRoot = path.resolve(backupsDir);
+  const resolvedTarget = path.resolve(backupsDir, trimmed);
+  if (!resolvedTarget.startsWith(resolvedRoot + path.sep)) return null;
+  if (!fs.existsSync(resolvedTarget)) return null;
+  try {
+    const lstat = fs.lstatSync(resolvedTarget);
+    if (!lstat.isFile() || lstat.isSymbolicLink()) return null;
+  } catch {
+    return null;
+  }
+  return { safeName: trimmed, fullPath: resolvedTarget };
 }
 
 async function generateFullBackupObject() {
@@ -1773,7 +1853,7 @@ async function generateFullBackupObject() {
   };
 }
 
-function saveEncryptedSnapshotToDisk(backupObj: any): { filename: string; sizeBytes: number; createdAt: string } | null {
+function saveEncryptedSnapshotToDisk(backupObj: any, prefix = 'verdant_backup'): { filename: string; sizeBytes: number; createdAt: string } | null {
   if (!currentVaultKey) return null;
   try {
     if (!fs.existsSync(backupsDir)) {
@@ -1781,13 +1861,14 @@ function saveEncryptedSnapshotToDisk(backupObj: any): { filename: string; sizeBy
     }
     const encryptedContent = encrypt(backupObj);
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `verdant_backup_${stamp}.enc`;
+    const safePrefix = prefix.replace(/[^a-zA-Z0-9_-]/g, '') || 'verdant_backup';
+    const filename = `${safePrefix}_${stamp}.enc`;
     const fullPath = path.join(backupsDir, filename);
     fs.writeFileSync(fullPath, encryptedContent, { encoding: 'utf8', mode: 0o600 });
 
     // Retain top 15 latest snapshots
     const allFiles = fs.readdirSync(backupsDir)
-      .filter(f => f.endsWith('.enc') || f.endsWith('.json'))
+      .filter(f => SAFE_BACKUP_FILENAME_REGEX.test(f))
       .map(f => ({ name: f, mtime: fs.statSync(path.join(backupsDir, f)).mtimeMs }))
       .sort((a, b) => b.mtime - a.mtime);
 
@@ -1837,9 +1918,11 @@ app.get('/api/system/backups', checkAuth, async (req, res) => {
       return res.json([]);
     }
     const files = fs.readdirSync(backupsDir)
-      .filter(f => (f.endsWith('.enc') || f.endsWith('.json')) && !f.includes('..') && !f.includes('/'))
+      .filter(f => SAFE_BACKUP_FILENAME_REGEX.test(f))
       .map(f => {
-        const st = fs.statSync(path.join(backupsDir, f));
+        const resolved = resolveSafeBackupPath(f);
+        if (!resolved) return null;
+        const st = fs.statSync(resolved.fullPath);
         return {
           filename: f,
           sizeBytes: st.size,
@@ -1847,6 +1930,7 @@ app.get('/api/system/backups', checkAuth, async (req, res) => {
           encrypted: f.endsWith('.enc')
         };
       })
+      .filter((item): item is NonNullable<typeof item> => item !== null)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     res.json(files);
   } catch (e) {
@@ -1880,29 +1964,32 @@ app.get('/api/system/backups/:filename', checkAuth, async (req, res) => {
   if (!['OWNER', 'CO_CEO'].includes(role)) {
     return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
   }
-  const safeName = path.basename(req.params.filename || '');
-  const fullPath = path.join(backupsDir, safeName);
-  if (!safeName || !fs.existsSync(fullPath)) {
-    return res.status(404).json({ error: "BACKUP_FILE_NOT_FOUND" });
-  }
-  const content = fs.readFileSync(fullPath, 'utf8');
-  res.json({ filename: safeName, content });
-});
-
-// Delete a specific on-server backup file
-app.delete('/api/system/backups/:filename', checkAuth, async (req, res) => {
-  const role = (req as any).userRole;
-  if (!['OWNER', 'CO_CEO'].includes(role)) {
-    return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
-  }
-  const safeName = path.basename(req.params.filename || '');
-  const fullPath = path.join(backupsDir, safeName);
-  if (!safeName || !fs.existsSync(fullPath)) {
+  const resolved = resolveSafeBackupPath(req.params.filename || '');
+  if (!resolved) {
     return res.status(404).json({ error: "BACKUP_FILE_NOT_FOUND" });
   }
   try {
-    fs.unlinkSync(fullPath);
-    await logSystemEvent('SERVER_BACKUP_DELETED', `Snapshot ${safeName} deleted by ${(req as any).userId}`, 'WARN');
+    const content = fs.readFileSync(resolved.fullPath, 'utf8');
+    await logSystemEvent('SERVER_BACKUP_DOWNLOADED', `Snapshot ${resolved.safeName} accessed by ${(req as any).userId}`, 'INFO');
+    res.json({ filename: resolved.safeName, content });
+  } catch {
+    res.status(500).json({ error: "BACKUP_READ_FAULT" });
+  }
+});
+
+// Delete a specific on-server backup file (OWNER only)
+app.delete('/api/system/backups/:filename', checkAuth, async (req, res) => {
+  const role = (req as any).userRole;
+  if (role !== 'OWNER') {
+    return res.status(403).json({ error: "INSUFFICIENT_CLEARANCE" });
+  }
+  const resolved = resolveSafeBackupPath(req.params.filename || '');
+  if (!resolved) {
+    return res.status(404).json({ error: "BACKUP_FILE_NOT_FOUND" });
+  }
+  try {
+    fs.unlinkSync(resolved.fullPath);
+    await logSystemEvent('SERVER_BACKUP_DELETED', `Snapshot ${resolved.safeName} deleted by ${(req as any).userId}`, 'WARN');
     res.json({ status: 'ok' });
   } catch {
     res.status(500).json({ error: "BACKUP_DELETE_FAULT" });
@@ -2360,37 +2447,69 @@ app.post('/api/system/restore', checkAuth, async (req, res) => {
   }
   
   try {
-    let { data, backupKey } = req.body;
+    const { data, backupKey } = req.body || {};
     if (!data) return res.status(400).json({ error: "MISSING_DATA" });
+    const providedKey = typeof backupKey === 'string' ? backupKey.trim() : '';
+    if (!providedKey || providedKey.length < 8) {
+      return res.status(400).json({ error: "INVALID_BACKUP_KEY" });
+    }
 
     let decoded: any;
-    
-    // 1. Handle Decryption if backupKey is provided
-    if (backupKey) {
-      console.log("[RESTORE] Decrypting backup with provided key...");
+    const isPlainJsonObject = typeof data === 'object' && data !== null;
+    const isPlainJsonString = typeof data === 'string' && data.trim().startsWith('{');
+
+    if (!isPlainJsonObject && !isPlainJsonString) {
+      // Encrypted .enc base64 payload: authenticate and decrypt with provided Vault Security Key
       try {
-        const key = deriveKey(backupKey);
-        const combined = Buffer.from(data, 'base64');
-        if (combined.length < 28) throw new Error("INVALID_PAYLOAD_SIZE");
-        const iv = combined.slice(0, 12);
-        const authTag = combined.slice(combined.length - 16);
-        const ciphertext = combined.slice(12, combined.length - 16);
-        const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, key, iv);
-        decipher.setAuthTag(authTag);
-        let decrypted = decipher.update(ciphertext);
-        decrypted = Buffer.concat([decrypted, decipher.final()]);
-        decoded = JSON.parse(decrypted.toString('utf8'));
+        decoded = decryptWithKey(String(data).trim(), providedKey);
       } catch (err) {
         console.error("[RESTORE] Decryption failed:", err);
         return res.status(400).json({ error: "INVALID_BACKUP_KEY" });
       }
     } else {
-      decoded = typeof data === 'string' ? JSON.parse(data) : data;
+      // Legacy JSON backup: still require constant-time verification against the active Master Vault Key
+      if (!currentVaultKey) {
+        return res.status(500).json({ error: "VAULT_KEY_MISSING" });
+      }
+      const keyBufA = Buffer.from(providedKey, 'utf8');
+      const keyBufB = Buffer.from(currentVaultKey, 'utf8');
+      if (keyBufA.length !== keyBufB.length || !crypto.timingSafeEqual(keyBufA, keyBufB)) {
+        return res.status(400).json({ error: "INVALID_BACKUP_KEY" });
+      }
+      decoded = isPlainJsonString ? JSON.parse(String(data)) : data;
+    }
+
+    if (
+      !decoded ||
+      typeof decoded !== 'object' ||
+      (!Array.isArray(decoded.plants) &&
+        !Array.isArray(decoded.houses) &&
+        !Array.isArray(decoded.tasks) &&
+        !Array.isArray(decoded.inventory) &&
+        !Array.isArray(decoded.users))
+    ) {
+      return res.status(400).json({ error: "INVALID_BACKUP_SCHEMA" });
     }
 
     console.log("[RESTORE] Initiating system restore. Version:", decoded.version || 'unknown');
 
-    // 2. Perform Restore in a Transaction
+    // Automatically save a pre-restore encrypted snapshot on disk before overwriting tables
+    try {
+      const preRestoreSnapshot = await generateFullBackupObject();
+      saveEncryptedSnapshotToDisk(preRestoreSnapshot);
+    } catch (snapErr) {
+      console.warn("[RESTORE] Pre-restore safety snapshot warning:", snapErr);
+    }
+
+    // Capture current authenticated OWNER account to prevent accidental lockout if backup has no active OWNER
+    const currentUserId = (req as any).userId;
+    const currentOwnerRes = await query('SELECT * FROM users WHERE id = ? AND role = ?', [currentUserId, 'OWNER']);
+    const currentOwnerRow = currentOwnerRes.rows[0] || null;
+    const currentOwnerPasskeysRes = currentOwnerRow
+      ? await query('SELECT * FROM webauthn_credentials WHERE userId = ?', [currentOwnerRow.id])
+      : { rows: [] };
+
+    // Perform Restore in a Transaction
     try {
       await query('BEGIN TRANSACTION');
       
@@ -2471,6 +2590,37 @@ app.post('/api/system/restore', checkAuth, async (req, res) => {
         }
       }
 
+      // Lockout Prevention: Ensure at least one active OWNER exists after restore
+      const activeOwnersRes = await query("SELECT COUNT(*) as count FROM users WHERE role = 'OWNER' AND deletedAt IS NULL");
+      if ((activeOwnersRes.rows[0]?.count || 0) === 0 && currentOwnerRow) {
+        console.warn("[RESTORE] Restored backup contained no active OWNER; preserving current OWNER account to prevent lockout.");
+        await query(
+          'INSERT OR REPLACE INTO users (id, email, name, role, houseId, personalAiKey, personalAiKeyTestedAt, deletedAt, caretakerStart, caretakerEnd, passwordHash, totpSecret, totpEnabled, recoveryCodes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            currentOwnerRow.id,
+            currentOwnerRow.email,
+            currentOwnerRow.name,
+            'OWNER',
+            currentOwnerRow.houseId,
+            currentOwnerRow.personalAiKey || null,
+            currentOwnerRow.personalAiKeyTestedAt || null,
+            null,
+            currentOwnerRow.caretakerStart || null,
+            currentOwnerRow.caretakerEnd || null,
+            currentOwnerRow.passwordHash || null,
+            currentOwnerRow.totpSecret || null,
+            currentOwnerRow.totpEnabled ? 1 : 0,
+            currentOwnerRow.recoveryCodes || null,
+          ]
+        );
+        for (const wc of currentOwnerPasskeysRes.rows) {
+          await query(
+            'INSERT OR REPLACE INTO webauthn_credentials (id, userId, publicKey, counter, transports, deviceType, backedUp, label, createdAt, lastUsedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [wc.id, wc.userId, wc.publicKey, wc.counter ?? 0, wc.transports || null, wc.deviceType || null, wc.backedUp ? 1 : 0, wc.label || null, wc.createdAt || null, wc.lastUsedAt || null]
+          );
+        }
+      }
+
       if (decoded.security_policy && Array.isArray(decoded.security_policy)) {
         for (const sp of decoded.security_policy) {
           await query(
@@ -2495,7 +2645,7 @@ app.post('/api/system/restore', checkAuth, async (req, res) => {
     } catch (err) {
       await query('ROLLBACK');
       console.error("[RESTORE] Transaction failed:", err);
-      res.status(500).json({ error: "RESTORE_FAULT", details: (err as Error).message });
+      res.status(500).json({ error: "RESTORE_FAULT" });
     }
   } catch (e) { 
     console.error("[RESTORE] Critical failure:", e);
